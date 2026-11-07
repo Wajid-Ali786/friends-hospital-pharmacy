@@ -1,9 +1,3 @@
 {
-  "name": "Friends Hospital Pharmacy",
-  "short_name": "Pharmacy",
-  "start_url": "./",
-  "display": "standalone",
-  "background_color": "#f5f8f6",
-  "theme_color": "#102f29",
-  "icons": []
+  "id":"./","name":"Friends Hospital Pharmacy","short_name":"Pharmacy","description":"Friends Hospital Pharmacy billing and medicine management","start_url":"./","scope":"./","display":"standalone","background_color":"#f5f8f6","theme_color":"#102f29","icons":[{"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]
 }
