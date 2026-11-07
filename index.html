@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#102b27"><title>Friends Hospital Pharmacy</title>
+  <link rel="manifest" href="./manifest.webmanifest"><link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="loginView" class="login-wrap">
+    <form id="loginForm" class="login-card">
+      <div class="brand-mark">✚</div><p class="eyebrow">FRIENDS HOSPITAL</p><h1>Pharmacy Store</h1><p class="muted">Sign in to continue</p>
+      <label>Email<input id="email" type="email" autocomplete="username" required placeholder="name@example.com"></label>
+      <label>Password<input id="password" type="password" autocomplete="current-password" required placeholder="Your password"></label>
+      <button class="primary full" type="submit">Sign in</button><p id="loginMessage" class="message"></p>
+    </form>
+  </div>
+  <div id="appView" class="app hidden">
+    <aside class="sidebar"><div class="brand"><span class="brand-mark small">✚</span><div><b>Friends Hospital</b><small>Pharmacy Store</small></div></div>
+      <button class="nav active" data-page="medicines">▦ &nbsp; Medicines</button><button class="nav" data-page="billing">▤ &nbsp; Billing</button><button class="nav" data-page="settings">⚙ &nbsp; Settings</button>
+      <div class="side-bottom"><span id="connection" class="connection">● Connecting…</span><button id="logoutBtn" class="nav">↪ &nbsp; Logout</button></div>
+    </aside>
+    <main class="main"><header><div><p class="eyebrow">FRIENDS HOSPITAL / PHARMACY</p><h2 id="pageTitle">Medicines</h2></div><span id="userLabel" class="user-pill">User</span></header>
+      <section id="medicinesPage" class="page">
+        <div class="toolbar"><input id="medicineSearch" class="search" placeholder="Search medicine…"><button id="addMedicineBtn" class="primary">＋ Add medicine</button></div>
+        <form id="medicineForm" class="panel form-grid hidden">
+          <input id="medicineId" type="hidden"><label>Medicine name<input id="medicineName" required placeholder="e.g. Panadol"></label>
+          <label>Price per tablet (Rs.)<input id="tabletPrice" type="number" min="0" step="0.01" placeholder="0"></label>
+          <label>Price per strip (Rs.)<input id="stripPrice" type="number" min="0" step="0.01" placeholder="0"></label>
+          <label class="file-label">Medicine image<input id="medicineImage" type="file" accept="image/*"></label>
+          <div class="form-actions"><button class="primary" type="submit">Save medicine</button><button id="cancelMedicine" class="secondary" type="button">Cancel</button></div>
+        </form>
+        <div id="medicineList" class="medicine-list"></div>
+      </section>
+      <section id="billingPage" class="page hidden"><div class="billing-layout"><div class="panel"><h3>Add medicines to bill</h3><input id="billSearch" class="search" placeholder="Search medicine…"><div id="billMedicineList"></div></div><div class="panel bill-panel"><h3>Current bill</h3><div id="billItems"><p class="muted">No items added yet.</p></div><div class="bill-total"><span>Subtotal</span><b id="subtotal">Rs. 0.00</b></div><label>Bill discount (Rs.)<input id="discount" type="number" min="0" step="1" value="0"></label><div class="bill-total grand"><span>Final total</span><b id="finalTotal">Rs. 0.00</b></div><button id="printBill" class="primary full">Print bill</button></div></div></section>
+      <section id="settingsPage" class="page hidden"><div class="panel settings-panel"><h3>Settings & data</h3><p class="muted">Signed in as <b id="settingsEmail"></b></p><label>Display name<input id="displayName" placeholder="Your name"></label><button id="saveName" class="secondary">Save display name</button><hr><div class="data-actions"><button id="exportData" class="secondary">Export medicines</button><label class="secondary upload-btn">Import backup<input id="importData" type="file" accept="application/json"></label></div><p class="muted small-text">Data is saved locally and synced to Firebase when online. Keep regular exports as an extra backup.</p></div></section>
+    </main>
+  </div>
+  <script type="module" src="./app.js"></script>
+</body></html>
