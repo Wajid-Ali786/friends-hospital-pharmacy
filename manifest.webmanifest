@@ -1,0 +1,9 @@
+{
+  "name": "Friends Hospital Pharmacy",
+  "short_name": "Pharmacy",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f8f6",
+  "theme_color": "#102f29",
+  "icons": []
+}
