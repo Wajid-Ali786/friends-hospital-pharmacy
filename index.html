@@ -43,6 +43,8 @@
           <input id="medicineId" type="hidden"><label>Medicine name<input id="medicineName" required placeholder="e.g. Panadol"></label>
           <label>Medicine unit<select id="medicineUnit" required><option>Tablet</option><option>Strip</option><option>Capsule</option><option>Injection</option><option>Bottle</option><option>Packet</option><option>Box</option><option>Piece</option><option>Pack</option></select></label>
           <label>Price (Rs.)<input id="medicinePrice" type="number" min="0" step="0.01" required placeholder="Enter price"></label>
+          <label>Alternative names / Tags<input id="medicineTags" placeholder="e.g. LC Call, Bone Right"></label>
+          <label class="rounding-eligibility"><input id="roundingAllowed" type="checkbox"><span>Rounding Allowed <small>Is medicine ki price bill mein adjust ho sakti hai</small></span></label>
           <label class="file-label">Medicine image<input id="medicineImage" type="file" accept="image/*"></label>
           <div class="form-actions"><button class="primary" type="submit">Save medicine</button><button id="cancelMedicine" class="secondary" type="button">Cancel</button></div>
         </form>
