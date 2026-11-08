@@ -37,10 +37,10 @@ function roundingSuggestion(total){
 function applyMedicineRounding(extra){
  let remaining=Math.round(extra*100),adjusted=bill.map(x=>({...x,adjustment:0}));
  const eligible=adjusted.filter(x=>x.roundingAllowed);
- if(!eligible.length||remaining<=0||remaining%100!==0)return null;
+ if(!eligible.length||remaining<=0||remaining%1000!==0)return null;
  for(const item of eligible){
-  while(remaining>=100){
-   const step=remaining>=200?200:100;
+  while(remaining>=1000){
+   const step=remaining>=2000?2000:1000;
    item.adjustment=(item.adjustment||0)+step/100;
    remaining-=step;
   }
