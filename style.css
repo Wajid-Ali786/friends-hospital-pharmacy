@@ -99,3 +99,10 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 
 /* Sidebar pharmacy logo corner radius requested */
 .sidebar .brand-mark.logo-image.small{border-radius:10px}
+
+
+/* Medicine aliases and per-item rounding eligibility */
+.rounding-eligibility{display:flex!important;align-items:center;gap:10px!important;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fbfdfb;cursor:pointer}
+.rounding-eligibility input{width:17px;height:17px;flex:0 0 17px;margin:0;accent-color:var(--green)}
+.rounding-eligibility span{display:grid;gap:4px}
+.rounding-eligibility small{font-size:10px;font-weight:400;color:var(--muted)}
