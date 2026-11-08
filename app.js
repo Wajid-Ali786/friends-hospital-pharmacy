@@ -7,14 +7,26 @@ import { openDB } from "https://cdn.jsdelivr.net/npm/idb@8/+esm";
 const firebaseConfig={apiKey:"AIzaSyDu3T1shPJoooMNwhpPijfJsPaNc2JWWhM",authDomain:"friends-hospital-pharmacy.firebaseapp.com",projectId:"friends-hospital-pharmacy",storageBucket:"friends-hospital-pharmacy.firebasestorage.app",messagingSenderId:"277311494482",appId:"1:277311494482:web:84f77fd637d765c08f028b",measurementId:"G-RWBC6T7X1T"};
 const app=initializeApp(firebaseConfig),auth=initializeAuth(app,{persistence:[indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence]}),db=getFirestore(app),storage=getStorage(app);
 let localDB=null;async function openUserDB(uid){if(localDB)localDB.close();localDB=await openDB("friends-pharmacy-"+uid,3,{upgrade(d){if(!d.objectStoreNames.contains("medicines"))d.createObjectStore("medicines",{keyPath:"id"});if(!d.objectStoreNames.contains("pending"))d.createObjectStore("pending",{keyPath:"id"});if(!d.objectStoreNames.contains("meta"))d.createObjectStore("meta");if(!d.objectStoreNames.contains("bills"))d.createObjectStore("bills",{keyPath:"id"});}});}
-let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null;
+let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncNotice="";
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2);
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
 function status(){ $("connection").textContent=navigator.onLine?"● Online / Firebase sync":"● Offline / Local mode"; }
 window.addEventListener("online",status);window.addEventListener("offline",status);status();
 async function cacheAll(){const tx=localDB.transaction("medicines","readwrite");await tx.store.clear();for(const m of medicines)await tx.store.put(m);await tx.done;}
 async function queueChange(id,type,data=null,collectionName="medicines"){const key=collectionName+":"+id;await localDB.put("pending",{id:key,targetId:id,collectionName,type,data,queuedAt:Date.now()});}
-async function flushQueue(){if(syncPromise)return syncPromise;if(!currentUser||!navigator.onLine||!localDB)return;const ownerUid=currentUser.uid,dbRef=localDB;syncPromise=(async()=>{const jobs=(await dbRef.getAll("pending")).sort((a,b)=>a.queuedAt-b.queuedAt);for(const job of jobs){if(!navigator.onLine||!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)break;try{const group=job.collectionName||"medicines",targetId=job.targetId||job.id,target=doc(db,"users",ownerUid,group,targetId);if(group==="bills"){const existing=await getDoc(target);if(job.type==="delete"){if(existing.exists())await deleteDoc(target);}else if(existing.exists()){await setDoc(target,{...job.data,createdAt:existing.data().createdAt||serverTimestamp()});}else{await setDoc(target,{...job.data,createdAt:serverTimestamp()});}}else{if(job.type==="delete")await deleteDoc(target);else await setDoc(target,job.data);}if(localDB===dbRef&&currentUser?.uid===ownerUid)await dbRef.delete("pending",job.id);}catch(err){console.warn("Sync will retry:",err);if(err?.code==="permission-denied")continue;break;}}})().finally(()=>{syncPromise=null;});return syncPromise;}
+async function flushQueue(){if(syncPromise)return syncPromise;if(!currentUser||!navigator.onLine||!localDB)return;const ownerUid=currentUser.uid,dbRef=localDB;syncPromise=(async()=>{const jobs=(await dbRef.getAll("pending")).sort((a,b)=>a.queuedAt-b.queuedAt);for(const job of jobs){if(!navigator.onLine||!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)break;try{const group=job.collectionName||"medicines",targetId=job.targetId||job.id,target=doc(db,"users",ownerUid,group,targetId);if(group==="bills"){const existing=await getDoc(target);if(job.type==="delete"){if(existing.exists())await deleteDoc(target);}else if(existing.exists()){await setDoc(target,{...job.data,createdAt:existing.data().createdAt||serverTimestamp()});}else{await setDoc(target,{...job.data,createdAt:serverTimestamp()});}}else{if(job.type==="delete")await deleteDoc(target);else await setDoc(target,job.data);}if(localDB===dbRef&&currentUser?.uid===ownerUid)await dbRef.delete("pending",job.id);}catch(err){console.warn("Sync will retry:",err);if(err?.code==="permission-denied"){
+ if(group==="bills"&&job.type==="delete"){
+  try{
+   const rejectedBill=job.data||((await getDoc(doc(db,"users",ownerUid,"bills",targetId))).exists()?(await getDoc(doc(db,"users",ownerUid,"bills",targetId))).data():null);
+   if(rejectedBill){await dbRef.put("bills",rejectedBill);savedBills=[rejectedBill,...savedBills.filter(x=>x.id!==targetId)];}
+   await dbRef.delete("pending",job.id);
+   syncNotice="Firebase ne bill deletion reject kar di (1-hour limit ya permission). Bill history mein restore kar diya gaya hai.";
+   renderBillingHistory();
+  }catch(restoreErr){console.warn("Could not restore rejected bill deletion:",restoreErr);}
+  continue;
+ }
+ continue;
+}break;}}})().finally(()=>{syncPromise=null;});return syncPromise;}
 async function syncOnline(){if(!currentUser||!navigator.onLine)return;await flushQueue();if(!unsubscribe)startCloudSync(currentUser);}
 window.addEventListener("online",()=>{status();syncOnline();});
 async function nextBillNumber(){
@@ -242,7 +254,9 @@ function renderBillingHistory(){
  const root=$("billingHistoryList");if(!root)return;
  const q=($("historySearch")?.value||"").trim().toLowerCase();
  const rows=savedBills.filter(x=>(x.receiptNumber||"").toLowerCase().includes(q)||(x.patientName||"").toLowerCase().includes(q));
- root.innerHTML="";if(!rows.length){root.innerHTML='<p class="muted">No saved bills found.</p>';return;}
+ root.innerHTML="";
+ if(syncNotice){const notice=document.createElement("p");notice.className="message";notice.textContent=syncNotice;const dismiss=document.createElement("button");dismiss.type="button";dismiss.className="tiny";dismiss.textContent="Dismiss";dismiss.onclick=()=>{syncNotice="";notice.remove();};notice.append(" ",dismiss);root.append(notice);}
+ if(!rows.length){root.innerHTML+='<p class="muted">No saved bills found.</p>';return;}
  const groups=new Map();rows.sort((a,b)=>billDate(b)-billDate(a)).forEach(item=>{const date=billDate(item),key=localDateKey(date);if(!groups.has(key))groups.set(key,{date,items:[]});groups.get(key).items.push(item);});
  for(const group of groups.values()){
   const section=document.createElement("section");section.className="history-date-group";
@@ -266,7 +280,7 @@ function beginBillEdit(item){
 async function deleteSavedBill(item){
  if(!billEditAllowed(item)){alert("This bill is locked after 1 hour.");return;}
  if(!confirm("Delete receipt "+item.receiptNumber+"? This cannot be undone."))return;
- try{await localDB.delete("bills",item.id);await queueChange(item.id,"delete",null,"bills");savedBills=savedBills.filter(x=>x.id!==item.id);renderBillingHistory();if(navigator.onLine)flushQueue().catch(console.warn);}
+ try{await localDB.delete("bills",item.id);await queueChange(item.id,"delete",item,"bills");savedBills=savedBills.filter(x=>x.id!==item.id);renderBillingHistory();if(navigator.onLine)flushQueue().catch(console.warn);}
  catch(err){alert("Delete failed: "+err.message);}
 }
 function printReceipt(){
