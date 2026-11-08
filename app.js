@@ -252,15 +252,32 @@ function printReceipt(){
 function showReceipt(item){
  const root=$("receiptDetail");if(!root)return;
  root.classList.remove("hidden");root.innerHTML="";
- const title=document.createElement("h3");title.textContent="Receipt "+item.receiptNumber;root.append(title);
- const meta=document.createElement("p");meta.className="muted";meta.textContent="Patient: "+item.patientName+(item.tokenNumber?" · Token: "+item.tokenNumber:"")+" · "+new Date(item.createdAtMillis||Date.now()).toLocaleString();root.append(meta);
+ const brand=document.createElement("div");brand.className="receipt-brand";
+ const brandName=document.createElement("b");brandName.textContent="FRIENDS HOSPITAL PHARMACY";
+ const brandSub=document.createElement("small");brandSub.textContent="MEDICINE BILL";
+ brand.append(brandName,brandSub);root.append(brand);
+ const title=document.createElement("h3");title.textContent=item.receiptNumber;root.append(title);
+ const meta=document.createElement("div");meta.className="receipt-meta";
+ const patient=document.createElement("span");patient.textContent="Patient: "+(item.patientName||"—");
+ const details=document.createElement("span");details.textContent=(item.tokenNumber?"Token: "+item.tokenNumber+" · ":"")+new Date(item.createdAtMillis||Date.now()).toLocaleString();
+ meta.append(patient,details);root.append(meta);
  const table=document.createElement("div");table.className="receipt-lines";
- (item.items||[]).forEach(line=>{const r=document.createElement("div");r.className="receipt-line";const n=document.createElement("span");n.textContent=line.name+" · "+line.quantity+" "+line.unit+" · "+money(line.unitPrice)+" each";const p=document.createElement("b");p.textContent=money(line.lineTotal);r.append(n,p);table.append(r);});root.append(table);
- if(Number(item.discount)>0){
-  [["Subtotal",item.subtotal],["Discount",item.discount],["Final total",item.finalTotal]].forEach(([label,value])=>{const r=document.createElement("p");r.className="receipt-total";r.textContent=label+": "+money(value);root.append(r);});
- }else{
-  const total=document.createElement("p");total.className="receipt-total";total.textContent="Total: "+money(item.finalTotal);root.append(total);
- }
+ const head=document.createElement("div");head.className="receipt-line receipt-head";
+ ["Medicine","Qty","Amount"].forEach(label=>{const cell=document.createElement("span");cell.textContent=label;head.append(cell);});
+ table.append(head);
+ (item.items||[]).forEach(line=>{
+  const row=document.createElement("div");row.className="receipt-line";
+  const name=document.createElement("span");name.className="receipt-medicine";name.textContent=line.name;
+  const qty=document.createElement("span");qty.className="receipt-qty";qty.textContent=String(line.quantity)+" "+line.unit;
+  const amount=document.createElement("b");amount.className="receipt-amount";amount.textContent=Number(line.lineTotal||0).toFixed(2);
+  row.append(name,qty,amount);table.append(row);
+ });root.append(table);
+ const summary=document.createElement("div");summary.className="receipt-summary";
+ const addTotal=(label,value,kind="")=>{const row=document.createElement("div");row.className="receipt-summary-row"+(kind?" "+kind:"");const l=document.createElement("span");l.textContent=label;const v=document.createElement("b");v.textContent=Number(value||0).toFixed(2);row.append(l,v);summary.append(row);};
+ if(Number(item.discount)>0){addTotal("Subtotal",item.subtotal);addTotal("Discount",item.discount,"discount");addTotal("TOTAL",item.finalTotal,"final");}
+ else addTotal("TOTAL",item.finalTotal,"final");
+ root.append(summary);
+ const footer=document.createElement("p");footer.className="receipt-thanks";footer.textContent="Thank you. Get well soon!";root.append(footer);
  const print=document.createElement("button");print.type="button";print.className="secondary print-hide";print.textContent="Print receipt";print.onclick=printReceipt;root.append(print);
  root.scrollIntoView({behavior:"smooth",block:"start"});
 }
