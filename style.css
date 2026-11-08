@@ -36,3 +36,13 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 .auth-card .message{min-height:16px;margin:10px 0 0;font-size:12px;line-height:1.45}
 .auth-card .auth-switch{margin:18px 0 0;padding-top:16px;border-top:1px solid #edf1ee;font-size:12px}
 @media(max-width:480px){.login-wrap{padding:18px 14px}.auth-card{padding:27px 22px;border-radius:20px}.auth-card #authSubtitle{margin-bottom:20px}}
+
+
+/* Remember-me and authentication loading states */
+.auth-options{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:13px}
+.auth-card .remember-option{display:flex;align-items:center;gap:8px;margin:0;font-size:12px;font-weight:500;color:#52645c;cursor:pointer}
+.auth-card .remember-option input{appearance:auto;width:15px;height:15px;margin:0;accent-color:var(--green);box-shadow:none}
+.auth-submit{display:flex;align-items:center;justify-content:center;gap:10px}
+.button-spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.38);border-top-color:#fff;border-radius:50%;animation:authSpin .7s linear infinite}
+@keyframes authSpin{to{transform:rotate(360deg)}}
+.auth-submit:disabled{opacity:.82;cursor:wait}
