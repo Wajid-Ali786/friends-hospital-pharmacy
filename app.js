@@ -1,24 +1,24 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, getDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js";
 import { openDB } from "https://cdn.jsdelivr.net/npm/idb@8/+esm";
 
 const firebaseConfig={apiKey:"AIzaSyDu3T1shPJoooMNwhpPijfJsPaNc2JWWhM",authDomain:"friends-hospital-pharmacy.firebaseapp.com",projectId:"friends-hospital-pharmacy",storageBucket:"friends-hospital-pharmacy.firebasestorage.app",messagingSenderId:"277311494482",appId:"1:277311494482:web:84f77fd637d765c08f028b",measurementId:"G-RWBC6T7X1T"};
 const app=initializeApp(firebaseConfig),auth=initializeAuth(app,{persistence:[indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence]}),db=getFirestore(app),storage=getStorage(app);
-let localDB=null;async function openUserDB(uid){if(localDB)localDB.close();localDB=await openDB("friends-pharmacy-"+uid,2,{upgrade(d){if(!d.objectStoreNames.contains("medicines"))d.createObjectStore("medicines",{keyPath:"id"});if(!d.objectStoreNames.contains("pending"))d.createObjectStore("pending",{keyPath:"id"});if(!d.objectStoreNames.contains("meta"))d.createObjectStore("meta");}});}
-let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[];
+let localDB=null;async function openUserDB(uid){if(localDB)localDB.close();localDB=await openDB("friends-pharmacy-"+uid,3,{upgrade(d){if(!d.objectStoreNames.contains("medicines"))d.createObjectStore("medicines",{keyPath:"id"});if(!d.objectStoreNames.contains("pending"))d.createObjectStore("pending",{keyPath:"id"});if(!d.objectStoreNames.contains("meta"))d.createObjectStore("meta");if(!d.objectStoreNames.contains("bills"))d.createObjectStore("bills",{keyPath:"id"});}});}
+let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0;
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2);
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
 function status(){ $("connection").textContent=navigator.onLine?"● Online / Firebase sync":"● Offline / Local mode"; }
 window.addEventListener("online",status);window.addEventListener("offline",status);status();
 async function cacheAll(){const tx=localDB.transaction("medicines","readwrite");await tx.store.clear();for(const m of medicines)await tx.store.put(m);await tx.done;}
-async function queueChange(id,type,data=null){await localDB.put("pending",{id,type,data,queuedAt:Date.now()});}
-async function flushQueue(){if(!currentUser||!navigator.onLine)return;const jobs=await localDB.getAll("pending");for(const job of jobs){try{const target=doc(db,"users",currentUser.uid,"medicines",job.id);if(job.type==="delete")await deleteDoc(target);else await setDoc(target,job.data);await localDB.delete("pending",job.id);}catch(err){console.warn("Sync will retry:",err);break;}}}
+async function queueChange(id,type,data=null,collectionName="medicines"){const key=collectionName+":"+id;await localDB.put("pending",{id:key,targetId:id,collectionName,type,data,queuedAt:Date.now()});}
+async function flushQueue(){if(!currentUser||!navigator.onLine||!localDB)return;const jobs=(await localDB.getAll("pending")).sort((a,b)=>a.queuedAt-b.queuedAt);for(const job of jobs){try{const group=job.collectionName||"medicines",targetId=job.targetId||job.id,target=doc(db,"users",currentUser.uid,group,targetId);if(group==="bills"){const existing=await getDoc(target);if(job.type==="delete"){if(existing.exists())await deleteDoc(target);}else if(existing.exists()){await setDoc(target,{...job.data,createdAt:existing.data().createdAt||serverTimestamp()});}else{await setDoc(target,{...job.data,createdAt:serverTimestamp()});}}else{if(job.type==="delete")await deleteDoc(target);else await setDoc(target,job.data);}await localDB.delete("pending",job.id);}catch(err){console.warn("Sync will retry:",err);break;}}}
 async function syncOnline(){if(!currentUser||!navigator.onLine)return;await flushQueue();if(!unsubscribe)startCloudSync(currentUser);}
 window.addEventListener("online",()=>{status();syncOnline();});
 async function nextBillNumber(){
- const current=Number(await localDB.get("meta","billCounter"))||0;
+ const localBills=localDB?await localDB.getAll("bills"):[];const maxLocal=localBills.reduce((n,x)=>Math.max(n,Number(String(x.receiptNumber||"").replace(/^B-/,""))||0),0);const current=Math.max(Number(await localDB.get("meta","billCounter"))||0,maxLocal);
  const next=current+1;
  await localDB.put("meta",next,"billCounter");
  return "B-"+String(next).padStart(6,"0");
@@ -84,16 +84,10 @@ function roundingSuggestion(total){
 function applyMedicineRounding(extra){
  let remaining=Math.round(extra*100),adjusted=bill.map(x=>({...x,adjustment:0}));
  const eligible=adjusted.filter(x=>x.roundingAllowed);
- if(!eligible.length||remaining<=0||remaining%1000!==0)return null;
- let index=0;
- while(remaining>=1000){
-  const item=eligible[index%eligible.length];
-  const step=remaining>=2000?2000:1000;
-  item.adjustment=(item.adjustment||0)+step/100;
-  remaining-=step;
-  index++;
- }
- return remaining===0?adjusted:null;
+ if(!eligible.length||remaining<=0)return null;
+ const base=Math.floor(remaining/eligible.length),remainder=remaining%eligible.length;
+ eligible.forEach((item,index)=>{item.adjustment=Number(((base+(index<remainder?1:0))/100).toFixed(2));});
+ return adjusted;
 }
 function renderBill(){
  const root=$("billItems");root.innerHTML="";
@@ -129,7 +123,7 @@ function renderBill(){
  $("roundingApply").onclick=()=>{
   if(!eligible){$("billMessage").textContent="Select a medicine marked Rounding Allowed first.";return;}
   const adjusted=applyMedicineRounding(suggestion);
-  if(!adjusted){$("billMessage").textContent="This amount cannot be distributed in Rs. 10/Rs. 20 increments across eligible medicines.";return;}
+  if(!adjusted){$("billMessage").textContent="The adjustment could not be distributed. Check eligible medicines.";return;}
   bill=adjusted;roundingApplied=suggestion;$("billMessage").textContent="Eligible medicine prices adjusted for this bill only.";renderBill();
  };
 }
@@ -173,7 +167,7 @@ async function removeMedicine(id){
 function startCloudSync(user){
  if(unsubscribe)unsubscribe();
  unsubscribe=onSnapshot(collection(db,"users",user.uid,"medicines"),async snap=>{
-  const pending=await localDB.getAll("pending"),pendingIds=new Set(pending.map(x=>x.id));
+  const pending=await localDB.getAll("pending"),pendingIds=new Set(pending.filter(x=>(x.collectionName||"medicines")==="medicines").map(x=>x.targetId||x.id));
   const cloud=snap.docs.map(d=>normalizeMedicine(d.data())).filter(m=>!pendingIds.has(m.id));
   const local=await localDB.getAll("medicines"),merged=new Map(cloud.map(m=>[m.id,m]));
   for(const m of local)if(pendingIds.has(m.id))merged.set(m.id,m);
@@ -189,7 +183,7 @@ $("showRegister").onclick=()=>{show("loginForm",false);show("registerForm",true)
 $("showLogin").onclick=()=>{show("registerForm",false);show("loginForm",true);$("authHeading").textContent="Friends Hospital Pharmacy";$("authSubtitle").textContent="Sign in to continue";$("loginMessage").textContent="";$("registerMessage").textContent="";};
 $("registerForm").onsubmit=async e=>{e.preventDefault();const name=$("registerName").value.trim(),email=$("registerEmail").value.trim(),password=$("registerPassword").value,confirm=$("confirmPassword").value;if(password.length<6){$("registerMessage").textContent="Password must be at least 6 characters.";return;}if(password!==confirm){$("registerMessage").textContent="Passwords do not match.";return;}$("registerMessage").textContent="";setAuthLoading("registerSubmit",true,"Creating account…");try{const credential=await createUserWithEmailAndPassword(auth,email,password);if(name)await updateProfile(credential.user,{displayName:name});$("registerMessage").textContent="Account created successfully.";}catch(err){$("registerMessage").textContent=authError(err);}finally{setAuthLoading("registerSubmit",false);}};
 $("forgotPassword").onclick=async()=>{const email=$("email").value.trim();if(!email){$("loginMessage").textContent="Enter your email address first, then select Forgot password.";return;}try{await sendPasswordResetEmail(auth,email);$("loginMessage").textContent="Password reset email sent. Check your inbox.";}catch(err){$("loginMessage").textContent=authError(err);}};
-onAuthStateChanged(auth,async user=>{currentUser=user;if(user){await openUserDB(user.uid);show("loginView",false);show("appView",true);$("userLabel").textContent=user.displayName||user.email;$("settingsEmail").textContent=user.email;try{await loadLocal();}catch(err){console.warn("Local medicine cache unavailable:",err);renderMedicines();}if(unsubscribe)unsubscribe();if(navigator.onLine){startCloudSync(user);flushQueue().catch(err=>console.warn("Pending sync will retry:",err));}status();}else{show("loginView",true);show("appView",false);if(unsubscribe){unsubscribe();unsubscribe=null;}if(historyUnsubscribe){historyUnsubscribe();historyUnsubscribe=null;}if(localDB){localDB.close();localDB=null;}medicines=[];savedBills=[];}});
+onAuthStateChanged(auth,async user=>{currentUser=user;if(user){await openUserDB(user.uid);show("loginView",false);show("appView",true);$("userLabel").textContent=user.displayName||user.email;$("settingsEmail").textContent=user.email;try{await loadLocal();savedBills=await localDB.getAll("bills");}catch(err){console.warn("Local cache unavailable:",err);renderMedicines();}if(unsubscribe)unsubscribe();if(navigator.onLine){startCloudSync(user);flushQueue().catch(err=>console.warn("Pending sync will retry:",err));}status();}else{show("loginView",true);show("appView",false);if(unsubscribe){unsubscribe();unsubscribe=null;}if(historyUnsubscribe){historyUnsubscribe();historyUnsubscribe=null;}if(localDB){localDB.close();localDB=null;}medicines=[];savedBills=[];}});
 $("logoutBtn").onclick=()=>signOut(auth);
 $("addMedicineBtn").onclick=()=>openAddMedicine();
 $("cancelMedicine").onclick=()=>{show("medicineForm",false);$("medicineForm").reset();$("medicineId").value="";$("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";};$("medicineForm").onsubmit=saveMedicine;
@@ -205,20 +199,24 @@ async function buildBillSnapshot(){
  const finalTotal=Math.max(0,subtotal-discount)+rounding;
  const adjustedItems=bill.map(item=>{const lineTotal=Number(item.qty)*Number(item.price)+(item.adjustment||0);return {medicineId:item.id,name:item.name,unit:item.unit,quantity:Number(item.qty),unitPrice:lineTotal/Number(item.qty),originalUnitPrice:Number(item.price),lineAdjustment:item.adjustment||0,lineTotal};});
  const now=new Date();
- const receiptNumber=await nextBillNumber();
- return {id:crypto.randomUUID(),receiptNumber,patientName,tokenNumber:$("tokenNumber").value.trim()||"",items:adjustedItems.map((item,index)=>({...item,itemNumber:index+1})),subtotal,discount,rounding,finalTotal,createdAt:now.toISOString(),createdAtMillis:now.getTime(),ownerUid:currentUser.uid};
+ const previous=editingBillId?savedBills.find(x=>x.id===editingBillId):null;
+ const receiptNumber=previous?.receiptNumber||await nextBillNumber();
+ return {id:editingBillId||crypto.randomUUID(),receiptNumber,patientName,tokenNumber:$("tokenNumber").value.trim()||"",items:adjustedItems.map((item,index)=>({...item,itemNumber:index+1})),subtotal,discount,rounding,finalTotal,createdAt:previous?.createdAt||now.toISOString(),createdAtMillis:previous?.createdAtMillis||now.getTime(),ownerUid:currentUser.uid};
 }
 async function saveCurrentBill({printAfter=false}={}){
  if(!currentUser){$("billMessage").textContent="Please sign in again.";return;}
  $("saveBill").disabled=true;$("printBill").disabled=true;$("billMessage").textContent="Saving bill…";
  try{
   const snapshot=await buildBillSnapshot();if(!snapshot)return;
-  await setDoc(doc(db,"users",currentUser.uid,"bills",snapshot.id),{...snapshot,createdAt:serverTimestamp()});
-  $("billMessage").textContent="Bill saved successfully. Receipt: "+snapshot.receiptNumber;
-   savedBills=[snapshot,...savedBills.filter(x=>x.id!==snapshot.id)];renderBillingHistory();
+  if(editingBillId&&!billEditAllowed({createdAtMillis:editingBillCreatedAt}))throw new Error("The 1-hour edit period has expired.");
+  await localDB.put("bills",snapshot);await queueChange(snapshot.id,"set",snapshot,"bills");
+  savedBills=[snapshot,...savedBills.filter(x=>x.id!==snapshot.id)].sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();
+  const wasEditing=!!editingBillId;editingBillId=null;editingBillCreatedAt=0;$("saveBill").textContent="Save Bill";$("printBill").textContent="Save & Print";
+  $("billMessage").textContent=(wasEditing?"Bill updated":"Bill saved")+(navigator.onLine?" locally; syncing…":" offline. It will sync when internet returns.")+" Receipt: "+snapshot.receiptNumber;
+  if(navigator.onLine)flushQueue().then(()=>{$("billMessage").textContent="Bill saved and synced. Receipt: "+snapshot.receiptNumber;}).catch(console.warn);
   bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";roundingApplied=0;roundingBase=null;renderBill();
   if(printAfter){showReceipt(snapshot);printReceipt();}
- }catch(err){console.error("Save bill failed:",err);const reason=err?.code==="permission-denied"?"Firebase permission denied. Firestore rules must allow your signed-in account to create/read bills.":err?.code==="unavailable"?"Firebase is unavailable. Check your internet connection and retry.":(err?.message||"Unknown error");$("billMessage").textContent="Bill was not saved: "+reason;}
+ }catch(err){console.error("Save bill failed:",err);$("billMessage").textContent="Bill could not be saved: "+(err?.message||"Unknown error");}
  finally{$("saveBill").disabled=false;$("printBill").disabled=false;}
 }
 $("saveBill").onclick=()=>saveCurrentBill();
@@ -226,11 +224,16 @@ $("printBill").onclick=()=>saveCurrentBill({printAfter:true});
 function startBillingHistory(){
  if(!currentUser)return;
  if(historyUnsubscribe)historyUnsubscribe();
- $("billingHistoryList").innerHTML='<p class="muted">Loading billing history…</p>';
- historyUnsubscribe=onSnapshot(collection(db,"users",currentUser.uid,"bills"),snap=>{
-  savedBills=snap.docs.map(d=>d.data()).sort((x,y)=>(y.createdAtMillis||0)-(x.createdAtMillis||0));
-  renderBillingHistory();
- },err=>{$("billingHistoryList").innerHTML='<p class="message">Could not load billing history. Check Firestore permissions.</p>';console.warn("Billing history:",err);});
+ localDB.getAll("bills").then(items=>{savedBills=items.sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();}).catch(console.warn);
+ if(!navigator.onLine){$("billingHistoryList").innerHTML='<p class="muted">Offline — showing locally saved bills.</p>';return;}
+ historyUnsubscribe=onSnapshot(collection(db,"users",currentUser.uid,"bills"),async snap=>{
+  const pending=await localDB.getAll("pending"),pendingIds=new Set(pending.filter(x=>x.collectionName==="bills").map(x=>x.targetId));
+  const cloud=snap.docs.map(d=>d.data());
+  for(const item of cloud)if(!pendingIds.has(item.id))await localDB.put("bills",item);
+  const local=await localDB.getAll("bills"),merged=new Map(cloud.map(x=>[x.id,x]));
+  for(const item of local)if(pendingIds.has(item.id))merged.set(item.id,item);
+  savedBills=[...merged.values()].sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();
+ },err=>{console.warn("Billing history:",err);$("billingHistoryList").innerHTML='<p class="message">Cloud unavailable — local history remains available.</p>';});
 }
 function renderBillingHistory(){
  const root=$("billingHistoryList");if(!root)return;
@@ -239,13 +242,29 @@ function renderBillingHistory(){
  root.innerHTML="";
  if(!rows.length){root.innerHTML='<p class="muted">No saved bills found.</p>';return;}
  rows.forEach(item=>{
-  const row=document.createElement("button");row.type="button";row.className="history-row";
+  const row=document.createElement("div");row.className="history-row";
   const info=document.createElement("span");info.innerHTML="<b></b><small></small>";
   info.querySelector("b").textContent=item.patientName||"Patient";
   info.querySelector("small").textContent=(item.receiptNumber||"Receipt")+" · "+new Date(item.createdAtMillis||Date.now()).toLocaleString();
   const total=document.createElement("strong");total.textContent=money(item.finalTotal);
-  row.append(info,total);row.onclick=()=>showReceipt(item);root.append(row);
+  const actions=document.createElement("span");actions.className="history-actions";const view=document.createElement("button");view.type="button";view.className="tiny";view.textContent="View";view.onclick=()=>showReceipt(item);actions.append(view);
+  if(billEditAllowed(item)){const edit=document.createElement("button");edit.type="button";edit.className="tiny";edit.textContent="Edit";edit.onclick=()=>beginBillEdit(item);const del=document.createElement("button");del.type="button";del.className="tiny danger";del.textContent="Delete";del.onclick=()=>deleteSavedBill(item);actions.append(edit,del);}else{const lock=document.createElement("small");lock.className="bill-locked";lock.textContent="Locked";actions.append(lock);}
+  row.append(info,total,actions);root.append(row);
  });
+}
+function billEditAllowed(item){const created=Number(item?.createdAtMillis)||0;return created>0&&Date.now()-created<3600000;}
+function beginBillEdit(item){
+ if(!billEditAllowed(item)){alert("This bill is locked after 1 hour.");renderBillingHistory();return;}
+ editingBillId=item.id;editingBillCreatedAt=Number(item.createdAtMillis)||Date.now();
+ $("patientName").value=item.patientName||"";$("tokenNumber").value=item.tokenNumber||"";$("discount").value=Number(item.discount)||0;
+ bill=(item.items||[]).map(line=>({id:line.medicineId||crypto.randomUUID(),name:line.name,unit:line.unit||"Piece",qty:Number(line.quantity)||1,price:Number(line.originalUnitPrice??line.unitPrice)||0,roundingAllowed:true,adjustment:Number(line.lineAdjustment)||0}));
+ $("saveBill").textContent="Update Bill";$("printBill").textContent="Update & Print";document.querySelector('.nav[data-page="billing"]').click();renderBill();$("billMessage").textContent="Editing "+item.receiptNumber+" — only available during the first hour.";
+}
+async function deleteSavedBill(item){
+ if(!billEditAllowed(item)){alert("This bill is locked after 1 hour.");return;}
+ if(!confirm("Delete receipt "+item.receiptNumber+"? This cannot be undone."))return;
+ try{await localDB.delete("bills",item.id);await queueChange(item.id,"delete",null,"bills");savedBills=savedBills.filter(x=>x.id!==item.id);renderBillingHistory();if(navigator.onLine)flushQueue().catch(console.warn);}
+ catch(err){alert("Delete failed: "+err.message);}
 }
 function printReceipt(){
  const root=$("receiptDetail");if(!root)return;
