@@ -197,7 +197,7 @@ async function buildBillSnapshot(){
  const discount=Math.min(subtotal,Math.max(0,Number($("discount").value)||0));
  const rounding=bill.reduce((sum,item)=>sum+(item.adjustment||0),0);
  const finalTotal=Math.max(0,subtotal-discount)+rounding;
- const adjustedItems=bill.map(item=>{const lineTotal=Number(item.qty)*Number(item.price)+(item.adjustment||0);return {medicineId:item.id,name:item.name,unit:item.unit,quantity:Number(item.qty),unitPrice:lineTotal/Number(item.qty),originalUnitPrice:Number(item.price),lineAdjustment:item.adjustment||0,lineTotal};});
+ const adjustedItems=bill.map(item=>{const lineTotal=Number(item.qty)*Number(item.price)+(item.adjustment||0);return {medicineId:item.id,name:item.name,unit:item.unit,quantity:Number(item.qty),unitPrice:lineTotal/Number(item.qty),originalUnitPrice:Number(item.price),lineAdjustment:item.adjustment||0,roundingAllowed:item.roundingAllowed===true,lineTotal};});
  const now=new Date();
  const previous=editingBillId?savedBills.find(x=>x.id===editingBillId):null;
  const receiptNumber=previous?.receiptNumber||await nextBillNumber();
@@ -257,7 +257,7 @@ function beginBillEdit(item){
  if(!billEditAllowed(item)){alert("This bill is locked after 1 hour.");renderBillingHistory();return;}
  editingBillId=item.id;editingBillCreatedAt=Number(item.createdAtMillis)||Date.now();
  $("patientName").value=item.patientName||"";$("tokenNumber").value=item.tokenNumber||"";$("discount").value=Number(item.discount)||0;
- bill=(item.items||[]).map(line=>({id:line.medicineId||crypto.randomUUID(),name:line.name,unit:line.unit||"Piece",qty:Number(line.quantity)||1,price:Number(line.originalUnitPrice??line.unitPrice)||0,roundingAllowed:true,adjustment:Number(line.lineAdjustment)||0}));
+ bill=(item.items||[]).map(line=>({id:line.medicineId||crypto.randomUUID(),name:line.name,unit:line.unit||"Piece",qty:Number(line.quantity)||1,price:Number(line.originalUnitPrice??line.unitPrice)||0,roundingAllowed:line.roundingAllowed===true,adjustment:Number(line.lineAdjustment)||0}));
  $("saveBill").textContent="Update Bill";$("printBill").textContent="Update & Print";document.querySelector('.nav[data-page="billing"]').click();renderBill();$("billMessage").textContent="Editing "+item.receiptNumber+" — only available during the first hour.";
 }
 async function deleteSavedBill(item){
