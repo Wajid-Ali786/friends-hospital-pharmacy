@@ -82,3 +82,16 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 .receipt-detail{margin-top:16px}.receipt-lines{border-top:1px solid var(--line);margin-top:14px}.receipt-line,.receipt-total{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}.receipt-total:last-of-type{font-weight:800;color:var(--green);font-size:16px}
 @media(max-width:560px){.history-toolbar{align-items:stretch;flex-direction:column}.history-toolbar .search{max-width:none}.bill-actions{flex-direction:column}}
 @media print{body *{visibility:hidden!important}.receipt-detail.printing-receipt,.receipt-detail.printing-receipt *{visibility:visible!important}.receipt-detail.printing-receipt{position:absolute;inset:0;margin:0;border:0;box-shadow:none}}
+
+
+/* Spacing and receipt-print fixes */
+.bill-actions{display:flex;align-items:stretch;gap:14px;margin-top:20px}
+.bill-actions button{min-width:0;flex:1;margin:0}
+.settings-panel>label{gap:9px;margin:18px 0 12px}
+.settings-panel #saveName{display:inline-flex;margin-top:8px;min-height:42px;align-items:center;justify-content:center}
+.settings-panel .data-actions{display:flex;align-items:center;gap:12px;margin:16px 0 12px}
+.settings-panel .data-actions>*{margin:0;min-height:42px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box}
+.settings-panel .data-actions .upload-btn{padding:11px 16px;border-radius:10px;font-size:13px;font-weight:700;line-height:20px}
+.settings-panel .small-text{margin:14px 0 0}
+@media(max-width:560px){.bill-actions{flex-direction:row;gap:10px}.bill-actions button{flex:1;padding:11px 8px;font-size:12px}.settings-panel .data-actions{display:grid;grid-template-columns:1fr;gap:10px}.settings-panel .data-actions>*{width:100%}}
+@media print{.receipt-detail.printing-receipt{display:block!important}}
