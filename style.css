@@ -184,3 +184,17 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
  .receipt-detail.printing-receipt .receipt-summary-row.final b{font-size:13px!important}
  .receipt-detail.printing-receipt .receipt-thanks{font-size:8px!important;margin-top:12px!important}
 }
+
+
+/* Receipt serial number, patient emphasis and rounding guidance */
+.receipt-line{grid-template-columns:22px minmax(0,1fr) 58px 72px}
+.receipt-line.receipt-head span:first-child{text-align:center}
+.receipt-line .receipt-serial{text-align:center;color:#68766e;font-size:10px}
+.receipt-patient{display:block;padding:9px 10px;margin-bottom:3px;border-left:3px solid #2d705d;border-radius:4px;background:#edf5f0;color:#183d30;font-size:12px;line-height:1.35}
+.rounding-apply:disabled{opacity:.45;cursor:not-allowed}
+.rounding-applied{line-height:1.4}
+@media print{
+ .receipt-detail.printing-receipt .receipt-line{grid-template-columns:16px minmax(0,1fr) 45px 55px!important}
+ .receipt-detail.printing-receipt .receipt-line .receipt-serial{font-size:8px!important}
+ .receipt-detail.printing-receipt .receipt-patient{padding:6px 7px!important;margin-bottom:3px!important;font-size:10px!important;background:#f0f4f1!important;border-left-width:2px!important}
+}
