@@ -1,0 +1,10 @@
+FRIENDS HOSPITAL PHARMACY — APP / PWA ICON
+
+Upload the square Pharmacy logo image in this folder and name the image exactly:
+app-icon.png
+
+Final path:
+assets/icons/app-icon.png
+
+Recommended: PNG, square (512 x 512 px or larger).
+Do not rename this TXT file; it is only an upload instruction.
