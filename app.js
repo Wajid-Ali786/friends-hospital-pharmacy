@@ -28,23 +28,23 @@ function roundingSuggestion(total){
  if(total>4000){
   const halfThousand=Math.ceil((total-0.000001)/500)*500;
   const halfExtra=Number((halfThousand-total).toFixed(2));
-  if(halfExtra>0.009&&halfExtra<=150)return halfExtra;
+  if(halfExtra>0.009&&halfExtra<=150&&Math.round(halfExtra*100)%1000===0)return halfExtra;
  }
  const normalTarget=Math.ceil((total-0.000001)/100)*100;
  const normalExtra=Number((normalTarget-total).toFixed(2));
- return normalExtra>0.009&&normalExtra<=50?normalExtra:0;
+ return normalExtra>0.009&&normalExtra<=50&&Math.round(normalExtra*100)%1000===0?normalExtra:0;
 }
 function applyMedicineRounding(extra){
  let remaining=Math.round(extra*100),adjusted=bill.map(x=>({...x,adjustment:0}));
  const eligible=adjusted.filter(x=>x.roundingAllowed);
  if(!eligible.length||remaining<=0||remaining%1000!==0)return null;
- for(const item of eligible){
-  while(remaining>=1000){
-   const step=remaining>=2000?2000:1000;
-   item.adjustment=(item.adjustment||0)+step/100;
-   remaining-=step;
-  }
-  if(!remaining)break;
+ let index=0;
+ while(remaining>=1000){
+  const item=eligible[index%eligible.length];
+  const step=remaining>=2000?2000:1000;
+  item.adjustment=(item.adjustment||0)+step/100;
+  remaining-=step;
+  index++;
  }
  return remaining===0?adjusted:null;
 }
