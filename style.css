@@ -70,3 +70,15 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 .auth-card .auth-switch{margin-top:13px;padding-top:12px}
 .auth-card .message{min-height:12px;margin:7px 0 0}
 @media(max-width:380px){.auth-card h1{font-size:19px;letter-spacing:-.7px}.auth-card .brand-mark.logo-image{width:78px;height:78px}}
+
+
+/* Billing save and permanent history */
+.bill-actions{display:flex;gap:10px;margin-top:18px}
+.bill-actions button{flex:1;min-height:44px}
+.history-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:12px}
+.history-toolbar h3{margin:0}
+.history-row{display:flex;width:100%;align-items:center;justify-content:space-between;gap:14px;padding:14px 4px;border-bottom:1px solid var(--line);background:transparent;text-align:left;color:var(--ink)}
+.history-row span{min-width:0}.history-row b,.history-row small{display:block}.history-row small{margin-top:5px;color:var(--muted);font-size:11px}.history-row strong{white-space:nowrap;color:var(--green)}
+.receipt-detail{margin-top:16px}.receipt-lines{border-top:1px solid var(--line);margin-top:14px}.receipt-line,.receipt-total{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}.receipt-total:last-of-type{font-weight:800;color:var(--green);font-size:16px}
+@media(max-width:560px){.history-toolbar{align-items:stretch;flex-direction:column}.history-toolbar .search{max-width:none}.bill-actions{flex-direction:column}}
+@media print{body *{visibility:hidden!important}.receipt-detail.printing-receipt,.receipt-detail.printing-receipt *{visibility:visible!important}.receipt-detail.printing-receipt{position:absolute;inset:0;margin:0;border:0;box-shadow:none}}
