@@ -74,15 +74,12 @@ function renderBillSearch(q=""){
  }
 }
 function roundingSuggestion(total){
- if(total<=0)return 0;
- if(total>4000){
-  const halfThousand=Math.ceil((total-0.000001)/500)*500;
-  const halfExtra=Number((halfThousand-total).toFixed(2));
-  if(halfExtra>0.009&&halfExtra<=150&&Math.round(halfExtra*100)%1000===0)return halfExtra;
- }
- const normalTarget=Math.ceil((total-0.000001)/100)*100;
- const normalExtra=Number((normalTarget-total).toFixed(2));
- return normalExtra>0.009&&normalExtra<=50&&Math.round(normalExtra*100)%1000===0?normalExtra:0;
+ if(!Number.isFinite(total)||total<=0)return 0;
+ // Offer a practical next-Rs.10 adjustment; cap the suggestion to avoid large jumps.
+ const target=Math.ceil((total-0.000001)/10)*10;
+ const extra=Number((target-total).toFixed(2));
+ const cap=total>4000?150:50;
+ return extra>0.009&&extra<=cap?extra:0;
 }
 function applyMedicineRounding(extra){
  let remaining=Math.round(extra*100),adjusted=bill.map(x=>({...x,adjustment:0}));
@@ -103,7 +100,7 @@ function renderBill(){
  if(!bill.length)root.innerHTML='<p class="muted">No items added yet.</p>';
  bill.forEach((it,i)=>{
   const row=document.createElement("div");row.className="bill-row";
-  const name=document.createElement("span");name.className="bill-item-name";name.textContent=it.name+" ("+it.unit+")";
+  const serial=document.createElement("span");serial.className="bill-item-serial";serial.textContent=String(i+1)+".";const name=document.createElement("span");name.className="bill-item-name";name.textContent=it.name+" ("+it.unit+")";
   const controls=document.createElement("div");controls.className="qty-controls";
   const unitLabel=document.createElement("small");unitLabel.className="qty-unit-label";unitLabel.textContent=it.unit||"Piece";
   const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.textContent="−";minus.setAttribute("aria-label","Decrease quantity");minus.onclick=()=>{it.qty=Math.max(1,it.qty-1);renderBill();};
@@ -112,7 +109,7 @@ function renderBill(){
   controls.append(minus,qty,plus,unitLabel);
   const lineTotal=it.price*it.qty+(it.adjustment||0),price=document.createElement("b");price.className="bill-line-total";price.textContent=money(lineTotal);
   const del=document.createElement("button");del.type="button";del.className="remove-item";del.textContent="×";del.title="Remove item";del.setAttribute("aria-label","Remove "+it.name);del.onclick=()=>{bill.splice(i,1);renderBill();};
-  row.append(name,controls,price,del);root.append(row);
+  row.append(serial,name,controls,price,del);root.append(row);
  });
  const sub=bill.reduce((sum,item)=>sum+item.qty*item.price,0);
  const applied=bill.reduce((sum,item)=>sum+(item.adjustment||0),0);
@@ -209,7 +206,7 @@ async function buildBillSnapshot(){
  const adjustedItems=bill.map(item=>{const lineTotal=Number(item.qty)*Number(item.price)+(item.adjustment||0);return {medicineId:item.id,name:item.name,unit:item.unit,quantity:Number(item.qty),unitPrice:lineTotal/Number(item.qty),originalUnitPrice:Number(item.price),lineAdjustment:item.adjustment||0,lineTotal};});
  const now=new Date();
  const receiptNumber=await nextBillNumber();
- return {id:crypto.randomUUID(),receiptNumber,patientName,tokenNumber:$("tokenNumber").value.trim()||"",items:adjustedItems,subtotal,discount,rounding,finalTotal,createdAt:now.toISOString(),createdAtMillis:now.getTime(),ownerUid:currentUser.uid};
+ return {id:crypto.randomUUID(),receiptNumber,patientName,tokenNumber:$("tokenNumber").value.trim()||"",items:adjustedItems.map((item,index)=>({...item,itemNumber:index+1})),subtotal,discount,rounding,finalTotal,createdAt:now.toISOString(),createdAtMillis:now.getTime(),ownerUid:currentUser.uid};
 }
 async function saveCurrentBill({printAfter=false}={}){
  if(!currentUser){$("billMessage").textContent="Please sign in again.";return;}
@@ -277,6 +274,7 @@ function showReceipt(item){
  (item.items||[]).forEach((line,index)=>{
   const row=document.createElement("div");row.className="receipt-line";
   const serial=document.createElement("span");serial.className="receipt-serial";serial.textContent=String(index+1);
+  const number=document.createElement("span");number.className="receipt-number";number.textContent=String(line.itemNumber||table.children.length)+".";
   const name=document.createElement("span");name.className="receipt-medicine";name.textContent=line.name;
   const qty=document.createElement("span");qty.className="receipt-qty";qty.textContent=String(line.quantity)+" "+line.unit;
   const amount=document.createElement("b");amount.className="receipt-amount";amount.textContent=Number(line.lineTotal||0).toFixed(2);
