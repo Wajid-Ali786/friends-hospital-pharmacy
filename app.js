@@ -197,7 +197,14 @@ function renderBillingHistory(){
   row.append(info,total);row.onclick=()=>showReceipt(item);root.append(row);
  });
 }
-function printReceipt(){const root=$("receiptDetail");if(!root)return;root.classList.add("printing-receipt");window.print();root.classList.remove("printing-receipt");}
+function printReceipt(){
+ const root=$("receiptDetail");if(!root)return;
+ root.classList.add("printing-receipt");
+ const history=$("historyPage");history.classList.remove("hidden");
+ window.print();
+ root.classList.remove("printing-receipt");
+ if(!document.querySelector(".nav[data-page='history'].active"))history.classList.add("hidden");
+}
 function showReceipt(item){
  const root=$("receiptDetail");if(!root)return;
  root.classList.remove("hidden");root.innerHTML="";
@@ -205,7 +212,11 @@ function showReceipt(item){
  const meta=document.createElement("p");meta.className="muted";meta.textContent="Patient: "+item.patientName+(item.tokenNumber?" · Token: "+item.tokenNumber:"")+" · "+new Date(item.createdAtMillis||Date.now()).toLocaleString();root.append(meta);
  const table=document.createElement("div");table.className="receipt-lines";
  (item.items||[]).forEach(line=>{const r=document.createElement("div");r.className="receipt-line";const n=document.createElement("span");n.textContent=line.name+" · "+line.quantity+" "+line.unit+" · "+money(line.unitPrice)+" each";const p=document.createElement("b");p.textContent=money(line.lineTotal);r.append(n,p);table.append(r);});root.append(table);
- [["Subtotal",item.subtotal],["Discount",item.discount],["Final total",item.finalTotal]].forEach(([label,value])=>{const r=document.createElement("p");r.className="receipt-total";r.textContent=label+": "+money(value);root.append(r);});
+ if(Number(item.discount)>0){
+  [["Subtotal",item.subtotal],["Discount",item.discount],["Final total",item.finalTotal]].forEach(([label,value])=>{const r=document.createElement("p");r.className="receipt-total";r.textContent=label+": "+money(value);root.append(r);});
+ }else{
+  const total=document.createElement("p");total.className="receipt-total";total.textContent="Total: "+money(item.finalTotal);root.append(total);
+ }
  const print=document.createElement("button");print.type="button";print.className="secondary print-hide";print.textContent="Print receipt";print.onclick=printReceipt;root.append(print);
  root.scrollIntoView({behavior:"smooth",block:"start"});
 }
