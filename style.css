@@ -49,3 +49,10 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 
 .qty-unit-label{font-size:10px;color:var(--muted);white-space:nowrap;margin-left:1px}.qty-controls{gap:5px}
 @media(max-width:480px){.qty-unit-label{font-size:9px;margin-left:0}}
+
+
+/* Friends Hospital brand assets */
+.logo-image{display:block;object-fit:contain;background:transparent;border:0;box-shadow:none}
+.auth-card .brand-mark.logo-image{width:112px;height:112px;margin:0 auto 4px;border-radius:22px}
+.sidebar .brand-mark.logo-image.small{width:46px;height:46px;flex:0 0 46px;border-radius:12px}
+@media(max-width:760px){.sidebar .brand-mark.logo-image.small{width:40px;height:40px;flex-basis:40px}}
