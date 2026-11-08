@@ -41,7 +41,7 @@ function applyMedicineRounding(extra){
  if(!eligible.length||remaining<=0||remaining%100!==0)return null;
  for(const item of eligible){
   while(remaining>=100){
-   const step=Math.min(200,remaining);
+   const step=remaining>=200?200:100;
    item.adjustment=(item.adjustment||0)+step/100;
    remaining-=step;
   }
@@ -49,12 +49,42 @@ function applyMedicineRounding(extra){
  }
  return remaining===0?adjusted:null;
 }
-function renderBill(){const root=$("billItems");root.innerHTML="";if(!bill.length)root.innerHTML='<p class="muted">No items added yet.</p>';bill.forEach((it,i)=>{const row=document.createElement("div");row.className="bill-row";const name=document.createElement("span");name.className="bill-item-name";name.textContent=it.name+" ("+it.unit+")";const controls=document.createElement("div");controls.className="qty-controls";const unitLabel=document.createElement("small");unitLabel.className="qty-unit-label";unitLabel.textContent=it.unit||"Piece";const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.textContent="−";minus.setAttribute("aria-label","Decrease quantity");minus.onclick=()=>{it.qty=Math.max(1,it.qty-1);renderBill();};const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value=it.qty;qty.setAttribute("aria-label","Quantity");qty.onchange=()=>{it.qty=Math.max(1,Math.floor(Number(qty.value)||1));renderBill();};const plus=document.createElement("button");plus.type="button";plus.className="qty-btn";plus.textContent="+";plus.setAttribute("aria-label","Increase quantity");plus.onclick=()=>{it.qty+=1;renderBill();};controls.append(minus,qty,plus,unitLabel);const price=document.createElement("b");price.className="bill-line-total";price.textContent=money(it.price*it.qty+(it.adjustment||0));const del=document.createElement("button");del.type="button";del.className="remove-item";del.textContent="×";del.title="Remove item";del.setAttribute("aria-label","Remove "+it.name);del.onclick=()=>{bill.splice(i,1);renderBill();};row.append(name,controls,price,del);root.append(row);});const sub=bill.reduce((s,x)=>s+x.qty*x.price+(x.adjustment||0),0),discount=Math.min(sub,Math.max(0,Number($("discount").value)||0)),base=Math.max(0,sub-discount);if(roundingBase!==base){roundingBase=base;roundingApplied=0;}const suggestion=roundingSuggestion(base),applied=roundingApplied>0?roundingApplied:0;$("subtotal").textContent=money(sub);$("roundingAmount").textContent=suggestion>0?"+ "+money(suggestion):"";$("roundingApply").classList.toggle("hidden",!(suggestion>0&&applied===0));$("roundingApply").textContent="Apply";$("roundingAppliedLabel").textContent=applied>0?"Rounding applied: + "+money(applied):"";$("finalTotal").textContent=money(base+applied);$("roundingApply").onclick=()=>{if(suggestion>0){roundingApplied=suggestion;renderBill();}};}
-async function saveMedicine(e){e.preventDefault();const id=$("medicineId").value||crypto.randomUUID(),old=medicines.find(m=>m.id===id);let image=old?.image||"";const file=$("medicineImage").files[0];if(file){if(file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");return;}image=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{const canvas=document.createElement("canvas"),scale=Math.min(1,900/Math.max(img.width,img.height));canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL("image/jpeg",0.65));};img.onerror=reject;img.src=reader.result;};reader.onerror=reject;reader.readAsDataURL(file);});}
-const tags=[...new Set($("medicineTags").value.split(",").map(x=>x.trim()).filter(Boolean))];const m={id,name:$("medicineName").value.trim(),tags,roundingAllowed:$("roundingAllowed").checked,unit:$("medicineUnit").value,price:Math.max(0,Number($("medicinePrice").value)||0),image,updatedAt:Date.now()};if(!m.name)return;medicines=medicines.filter(x=>x.id!==id).concat(m);await localDB.put("medicines",m);await queueChange(id,"set",m);renderMedicines($("medicineSearch").value);$("medicineForm").reset();$("medicineId").value="";$("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";show("medicineForm",false);if(navigator.onLine)syncOnline();}
-function editMedicine(m){m=normalizeMedicine(m);$("medicineId").value=m.id;$("medicineName").value=m.name;$("medicineUnit").value=m.unit;$("medicinePrice").value=m.price;$("medicineTags").value=(m.tags||[]).join(", ");$("roundingAllowed").checked=m.roundingAllowed===true;$("medicineForm").querySelector('button[type="submit"]').textContent="Update medicine";show("medicineForm",true);window.scrollTo({top:0,behavior:"smooth"});}
-async function removeMedicine(id){if(!confirm("Delete this medicine?"))return;medicines=medicines.filter(m=>m.id!==id);await localDB.delete("medicines",id);await queueChange(id,"delete");renderMedicines($("medicineSearch").value);if(navigator.onLine)syncOnline();}
-function startCloudSync(user){if(unsubscribe)unsubscribe();unsubscribe=onSnapshot(collection(db,"users",user.uid,"medicines"),async snap=>{const pending=await localDB.getAll("pending");const pendingIds=new Set(pending.map(x=>x.id));const cloud=snap.docs.map(d=>d.data()).filter(m=>!pendingIds.has(m.id));const local=await localDB.getAll("medicines");const merged=new Map(cloud.map(m=>[m.id,m]));for(const m of local)if(pendingIds.has(m.id))merged.set(m.id,m);medicines=[...merged.values()];await cacheAll();renderMedicines($("medicineSearch").value);await flushQueue();},err=>console.warn("Firestore sync",err));}
+function renderBill(){
+ const root=$("billItems");root.innerHTML="";
+ if(!bill.length)root.innerHTML='<p class="muted">No items added yet.</p>';
+ bill.forEach((it,i)=>{
+  const row=document.createElement("div");row.className="bill-row";
+  const name=document.createElement("span");name.className="bill-item-name";name.textContent=it.name+" ("+it.unit+")";
+  const controls=document.createElement("div");controls.className="qty-controls";
+  const unitLabel=document.createElement("small");unitLabel.className="qty-unit-label";unitLabel.textContent=it.unit||"Piece";
+  const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.textContent="−";minus.setAttribute("aria-label","Decrease quantity");minus.onclick=()=>{it.qty=Math.max(1,it.qty-1);renderBill();};
+  const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value=it.qty;qty.setAttribute("aria-label","Quantity");qty.onchange=()=>{it.qty=Math.max(1,Math.floor(Number(qty.value)||1));renderBill();};
+  const plus=document.createElement("button");plus.type="button";plus.className="qty-btn";plus.textContent="+";plus.setAttribute("aria-label","Increase quantity");plus.onclick=()=>{it.qty+=1;renderBill();};
+  controls.append(minus,qty,plus,unitLabel);
+  const lineTotal=it.price*it.qty+(it.adjustment||0),price=document.createElement("b");price.className="bill-line-total";price.textContent=money(lineTotal);
+  const del=document.createElement("button");del.type="button";del.className="remove-item";del.textContent="×";del.title="Remove item";del.setAttribute("aria-label","Remove "+it.name);del.onclick=()=>{bill.splice(i,1);renderBill();};
+  row.append(name,controls,price,del);root.append(row);
+ });
+ const sub=bill.reduce((sum,item)=>sum+item.qty*item.price,0);
+ const applied=bill.reduce((sum,item)=>sum+(item.adjustment||0),0);
+ const discount=Math.min(sub,Math.max(0,Number($("discount").value)||0));
+ const base=Math.max(0,sub-discount);
+ if(roundingBase!==base){roundingBase=base;roundingApplied=0;bill.forEach(item=>item.adjustment=0);}
+ const currentAdjustment=bill.reduce((sum,item)=>sum+(item.adjustment||0),0);
+ const suggestion=currentAdjustment>0?0:roundingSuggestion(base);
+ $("subtotal").textContent=money(sub);
+ $("roundingAmount").textContent=suggestion>0?"+ "+money(suggestion):"";
+ $("roundingApply").classList.toggle("hidden",!(suggestion>0));
+ $("roundingApply").textContent="Apply";
+ $("roundingAppliedLabel").textContent=currentAdjustment>0?"Medicine prices adjusted: + "+money(currentAdjustment):"";
+ $("finalTotal").textContent=money(base+currentAdjustment);
+ $("roundingApply").onclick=()=>{
+  const adjusted=applyMedicineRounding(suggestion);
+  if(!adjusted){$("billMessage").textContent="Rounding is not possible: add eligible medicines or use a target reachable in Rs. 10 increments.";return;}
+  bill=adjusted;roundingApplied=suggestion;$("billMessage").textContent="Eligible medicine prices adjusted for this bill only.";renderBill();
+ };
+}
+
 document.querySelectorAll(".password-toggle").forEach(button=>{button.onclick=()=>{const input=$(button.dataset.passwordTarget);if(!input)return;const reveal=input.type==="password";input.type=reveal?"text":"password";button.setAttribute("aria-label",reveal?"Hide password":"Show password");button.title=reveal?"Hide password":"Show password";button.classList.toggle("is-visible",reveal);};});
 function setAuthLoading(buttonId,loading,label){const button=$(buttonId);if(!button)return;button.disabled=loading;button.classList.toggle("is-loading",loading);button.querySelector(".button-label").textContent=loading?label:button.dataset.defaultLabel;button.querySelector(".button-spinner").classList.toggle("hidden",!loading);}
 $("loginSubmit").dataset.defaultLabel="Sign in";$("registerSubmit").dataset.defaultLabel="Create account";
