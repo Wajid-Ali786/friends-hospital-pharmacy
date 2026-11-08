@@ -25,15 +25,14 @@ function renderMedicines(filter=""){const list=$("medicineList");list.innerHTML=
 function renderBillSearch(q=""){const list=$("billMedicineList");list.innerHTML="";const matches=medicines.filter(m=>medicineMatches(m,q));matches.forEach(m=>{const row=document.createElement("div");row.className="bill-option";const info=document.createElement("div");info.innerHTML="<b></b><small></small>";info.querySelector("b").textContent=m.name;info.querySelector("small").textContent=(m.unit||"Tablet")+" · "+money(m.price??m.tabletPrice);const btn=document.createElement("button");btn.className="tiny add-bill";btn.textContent="＋ Add";btn.onclick=()=>{const existing=bill.find(x=>x.id===m.id);if(existing)existing.qty+=1;else bill.push({id:m.id,name:m.name,unit:m.unit||"Tablet",qty:1,price:Number(m.price??m.tabletPrice)||0,roundingAllowed:m.roundingAllowed===true,adjustment:0});renderBill();};row.append(info,btn);list.append(row);});if(q.trim()&&!matches.length)list.innerHTML='<p class="muted">No medicine found. Add it from the Medicines page.</p>';}
 function roundingSuggestion(total){
  if(total<=0)return 0;
- const normalTarget=Math.ceil((total-0.000001)/100)*100;
- const normalExtra=Number((normalTarget-total).toFixed(2));
- if(normalExtra>0.009&&normalExtra<=50)return normalExtra;
  if(total>4000){
   const halfThousand=Math.ceil((total-0.000001)/500)*500;
   const halfExtra=Number((halfThousand-total).toFixed(2));
   if(halfExtra>0.009&&halfExtra<=150)return halfExtra;
  }
- return 0;
+ const normalTarget=Math.ceil((total-0.000001)/100)*100;
+ const normalExtra=Number((normalTarget-total).toFixed(2));
+ return normalExtra>0.009&&normalExtra<=50?normalExtra:0;
 }
 function applyMedicineRounding(extra){
  let remaining=Math.round(extra*100),adjusted=bill.map(x=>({...x,adjustment:0}));
@@ -159,7 +158,7 @@ function showReceipt(item){
  const title=document.createElement("h3");title.textContent="Receipt "+item.receiptNumber;root.append(title);
  const meta=document.createElement("p");meta.className="muted";meta.textContent="Patient: "+item.patientName+(item.tokenNumber?" · Token: "+item.tokenNumber:"")+" · "+new Date(item.createdAtMillis||Date.now()).toLocaleString();root.append(meta);
  const table=document.createElement("div");table.className="receipt-lines";
- (item.items||[]).forEach(line=>{const r=document.createElement("div");r.className="receipt-line";const n=document.createElement("span");n.textContent=line.name+" · "+line.quantity+" "+line.unit;const p=document.createElement("b");p.textContent=money(line.lineTotal);r.append(n,p);table.append(r);});root.append(table);
+ (item.items||[]).forEach(line=>{const r=document.createElement("div");r.className="receipt-line";const n=document.createElement("span");n.textContent=line.name+" · "+line.quantity+" "+line.unit+" · "+money(line.unitPrice)+" each";const p=document.createElement("b");p.textContent=money(line.lineTotal);r.append(n,p);table.append(r);});root.append(table);
  [["Subtotal",item.subtotal],["Discount",item.discount],["Final total",item.finalTotal]].forEach(([label,value])=>{const r=document.createElement("p");r.className="receipt-total";r.textContent=label+": "+money(value);root.append(r);});
  const print=document.createElement("button");print.type="button";print.className="secondary print-hide";print.textContent="Print receipt";print.onclick=printReceipt;root.append(print);
  root.scrollIntoView({behavior:"smooth",block:"start"});
