@@ -10,3 +10,29 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 
 /* Password visibility eye controls */
 .password-field{position:relative;display:flex;align-items:center;width:100%}.password-field input{padding-right:46px}.password-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:32px;height:32px;display:grid;place-items:center;border:0;border-radius:7px;background:transparent;color:#84928c;padding:5px}.password-toggle:hover{background:#edf3f0;color:var(--green)}.password-toggle svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.password-toggle.is-visible{color:var(--green2)}
+
+
+/* Refined authentication layout */
+.login-wrap{min-height:100svh;padding:28px 18px;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 12% 8%,rgba(190,220,205,.72),transparent 38%),radial-gradient(ellipse at 90% 90%,rgba(211,231,220,.68),transparent 35%),linear-gradient(145deg,#f8fbf9 0%,#edf4ef 100%)}
+.auth-card{width:min(430px,100%);padding:clamp(25px,5vw,40px);border:1px solid rgba(218,231,223,.95);border-radius:24px;box-shadow:0 24px 75px rgba(19,58,45,.12);background:rgba(255,255,255,.97)}
+.auth-card .brand-mark{width:52px;height:52px;border-radius:16px;box-shadow:inset 0 0 0 1px rgba(23,77,67,.04)}
+.auth-card .eyebrow{margin:22px 0 7px;font-size:10px;letter-spacing:1.8px}
+.auth-card h1{font-size:clamp(25px,5vw,29px);line-height:1.2;letter-spacing:-.7px}
+.auth-card #authSubtitle{margin:9px 0 24px;font-size:13px}
+.auth-card form{width:100%}
+.auth-card form>label{display:grid;gap:8px;margin:17px 0 0;color:#334740;font-size:12px;font-weight:700}
+.auth-card input{height:46px;padding:0 13px;border:1px solid #dfe8e3;border-radius:11px;background:#fbfdfb;font-size:13px;transition:border-color .18s,box-shadow .18s,background .18s}
+.auth-card input::placeholder{color:#a1ada7}
+.auth-card input:focus{border-color:#6ba28d;background:#fff;box-shadow:0 0 0 3px rgba(89,153,125,.13);outline:none}
+.auth-card .password-field{height:46px}
+.auth-card .password-field input{height:46px;padding-right:48px}
+.auth-card .password-toggle{right:7px;width:34px;height:34px;color:#7e9188}
+.auth-card .password-toggle svg{width:19px;height:19px}
+.auth-card .auth-forgot{margin-top:11px}
+.auth-card .text-button{font-size:12px;font-weight:700;color:#236b5b}
+.auth-card .primary.full{height:47px;margin-top:18px;border-radius:11px;font-size:13px;letter-spacing:.1px;box-shadow:0 7px 16px rgba(23,77,67,.14);transition:transform .15s,background .15s,box-shadow .15s}
+.auth-card .primary.full:hover{transform:translateY(-1px);box-shadow:0 9px 20px rgba(23,77,67,.18)}
+.auth-card .primary.full:disabled{opacity:.7;cursor:wait;transform:none}
+.auth-card .message{min-height:16px;margin:10px 0 0;font-size:12px;line-height:1.45}
+.auth-card .auth-switch{margin:18px 0 0;padding-top:16px;border-top:1px solid #edf1ee;font-size:12px}
+@media(max-width:480px){.login-wrap{padding:18px 14px}.auth-card{padding:27px 22px;border-radius:20px}.auth-card #authSubtitle{margin-bottom:20px}}
