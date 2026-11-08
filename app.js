@@ -84,6 +84,52 @@ function renderBill(){
  };
 }
 
+async function saveMedicine(e){
+ e.preventDefault();
+ const id=$("medicineId").value||crypto.randomUUID(),old=medicines.find(m=>m.id===id);
+ let image=old?.image||"";
+ const file=$("medicineImage").files[0];
+ if(file){
+  if(file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");return;}
+  image=await new Promise((resolve,reject)=>{
+   const reader=new FileReader();
+   reader.onload=()=>{const img=new Image();img.onload=()=>{const canvas=document.createElement("canvas"),scale=Math.min(1,900/Math.max(img.width,img.height));canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL("image/jpeg",0.65));};img.onerror=reject;img.src=reader.result;};
+   reader.onerror=reject;reader.readAsDataURL(file);
+  });
+ }
+ const tags=[...new Set($("medicineTags").value.split(",").map(x=>x.trim()).filter(Boolean))];
+ const m={id,name:$("medicineName").value.trim(),tags,roundingAllowed:$("roundingAllowed").checked,unit:$("medicineUnit").value,price:Math.max(0,Number($("medicinePrice").value)||0),image,updatedAt:Date.now()};
+ if(!m.name)return;
+ medicines=medicines.filter(x=>x.id!==id).concat(m);
+ await localDB.put("medicines",m);await queueChange(id,"set",m);
+ renderMedicines($("medicineSearch").value);
+ $("medicineForm").reset();$("medicineId").value="";
+ $("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";
+ show("medicineForm",false);if(navigator.onLine)syncOnline();
+}
+function editMedicine(m){
+ m=normalizeMedicine(m);$("medicineId").value=m.id;$("medicineName").value=m.name;
+ $("medicineUnit").value=m.unit;$("medicinePrice").value=m.price;
+ $("medicineTags").value=(m.tags||[]).join(", ");$("roundingAllowed").checked=m.roundingAllowed===true;
+ $("medicineForm").querySelector('button[type="submit"]').textContent="Update medicine";
+ show("medicineForm",true);window.scrollTo({top:0,behavior:"smooth"});
+}
+async function removeMedicine(id){
+ if(!confirm("Delete this medicine?"))return;
+ medicines=medicines.filter(m=>m.id!==id);await localDB.delete("medicines",id);
+ await queueChange(id,"delete");renderMedicines($("medicineSearch").value);
+ if(navigator.onLine)syncOnline();
+}
+function startCloudSync(user){
+ if(unsubscribe)unsubscribe();
+ unsubscribe=onSnapshot(collection(db,"users",user.uid,"medicines"),async snap=>{
+  const pending=await localDB.getAll("pending"),pendingIds=new Set(pending.map(x=>x.id));
+  const cloud=snap.docs.map(d=>normalizeMedicine(d.data())).filter(m=>!pendingIds.has(m.id));
+  const local=await localDB.getAll("medicines"),merged=new Map(cloud.map(m=>[m.id,m]));
+  for(const m of local)if(pendingIds.has(m.id))merged.set(m.id,m);
+  medicines=[...merged.values()];await cacheAll();renderMedicines($("medicineSearch").value);await flushQueue();
+ },err=>console.warn("Firestore sync",err));
+}
 document.querySelectorAll(".password-toggle").forEach(button=>{button.onclick=()=>{const input=$(button.dataset.passwordTarget);if(!input)return;const reveal=input.type==="password";input.type=reveal?"text":"password";button.setAttribute("aria-label",reveal?"Hide password":"Show password");button.title=reveal?"Hide password":"Show password";button.classList.toggle("is-visible",reveal);};});
 function setAuthLoading(buttonId,loading,label){const button=$(buttonId);if(!button)return;button.disabled=loading;button.classList.toggle("is-loading",loading);button.querySelector(".button-label").textContent=loading?label:button.dataset.defaultLabel;button.querySelector(".button-spinner").classList.toggle("hidden",!loading);}
 $("loginSubmit").dataset.defaultLabel="Sign in";$("registerSubmit").dataset.defaultLabel="Create account";
