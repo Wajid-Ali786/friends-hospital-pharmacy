@@ -21,8 +21,52 @@ async function loadLocal(){medicines=await localDB.getAll("medicines");renderMed
 const UNIT_OPTIONS=["Tablet","Strip","Capsule","Injection","Bottle","Packet","Box","Piece","Pack"];
 function normalizeMedicine(m){if(!m.unit||!Number.isFinite(Number(m.price))){const unit=Number(m.stripPrice)>0&&!Number(m.tabletPrice)?"Strip":"Tablet";m={...m,unit:m.unit||unit,price:Number(m.price??(unit==="Strip"?m.stripPrice:m.tabletPrice))||0};}return {...m,tags:Array.isArray(m.tags)?m.tags:[],roundingAllowed:m.roundingAllowed===true};}
 function medicineMatches(m,q){const term=q.trim().toLowerCase();return !term||[m.name,...(m.tags||[])].some(v=>String(v).toLowerCase().includes(term));}
-function renderMedicines(filter=""){const list=$("medicineList");list.innerHTML="";medicines=medicines.map(normalizeMedicine);const filtered=medicines.filter(m=>medicineMatches(m,filter));filtered.forEach(m=>{const el=document.createElement("article");el.className="medicine-card";el.innerHTML=(m.image?'<img alt="">':'<div class="medicine-placeholder">✚</div>')+'<div class="medicine-info"><b></b><small></small></div><div class="card-actions"><button class="tiny edit">Edit</button><button class="tiny danger del">×</button></div>';if(m.image)el.querySelector("img").src=m.image;el.querySelector(".edit").type="button";el.querySelector(".del").type="button";el.querySelector(".medicine-info b").textContent=m.name;el.querySelector(".medicine-info small").textContent=m.unit+" · "+money(m.price);el.querySelector(".edit").onclick=()=>editMedicine(m);el.querySelector(".del").onclick=()=>removeMedicine(m.id);list.append(el);});if(!filtered.length){const empty=document.createElement("p");empty.className="muted";empty.textContent=filter?"No medicines match this search.":"No medicines added yet. Select Add medicine to get started.";list.append(empty);}}
-function renderBillSearch(q=""){const list=$("billMedicineList");list.innerHTML="";const matches=medicines.filter(m=>medicineMatches(m,q));matches.forEach(m=>{const row=document.createElement("div");row.className="bill-option";const info=document.createElement("div");info.innerHTML="<b></b><small></small>";info.querySelector("b").textContent=m.name;info.querySelector("small").textContent=(m.unit||"Tablet")+" · "+money(m.price??m.tabletPrice);const btn=document.createElement("button");btn.className="tiny add-bill";btn.textContent="＋ Add";btn.onclick=()=>{const existing=bill.find(x=>x.id===m.id);if(existing)existing.qty+=1;else bill.push({id:m.id,name:m.name,unit:m.unit||"Tablet",qty:1,price:Number(m.price??m.tabletPrice)||0,roundingAllowed:m.roundingAllowed===true,adjustment:0});renderBill();};row.append(info,btn);list.append(row);});if(q.trim()&&!matches.length)list.innerHTML='<p class="muted">No medicine found. Add it from the Medicines page.</p>';}
+function openAddMedicine(prefill=""){
+ $("medicineForm").reset();$("medicineId").value="";$("medicineName").value=prefill;
+ $("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";
+ show("medicineForm",true);$("medicineName").focus();
+}
+function emptyAction(message,label,prefill=""){
+ const box=document.createElement("div");box.className="empty-state";
+ const title=document.createElement("b");title.textContent=message;
+ const action=document.createElement("button");action.type="button";action.className="primary";action.textContent=label;
+ action.onclick=()=>openAddMedicine(prefill);box.append(title,action);return box;
+}
+function renderMedicines(filter=""){
+ const list=$("medicineList");list.innerHTML="";medicines=medicines.map(normalizeMedicine);
+ const filtered=medicines.filter(m=>medicineMatches(m,filter));
+ filtered.forEach(m=>{
+  const el=document.createElement("article");el.className="medicine-card";
+  el.innerHTML=(m.image?'<img alt="">':'<div class="medicine-placeholder">✚</div>')+'<div class="medicine-info"><b></b><small></small></div><div class="card-actions"><button class="tiny edit">Edit</button><button class="tiny danger del">×</button></div>';
+  if(m.image)el.querySelector("img").src=m.image;
+  el.querySelector(".edit").type="button";el.querySelector(".del").type="button";
+  el.querySelector(".medicine-info b").textContent=m.name;
+  el.querySelector(".medicine-info small").textContent=m.unit+" · "+money(m.price);
+  el.querySelector(".edit").onclick=()=>editMedicine(m);el.querySelector(".del").onclick=()=>removeMedicine(m.id);
+  list.append(el);
+ });
+ if(!filtered.length)list.append(emptyAction(filter?"Medicine not found":"No medicines added yet",filter?"＋ Add new medicine":"＋ Add medicine",filter.trim()));
+}
+function renderBillSearch(q=""){
+ const list=$("billMedicineList");list.innerHTML="";
+ const matches=medicines.filter(m=>medicineMatches(m,q));
+ matches.forEach(m=>{
+  const row=document.createElement("div");row.className="bill-option";
+  const info=document.createElement("div");info.innerHTML="<b></b><small></small>";
+  info.querySelector("b").textContent=m.name;
+  info.querySelector("small").textContent=(m.unit||"Tablet")+" · "+money(m.price??m.tabletPrice);
+  const btn=document.createElement("button");btn.type="button";btn.className="tiny add-bill";btn.textContent="＋ Add";
+  btn.onclick=()=>{const existing=bill.find(x=>x.id===m.id);if(existing)existing.qty+=1;else bill.push({id:m.id,name:m.name,unit:m.unit||"Tablet",qty:1,price:Number(m.price??m.tabletPrice)||0,roundingAllowed:m.roundingAllowed===true,adjustment:0});renderBill();};
+  row.append(info,btn);list.append(row);
+ });
+ if(!matches.length){
+  const box=document.createElement("div");box.className="empty-state";
+  const title=document.createElement("b");title.textContent=medicines.length?(q.trim()?"Medicine not found":"No medicines available"):"Add your medicines before creating a bill.";
+  const action=document.createElement("button");action.type="button";action.className="primary";action.textContent="＋ Add medicine";
+  action.onclick=()=>{document.querySelector('.nav[data-page="medicines"]').click();openAddMedicine(q.trim());};
+  box.append(title,action);list.append(box);
+ }
+}
 function roundingSuggestion(total){
  if(total<=0)return 0;
  if(total>4000){
@@ -141,7 +185,7 @@ $("registerForm").onsubmit=async e=>{e.preventDefault();const name=$("registerNa
 $("forgotPassword").onclick=async()=>{const email=$("email").value.trim();if(!email){$("loginMessage").textContent="Enter your email address first, then select Forgot password.";return;}try{await sendPasswordResetEmail(auth,email);$("loginMessage").textContent="Password reset email sent. Check your inbox.";}catch(err){$("loginMessage").textContent=authError(err);}};
 onAuthStateChanged(auth,async user=>{currentUser=user;if(user){await openUserDB(user.uid);show("loginView",false);show("appView",true);$("userLabel").textContent=user.displayName||user.email;$("settingsEmail").textContent=user.email;try{await loadLocal();}catch(err){console.warn("Local medicine cache unavailable:",err);renderMedicines();}if(unsubscribe)unsubscribe();if(navigator.onLine){startCloudSync(user);flushQueue().catch(err=>console.warn("Pending sync will retry:",err));}status();}else{show("loginView",true);show("appView",false);if(unsubscribe){unsubscribe();unsubscribe=null;}if(historyUnsubscribe){historyUnsubscribe();historyUnsubscribe=null;}if(localDB){localDB.close();localDB=null;}medicines=[];savedBills=[];}});
 $("logoutBtn").onclick=()=>signOut(auth);
-$("addMedicineBtn").onclick=()=>{ $("medicineForm").reset();$("medicineId").value="";$("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";show("medicineForm",true);};
+$("addMedicineBtn").onclick=()=>openAddMedicine();
 $("cancelMedicine").onclick=()=>{show("medicineForm",false);$("medicineForm").reset();$("medicineId").value="";$("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";};$("medicineForm").onsubmit=saveMedicine;
 $("medicineSearch").oninput=e=>renderMedicines(e.target.value);$("billSearch").oninput=e=>renderBillSearch(e.target.value);$("discount").oninput=renderBill;
 document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-page]").forEach(x=>x.classList.toggle("active",x===b));["medicines","billing","history","settings"].forEach(p=>show(p+"Page",p===b.dataset.page));$("pageTitle").textContent=b.textContent.trim().replace(/^\S+\s*/,"");if(b.dataset.page==="billing")renderBillSearch();if(b.dataset.page==="history")startBillingHistory();});
