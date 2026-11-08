@@ -63,10 +63,10 @@ async function saveCurrentBill({printAfter=false}={}){
   const snapshot=await buildBillSnapshot();if(!snapshot)return;
   await setDoc(doc(db,"users",currentUser.uid,"bills",snapshot.id),{...snapshot,createdAt:serverTimestamp()});
   $("billMessage").textContent="Bill saved successfully. Receipt: "+snapshot.receiptNumber;
-  savedBills=[snapshot,...savedBills];renderBillingHistory();
-  if(printAfter){showReceipt(snapshot,true);window.print();}
+   savedBills=[snapshot,...savedBills.filter(x=>x.id!==snapshot.id)];renderBillingHistory();
   bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";roundingApplied=0;roundingBase=null;renderBill();
- }catch(err){console.error("Save bill failed:",err);$("billMessage").textContent="Could not save bill. Check internet and Firebase permissions, then try again.";}
+  if(printAfter){showReceipt(snapshot);printReceipt();}
+ }catch(err){console.error("Save bill failed:",err);const reason=err?.code==="permission-denied"?"Firebase permission denied. Firestore rules must allow your signed-in account to create/read bills.":err?.code==="unavailable"?"Firebase is unavailable. Check your internet connection and retry.":(err?.message||"Unknown error");$("billMessage").textContent="Bill was not saved: "+reason;}
  finally{$("saveBill").disabled=false;$("printBill").disabled=false;}
 }
 $("saveBill").onclick=()=>saveCurrentBill();
@@ -92,10 +92,11 @@ function renderBillingHistory(){
   info.querySelector("b").textContent=item.patientName||"Patient";
   info.querySelector("small").textContent=(item.receiptNumber||"Receipt")+" · "+new Date(item.createdAtMillis||Date.now()).toLocaleString();
   const total=document.createElement("strong");total.textContent=money(item.finalTotal);
-  row.append(info,total);row.onclick=()=>showReceipt(item,false);root.append(row);
+  row.append(info,total);row.onclick=()=>showReceipt(item);root.append(row);
  });
 }
-function showReceipt(item,forPrint=false){
+function printReceipt(){const root=$("receiptDetail");if(!root)return;root.classList.add("printing-receipt");window.print();root.classList.remove("printing-receipt");}
+function showReceipt(item){
  const root=$("receiptDetail");if(!root)return;
  root.classList.remove("hidden");root.innerHTML="";
  const title=document.createElement("h3");title.textContent="Receipt "+item.receiptNumber;root.append(title);
@@ -103,7 +104,7 @@ function showReceipt(item,forPrint=false){
  const table=document.createElement("div");table.className="receipt-lines";
  (item.items||[]).forEach(line=>{const r=document.createElement("div");r.className="receipt-line";const n=document.createElement("span");n.textContent=line.name+" · "+line.quantity+" "+line.unit;const p=document.createElement("b");p.textContent=money(line.lineTotal);r.append(n,p);table.append(r);});root.append(table);
  [["Subtotal",item.subtotal],["Discount",item.discount],["Final total",item.finalTotal]].forEach(([label,value])=>{const r=document.createElement("p");r.className="receipt-total";r.textContent=label+": "+money(value);root.append(r);});
- const print=document.createElement("button");print.type="button";print.className="secondary print-hide";print.textContent="Print receipt";print.onclick=()=>{root.classList.add("printing-receipt");window.print();root.classList.remove("printing-receipt");};root.append(print);
+ const print=document.createElement("button");print.type="button";print.className="secondary print-hide";print.textContent="Print receipt";print.onclick=printReceipt;root.append(print);
  root.scrollIntoView({behavior:"smooth",block:"start"});
 }
 $("historySearch").oninput=renderBillingHistory;
