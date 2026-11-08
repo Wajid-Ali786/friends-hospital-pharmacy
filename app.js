@@ -6,7 +6,7 @@ import { openDB } from "https://cdn.jsdelivr.net/npm/idb@8/+esm";
 
 const firebaseConfig={apiKey:"AIzaSyDu3T1shPJoooMNwhpPijfJsPaNc2JWWhM",authDomain:"friends-hospital-pharmacy.firebaseapp.com",projectId:"friends-hospital-pharmacy",storageBucket:"friends-hospital-pharmacy.firebasestorage.app",messagingSenderId:"277311494482",appId:"1:277311494482:web:84f77fd637d765c08f028b",measurementId:"G-RWBC6T7X1T"};
 const app=initializeApp(firebaseConfig),auth=initializeAuth(app,{persistence:[indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence]}),db=getFirestore(app),storage=getStorage(app);
-let localDB=null;async function openUserDB(uid){if(localDB)localDB.close();localDB=await openDB("friends-pharmacy-"+uid,1,{upgrade(d){if(!d.objectStoreNames.contains("medicines"))d.createObjectStore("medicines",{keyPath:"id"});if(!d.objectStoreNames.contains("pending"))d.createObjectStore("pending",{keyPath:"id"});}});}
+let localDB=null;async function openUserDB(uid){if(localDB)localDB.close();localDB=await openDB("friends-pharmacy-"+uid,2,{upgrade(d){if(!d.objectStoreNames.contains("medicines"))d.createObjectStore("medicines",{keyPath:"id"});if(!d.objectStoreNames.contains("pending"))d.createObjectStore("pending",{keyPath:"id"});if(!d.objectStoreNames.contains("meta"))d.createObjectStore("meta");}});}
 let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[];
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2);
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
@@ -17,6 +17,12 @@ async function queueChange(id,type,data=null){await localDB.put("pending",{id,ty
 async function flushQueue(){if(!currentUser||!navigator.onLine)return;const jobs=await localDB.getAll("pending");for(const job of jobs){try{const target=doc(db,"users",currentUser.uid,"medicines",job.id);if(job.type==="delete")await deleteDoc(target);else await setDoc(target,job.data);await localDB.delete("pending",job.id);}catch(err){console.warn("Sync will retry:",err);break;}}}
 async function syncOnline(){if(!currentUser||!navigator.onLine)return;await flushQueue();if(!unsubscribe)startCloudSync(currentUser);}
 window.addEventListener("online",()=>{status();syncOnline();});
+async function nextBillNumber(){
+ const current=Number(await localDB.get("meta","billCounter"))||0;
+ const next=current+1;
+ await localDB.put("meta",next,"billCounter");
+ return "B-"+String(next).padStart(6,"0");
+}
 async function loadLocal(){medicines=await localDB.getAll("medicines");renderMedicines();}
 const UNIT_OPTIONS=["Tablet","Strip","Capsule","Injection","Bottle","Packet","Box","Piece","Pack"];
 function normalizeMedicine(m){if(!m.unit||!Number.isFinite(Number(m.price))){const unit=Number(m.stripPrice)>0&&!Number(m.tabletPrice)?"Strip":"Tablet";m={...m,unit:m.unit||unit,price:Number(m.price??(unit==="Strip"?m.stripPrice:m.tabletPrice))||0};}return {...m,tags:Array.isArray(m.tags)?m.tags:[],roundingAllowed:m.roundingAllowed===true};}
@@ -114,16 +120,19 @@ function renderBill(){
  const base=Math.max(0,sub-discount);
  if(roundingBase!==base){roundingBase=base;roundingApplied=0;bill.forEach(item=>item.adjustment=0);}
  const currentAdjustment=bill.reduce((sum,item)=>sum+(item.adjustment||0),0);
- const suggestion=currentAdjustment>0||!bill.some(item=>item.roundingAllowed)?0:roundingSuggestion(base);
+ const eligible=bill.some(item=>item.roundingAllowed);
+ const suggestion=currentAdjustment>0?0:roundingSuggestion(base);
  $("subtotal").textContent=money(sub);
  $("roundingAmount").textContent=suggestion>0?"+ "+money(suggestion):"";
  $("roundingApply").classList.toggle("hidden",!(suggestion>0));
+ $("roundingApply").disabled=!(suggestion>0&&eligible);
  $("roundingApply").textContent="Apply";
- $("roundingAppliedLabel").textContent=currentAdjustment>0?"Medicine prices adjusted: + "+money(currentAdjustment):"";
+ $("roundingAppliedLabel").textContent=currentAdjustment>0?"Medicine prices adjusted: + "+money(currentAdjustment):(suggestion>0&&!eligible?"Rounding available — select at least one medicine marked “Rounding Allowed” to apply.":"");
  $("finalTotal").textContent=money(base+currentAdjustment);
  $("roundingApply").onclick=()=>{
+  if(!eligible){$("billMessage").textContent="Select a medicine marked Rounding Allowed first.";return;}
   const adjusted=applyMedicineRounding(suggestion);
-  if(!adjusted){$("billMessage").textContent="Rounding is not possible: add eligible medicines or use a target reachable in Rs. 10 increments.";return;}
+  if(!adjusted){$("billMessage").textContent="This amount cannot be distributed in Rs. 10/Rs. 20 increments across eligible medicines.";return;}
   bill=adjusted;roundingApplied=suggestion;$("billMessage").textContent="Eligible medicine prices adjusted for this bill only.";renderBill();
  };
 }
@@ -199,7 +208,7 @@ async function buildBillSnapshot(){
  const finalTotal=Math.max(0,subtotal-discount)+rounding;
  const adjustedItems=bill.map(item=>{const lineTotal=Number(item.qty)*Number(item.price)+(item.adjustment||0);return {medicineId:item.id,name:item.name,unit:item.unit,quantity:Number(item.qty),unitPrice:lineTotal/Number(item.qty),originalUnitPrice:Number(item.price),lineAdjustment:item.adjustment||0,lineTotal};});
  const now=new Date();
- const receiptNumber="FHP-"+now.toISOString().replace(/[-:T.Z]/g,"").slice(0,14)+"-"+crypto.randomUUID().slice(0,6).toUpperCase();
+ const receiptNumber=await nextBillNumber();
  return {id:crypto.randomUUID(),receiptNumber,patientName,tokenNumber:$("tokenNumber").value.trim()||"",items:adjustedItems,subtotal,discount,rounding,finalTotal,createdAt:now.toISOString(),createdAtMillis:now.getTime(),ownerUid:currentUser.uid};
 }
 async function saveCurrentBill({printAfter=false}={}){
@@ -258,19 +267,20 @@ function showReceipt(item){
  brand.append(brandName,brandSub);root.append(brand);
  const title=document.createElement("h3");title.textContent=item.receiptNumber;root.append(title);
  const meta=document.createElement("div");meta.className="receipt-meta";
- const patient=document.createElement("span");patient.textContent="Patient: "+(item.patientName||"—");
+ const patient=document.createElement("strong");patient.className="receipt-patient";patient.textContent="PATIENT: "+(item.patientName||"—");
  const details=document.createElement("span");details.textContent=(item.tokenNumber?"Token: "+item.tokenNumber+" · ":"")+new Date(item.createdAtMillis||Date.now()).toLocaleString();
  meta.append(patient,details);root.append(meta);
  const table=document.createElement("div");table.className="receipt-lines";
  const head=document.createElement("div");head.className="receipt-line receipt-head";
- ["Medicine","Qty","Amount"].forEach(label=>{const cell=document.createElement("span");cell.textContent=label;head.append(cell);});
+ ["#","Medicine","Qty","Amount"].forEach(label=>{const cell=document.createElement("span");cell.textContent=label;head.append(cell);});
  table.append(head);
- (item.items||[]).forEach(line=>{
+ (item.items||[]).forEach((line,index)=>{
   const row=document.createElement("div");row.className="receipt-line";
+  const serial=document.createElement("span");serial.className="receipt-serial";serial.textContent=String(index+1);
   const name=document.createElement("span");name.className="receipt-medicine";name.textContent=line.name;
   const qty=document.createElement("span");qty.className="receipt-qty";qty.textContent=String(line.quantity)+" "+line.unit;
   const amount=document.createElement("b");amount.className="receipt-amount";amount.textContent=Number(line.lineTotal||0).toFixed(2);
-  row.append(name,qty,amount);table.append(row);
+  row.append(serial,name,qty,amount);table.append(row);
  });root.append(table);
  const summary=document.createElement("div");summary.className="receipt-summary";
  const addTotal=(label,value,kind="")=>{const row=document.createElement("div");row.className="receipt-summary-row"+(kind?" "+kind:"");const l=document.createElement("span");l.textContent=label;const v=document.createElement("b");v.textContent=Number(value||0).toFixed(2);row.append(l,v);summary.append(row);};
