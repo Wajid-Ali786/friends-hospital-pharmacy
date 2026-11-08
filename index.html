@@ -2,13 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#102b27"><title>Friends Hospital Pharmacy</title>
-  <link rel="manifest" href="./manifest.webmanifest"><link rel="stylesheet" href="./style.css">
+  <meta name="theme-color" content="#102b27">
+  <meta name="description" content="Friends Hospital Pharmacy billing and medicine management">
+  <title>Friends Hospital Pharmacy</title>
+  <link rel="icon" type="image/png" sizes="512x512" href="./assets/icons/favicon.png">
+  <link rel="apple-touch-icon" href="./assets/icons/app-icon.png">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./style.css">
 </head>
 <body>
   <div id="loginView" class="login-wrap">
     <div class="login-card auth-card">
-      <div class="brand-mark">✚</div><p class="eyebrow">FRIENDS HOSPITAL</p><h1 id="authHeading">Pharmacy Store</h1><p id="authSubtitle" class="muted">Sign in to continue</p>
+      <img class="brand-mark logo-image" src="./assets/icons/app-icon.png" alt="Friends Hospital Pharmacy logo"><p class="eyebrow">FRIENDS HOSPITAL</p><h1 id="authHeading">Pharmacy Store</h1><p id="authSubtitle" class="muted">Sign in to continue</p>
       <form id="loginForm">
         <label>Email<input id="email" type="email" autocomplete="username" required placeholder="name@example.com"></label>
         <label>Password<div class="password-field"><input id="password" type="password" autocomplete="current-password" required placeholder="Your password"><button class="password-toggle" type="button" data-password-target="password" aria-label="Show password" title="Show password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></label>
@@ -19,7 +24,7 @@
       <form id="registerForm" class="hidden">
         <label>Full name<input id="registerName" type="text" autocomplete="name" required placeholder="Your name"></label>
         <label>Email<input id="registerEmail" type="email" autocomplete="email" required placeholder="name@example.com"></label>
-        <label>Password<div class="password-field"><input id="registerPassword" type="password" autocomplete="new-password" minlength="6" required placeholder="At least 6 characters"><button class="password-toggle" type="button" data-password-target="registerPassword" aria-label="Show password" title="Show password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></label>
+        <label>Password<div class="password-field"><input id="registerPassword" type="password" autocomplete="new-password" minlength="6" required placeholder="At least 6 characters"><button class="password-toggle" type="button" data-password-target="registerPassword" aria-label="Show password" title="Show password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7S16.4 19 12 19 2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></label>
         <label>Confirm password<div class="password-field"><input id="confirmPassword" type="password" autocomplete="new-password" minlength="6" required placeholder="Enter password again"><button class="password-toggle" type="button" data-password-target="confirmPassword" aria-label="Show password" title="Show password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></label>
         <button id="registerSubmit" class="primary full auth-submit" type="submit"><span class="button-label">Create account</span><span class="button-spinner hidden" aria-hidden="true"></span></button><p id="registerMessage" class="message"></p>
         <p class="auth-switch">Already registered? <button id="showLogin" class="text-button" type="button">Sign in</button></p>
@@ -27,7 +32,7 @@
     </div>
   </div>
   <div id="appView" class="app hidden">
-    <aside class="sidebar"><div class="brand"><span class="brand-mark small">✚</span><div><b>Friends Hospital</b><small>Pharmacy Store</small></div></div>
+    <aside class="sidebar"><div class="brand"><img class="brand-mark small logo-image" src="./assets/icons/app-icon.png" alt=""><div><b>Friends Hospital</b><small>Pharmacy Store</small></div></div>
       <button class="nav active" data-page="medicines">▦ &nbsp; Medicines</button><button class="nav" data-page="billing">▤ &nbsp; Billing</button><button class="nav" data-page="settings">⚙ &nbsp; Settings</button>
       <div class="side-bottom"><span id="connection" class="connection">● Connecting…</span><button id="logoutBtn" class="nav">↪ &nbsp; Logout</button></div>
     </aside>
