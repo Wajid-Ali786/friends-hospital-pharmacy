@@ -95,3 +95,7 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 .settings-panel .small-text{margin:14px 0 0}
 @media(max-width:560px){.bill-actions{flex-direction:row;gap:10px}.bill-actions button{flex:1;padding:11px 8px;font-size:12px}.settings-panel .data-actions{display:grid;grid-template-columns:1fr;gap:10px}.settings-panel .data-actions>*{width:100%}}
 @media print{.receipt-detail.printing-receipt{display:block!important}}
+
+
+/* Sidebar pharmacy logo corner radius requested */
+.sidebar .brand-mark.logo-image.small{border-radius:10px}
