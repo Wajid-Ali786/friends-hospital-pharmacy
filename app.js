@@ -7,7 +7,7 @@ import { openDB } from "https://cdn.jsdelivr.net/npm/idb@8/+esm";
 const firebaseConfig={apiKey:"AIzaSyDu3T1shPJoooMNwhpPijfJsPaNc2JWWhM",authDomain:"friends-hospital-pharmacy.firebaseapp.com",projectId:"friends-hospital-pharmacy",storageBucket:"friends-hospital-pharmacy.firebasestorage.app",messagingSenderId:"277311494482",appId:"1:277311494482:web:84f77fd637d765c08f028b",measurementId:"G-RWBC6T7X1T"};
 const app=initializeApp(firebaseConfig),auth=initializeAuth(app,{persistence:[indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence]}),db=getFirestore(app),storage=getStorage(app);
 const localDB=await openDB("friends-pharmacy",2,{upgrade(d){if(!d.objectStoreNames.contains("medicines"))d.createObjectStore("medicines",{keyPath:"id"});if(!d.objectStoreNames.contains("pending"))d.createObjectStore("pending",{keyPath:"id"});}});
-let medicines=[],bill=[],unsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null;
+let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[];
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2);
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
 function status(){ $("connection").textContent=navigator.onLine?"● Online / Firebase sync":"● Offline / Local mode"; }
@@ -38,13 +38,75 @@ $("showRegister").onclick=()=>{show("loginForm",false);show("registerForm",true)
 $("showLogin").onclick=()=>{show("registerForm",false);show("loginForm",true);$("authHeading").textContent="Friends Hospital Pharmacy";$("authSubtitle").textContent="Sign in to continue";$("loginMessage").textContent="";$("registerMessage").textContent="";};
 $("registerForm").onsubmit=async e=>{e.preventDefault();const name=$("registerName").value.trim(),email=$("registerEmail").value.trim(),password=$("registerPassword").value,confirm=$("confirmPassword").value;if(password.length<6){$("registerMessage").textContent="Password must be at least 6 characters.";return;}if(password!==confirm){$("registerMessage").textContent="Passwords do not match.";return;}$("registerMessage").textContent="";setAuthLoading("registerSubmit",true,"Creating account…");try{const credential=await createUserWithEmailAndPassword(auth,email,password);if(name)await updateProfile(credential.user,{displayName:name});$("registerMessage").textContent="Account created successfully.";}catch(err){$("registerMessage").textContent=authError(err);}finally{setAuthLoading("registerSubmit",false);}};
 $("forgotPassword").onclick=async()=>{const email=$("email").value.trim();if(!email){$("loginMessage").textContent="Enter your email address first, then select Forgot password.";return;}try{await sendPasswordResetEmail(auth,email);$("loginMessage").textContent="Password reset email sent. Check your inbox.";}catch(err){$("loginMessage").textContent=authError(err);}};
-onAuthStateChanged(auth,async user=>{currentUser=user;if(user){show("loginView",false);show("appView",true);$("userLabel").textContent=user.displayName||user.email;$("settingsEmail").textContent=user.email;try{await loadLocal();}catch(err){console.warn("Local medicine cache unavailable:",err);renderMedicines();}if(unsubscribe)unsubscribe();if(navigator.onLine){startCloudSync(user);flushQueue().catch(err=>console.warn("Pending sync will retry:",err));}status();}else{show("loginView",true);show("appView",false);if(unsubscribe){unsubscribe();unsubscribe=null;}}});
+onAuthStateChanged(auth,async user=>{currentUser=user;if(user){show("loginView",false);show("appView",true);$("userLabel").textContent=user.displayName||user.email;$("settingsEmail").textContent=user.email;try{await loadLocal();}catch(err){console.warn("Local medicine cache unavailable:",err);renderMedicines();}if(unsubscribe)unsubscribe();if(navigator.onLine){startCloudSync(user);flushQueue().catch(err=>console.warn("Pending sync will retry:",err));}status();}else{show("loginView",true);show("appView",false);if(unsubscribe){unsubscribe();unsubscribe=null;}if(historyUnsubscribe){historyUnsubscribe();historyUnsubscribe=null;}}});
 $("logoutBtn").onclick=()=>signOut(auth);
 $("addMedicineBtn").onclick=()=>{ $("medicineForm").reset();$("medicineId").value="";$("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";show("medicineForm",true);};
 $("cancelMedicine").onclick=()=>{show("medicineForm",false);$("medicineForm").reset();$("medicineId").value="";$("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";};$("medicineForm").onsubmit=saveMedicine;
 $("medicineSearch").oninput=e=>renderMedicines(e.target.value);$("billSearch").oninput=e=>renderBillSearch(e.target.value);$("discount").oninput=renderBill;
-document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-page]").forEach(x=>x.classList.toggle("active",x===b));["medicines","billing","settings"].forEach(p=>show(p+"Page",p===b.dataset.page));$("pageTitle").textContent=b.textContent.trim().replace(/^\S+\s*/,"");if(b.dataset.page==="billing")renderBillSearch();});
-$("printBill").onclick=()=>window.print();
+document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-page]").forEach(x=>x.classList.toggle("active",x===b));["medicines","billing","history","settings"].forEach(p=>show(p+"Page",p===b.dataset.page));$("pageTitle").textContent=b.textContent.trim().replace(/^\S+\s*/,"");if(b.dataset.page==="billing")renderBillSearch();if(b.dataset.page==="history")startBillingHistory();});
+async function buildBillSnapshot(){
+ const patientName=$("patientName").value.trim();
+ if(!patientName){$("billMessage").textContent="Please enter the patient name."; $("patientName").focus();return null;}
+ if(!bill.length){$("billMessage").textContent="Add at least one medicine before saving.";return null;}
+ const subtotal=bill.reduce((sum,item)=>sum+Number(item.qty)*Number(item.price),0);
+ const discount=Math.min(subtotal,Math.max(0,Number($("discount").value)||0));
+ const rounding=Number(roundingApplied)||0;
+ const finalTotal=Math.max(0,subtotal-discount)+rounding;
+ const now=new Date();
+ const receiptNumber="FHP-"+now.toISOString().replace(/[-:T.Z]/g,"").slice(0,14)+"-"+crypto.randomUUID().slice(0,6).toUpperCase();
+ return {id:crypto.randomUUID(),receiptNumber,patientName,tokenNumber:$("tokenNumber").value.trim()||"",items:bill.map(item=>({medicineId:item.id,name:item.name,unit:item.unit,quantity:Number(item.qty),unitPrice:Number(item.price),lineTotal:Number(item.qty)*Number(item.price)})),subtotal,discount,rounding,finalTotal,createdAt:now.toISOString(),createdAtMillis:now.getTime(),ownerUid:currentUser.uid};
+}
+async function saveCurrentBill({printAfter=false}={}){
+ if(!currentUser){$("billMessage").textContent="Please sign in again.";return;}
+ $("saveBill").disabled=true;$("printBill").disabled=true;$("billMessage").textContent="Saving bill…";
+ try{
+  const snapshot=await buildBillSnapshot();if(!snapshot)return;
+  await setDoc(doc(db,"users",currentUser.uid,"bills",snapshot.id),{...snapshot,createdAt:serverTimestamp()});
+  $("billMessage").textContent="Bill saved successfully. Receipt: "+snapshot.receiptNumber;
+  savedBills=[snapshot,...savedBills];renderBillingHistory();
+  if(printAfter){showReceipt(snapshot,true);window.print();}
+  bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";roundingApplied=0;roundingBase=null;renderBill();
+ }catch(err){console.error("Save bill failed:",err);$("billMessage").textContent="Could not save bill. Check internet and Firebase permissions, then try again.";}
+ finally{$("saveBill").disabled=false;$("printBill").disabled=false;}
+}
+$("saveBill").onclick=()=>saveCurrentBill();
+$("printBill").onclick=()=>saveCurrentBill({printAfter:true});
+function startBillingHistory(){
+ if(!currentUser)return;
+ if(historyUnsubscribe)historyUnsubscribe();
+ $("billingHistoryList").innerHTML='<p class="muted">Loading billing history…</p>';
+ historyUnsubscribe=onSnapshot(collection(db,"users",currentUser.uid,"bills"),snap=>{
+  savedBills=snap.docs.map(d=>d.data()).sort((x,y)=>(y.createdAtMillis||0)-(x.createdAtMillis||0));
+  renderBillingHistory();
+ },err=>{$("billingHistoryList").innerHTML='<p class="message">Could not load billing history. Check Firestore permissions.</p>';console.warn("Billing history:",err);});
+}
+function renderBillingHistory(){
+ const root=$("billingHistoryList");if(!root)return;
+ const q=($("historySearch")?.value||"").trim().toLowerCase();
+ const rows=savedBills.filter(x=>(x.receiptNumber||"").toLowerCase().includes(q)||(x.patientName||"").toLowerCase().includes(q));
+ root.innerHTML="";
+ if(!rows.length){root.innerHTML='<p class="muted">No saved bills found.</p>';return;}
+ rows.forEach(item=>{
+  const row=document.createElement("button");row.type="button";row.className="history-row";
+  const info=document.createElement("span");info.innerHTML="<b></b><small></small>";
+  info.querySelector("b").textContent=item.patientName||"Patient";
+  info.querySelector("small").textContent=(item.receiptNumber||"Receipt")+" · "+new Date(item.createdAtMillis||Date.now()).toLocaleString();
+  const total=document.createElement("strong");total.textContent=money(item.finalTotal);
+  row.append(info,total);row.onclick=()=>showReceipt(item,false);root.append(row);
+ });
+}
+function showReceipt(item,forPrint=false){
+ const root=$("receiptDetail");if(!root)return;
+ root.classList.remove("hidden");root.innerHTML="";
+ const title=document.createElement("h3");title.textContent="Receipt "+item.receiptNumber;root.append(title);
+ const meta=document.createElement("p");meta.className="muted";meta.textContent="Patient: "+item.patientName+(item.tokenNumber?" · Token: "+item.tokenNumber:"")+" · "+new Date(item.createdAtMillis||Date.now()).toLocaleString();root.append(meta);
+ const table=document.createElement("div");table.className="receipt-lines";
+ (item.items||[]).forEach(line=>{const r=document.createElement("div");r.className="receipt-line";const n=document.createElement("span");n.textContent=line.name+" · "+line.quantity+" "+line.unit;const p=document.createElement("b");p.textContent=money(line.lineTotal);r.append(n,p);table.append(r);});root.append(table);
+ [["Subtotal",item.subtotal],["Discount",item.discount],["Final total",item.finalTotal]].forEach(([label,value])=>{const r=document.createElement("p");r.className="receipt-total";r.textContent=label+": "+money(value);root.append(r);});
+ const print=document.createElement("button");print.type="button";print.className="secondary print-hide";print.textContent="Print receipt";print.onclick=()=>{root.classList.add("printing-receipt");window.print();root.classList.remove("printing-receipt");};root.append(print);
+ root.scrollIntoView({behavior:"smooth",block:"start"});
+}
+$("historySearch").oninput=renderBillingHistory;
 $("saveName").onclick=async()=>{if(!currentUser)return;await updateProfile(currentUser,{displayName:$("displayName").value.trim()});$("userLabel").textContent=$("displayName").value.trim()||currentUser.email;};
 $("exportData").onclick=()=>{const blob=new Blob([JSON.stringify({version:1,exportedAt:new Date().toISOString(),medicines},null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="friends-pharmacy-backup.json";a.click();URL.revokeObjectURL(a.href);};
 
