@@ -219,8 +219,8 @@ async function saveMedicine(e){
  const id=$("medicineId").value||crypto.randomUUID(),old=medicines.find(m=>m.id===id);
  let image=old?.image||"";
  const file=$("medicineImage").files[0];
- if(file){
-  if(file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");return;}
+ if(file||medicineImageRotation!==0||medicineImageCrop){
+  if(file&&file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");return;}
   image=await new Promise((resolve,reject)=>{
    const source=medicineImageDraft||"";const img=new Image();img.onload=()=>{let sw=img.width,sh=img.height,sx=0,sy=0;if(medicineImageCrop){const side=Math.min(sw,sh);sx=(sw-side)/2;sy=(sh-side)/2;sw=sh=side;}const rotated=medicineImageRotation%180!==0,scale=Math.min(1,900/Math.max(sw,sh)),w=Math.round(sw*scale),h=Math.round(sh*scale);const canvas=document.createElement("canvas");canvas.width=rotated?h:w;canvas.height=rotated?w:h;const ctx=canvas.getContext("2d");ctx.translate(canvas.width/2,canvas.height/2);ctx.rotate(medicineImageRotation*Math.PI/180);ctx.drawImage(img,sx,sy,sw,sh,-w/2,-h/2,w,h);resolve(canvas.toDataURL("image/jpeg",0.75));};img.onerror=reject;img.src=medicineImageDraft;});
  }
