@@ -39,9 +39,9 @@ function confirmAction(title,message,confirmLabel="Delete"){
   openAppModal(box,title,"Please confirm this action.","confirm");
  });
 }
-$("appModalClose").onclick=()=>{if(modalKind==="edit")cancelBillEdit();else closeAppModal();};
-$("appModal").addEventListener("click",e=>{if(e.target===$("appModal")){if(modalKind==="edit")cancelBillEdit();else closeAppModal();}});
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("appModal").classList.contains("hidden")){if(modalKind==="edit")cancelBillEdit();else closeAppModal();}});
+$("appModalClose").onclick=()=>{if(modalKind==="edit")cancelBillEdit();else if(modalKind==="medicine")closeMedicineModal();else closeAppModal();};
+$("appModal").addEventListener("click",e=>{if(e.target===$("appModal")){if(modalKind==="edit")cancelBillEdit();else if(modalKind==="medicine")closeMedicineModal();else closeAppModal();}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("appModal").classList.contains("hidden")){if(modalKind==="edit")cancelBillEdit();else if(modalKind==="medicine")closeMedicineModal();else closeAppModal();}});
 function status(){ $("connection").textContent=navigator.onLine?"● Online / Firebase sync":"● Offline / Local mode"; }
 window.addEventListener("online",status);window.addEventListener("offline",status);status();
 async function cacheAll(){const tx=localDB.transaction("medicines","readwrite");await tx.store.clear();for(const m of medicines)await tx.store.put(m);await tx.done;}
@@ -74,7 +74,13 @@ function medicineMatches(m,q){const term=q.trim().toLowerCase();return !term||[m
 function openAddMedicine(prefill=""){
  $("medicineForm").reset();$("medicineId").value="";$("medicineName").value=prefill;
  $("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";
- show("medicineForm",true);$("medicineName").focus();
+ show("medicineForm",true);openAppModal($("medicineForm"),"Add Medicine","Enter medicine details and optionally upload an image.","medicine");
+ $("medicineName").focus();
+}
+function closeMedicineModal(){
+ $("medicineForm").reset();$("medicineId").value="";
+ $("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";
+ closeAppModal();show("medicineForm",false);
 }
 function emptyAction(message,label,prefill=""){
  const box=document.createElement("div");box.className="empty-state";
@@ -193,14 +199,14 @@ async function saveMedicine(e){
  renderMedicines($("medicineSearch").value);
  $("medicineForm").reset();$("medicineId").value="";
  $("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";
- show("medicineForm",false);if(navigator.onLine)syncOnline();
+ closeAppModal();show("medicineForm",false);if(navigator.onLine)syncOnline();
 }
 function editMedicine(m){
  m=normalizeMedicine(m);$("medicineId").value=m.id;$("medicineName").value=m.name;
  $("medicineUnit").value=m.unit;$("medicinePrice").value=m.price;
  $("medicineTags").value=(m.tags||[]).join(", ");$("roundingAllowed").checked=m.roundingAllowed===true;
  $("medicineForm").querySelector('button[type="submit"]').textContent="Update medicine";
- show("medicineForm",true);window.scrollTo({top:0,behavior:"smooth"});
+ show("medicineForm",true);openAppModal($("medicineForm"),"Edit Medicine","Update medicine details or replace its uploaded image.","medicine");
 }
 async function removeMedicine(id){
  if(!await confirmAction("Delete medicine","Are you sure you want to delete this medicine?","Delete medicine"))return;
@@ -230,7 +236,7 @@ $("forgotPassword").onclick=async()=>{const email=$("email").value.trim();if(!em
 onAuthStateChanged(auth,async user=>{currentUser=user;if(user){await openUserDB(user.uid);show("loginView",false);show("appView",true);$("userLabel").textContent=user.displayName||user.email;$("settingsEmail").textContent=user.email;try{await loadLocal();savedBills=await localDB.getAll("bills");}catch(err){console.warn("Local cache unavailable:",err);renderMedicines();}if(unsubscribe)unsubscribe();if(navigator.onLine){startCloudSync(user);flushQueue().catch(err=>console.warn("Pending sync will retry:",err));}status();}else{show("loginView",true);show("appView",false);if(unsubscribe){unsubscribe();unsubscribe=null;}if(historyUnsubscribe){historyUnsubscribe();historyUnsubscribe=null;}if(localDB){localDB.close();localDB=null;}medicines=[];savedBills=[];}});
 $("logoutBtn").onclick=()=>signOut(auth);
 $("addMedicineBtn").onclick=()=>openAddMedicine();
-$("cancelMedicine").onclick=()=>{show("medicineForm",false);$("medicineForm").reset();$("medicineId").value="";$("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";};$("medicineForm").onsubmit=saveMedicine;
+$("cancelMedicine").onclick=closeMedicineModal;$("medicineForm").onsubmit=saveMedicine;
 $("medicineSearch").oninput=e=>renderMedicines(e.target.value);$("billSearch").oninput=e=>renderBillSearch(e.target.value);$("discount").oninput=renderBill;
 document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-page]").forEach(x=>x.classList.toggle("active",x===b));["medicines","billing","history","settings"].forEach(p=>show(p+"Page",p===b.dataset.page));$("pageTitle").textContent=b.textContent.trim().replace(/^\S+\s*/,"");if(b.dataset.page==="billing")renderBillSearch();if(b.dataset.page==="history")startBillingHistory();});
 async function buildBillSnapshot(){
