@@ -364,9 +364,15 @@ function printReceipt(){
  const root=$("receiptDetail");if(!root)return;
  root.classList.add("printing-receipt");
  const history=$("historyPage");history.classList.remove("hidden");
+ let cleaned=false;
+ const cleanup=()=>{
+  if(cleaned)return;cleaned=true;
+  root.classList.remove("printing-receipt");
+  if(!document.querySelector(".nav[data-page='history'].active"))history.classList.add("hidden");
+  window.removeEventListener("afterprint",cleanup);
+ };
+ window.addEventListener("afterprint",cleanup,{once:true});
  window.print();
- root.classList.remove("printing-receipt");
- if(!document.querySelector(".nav[data-page='history'].active"))history.classList.add("hidden");
 }
 function showReceipt(item){
  const root=$("receiptDetail");if(!root)return;
