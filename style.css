@@ -305,3 +305,15 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 .medicine-editor-overlay{position:fixed;inset:0;z-index:1400;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(8,22,17,.68);backdrop-filter:blur(5px)}
 .medicine-editor-overlay>.medicine-editor{width:min(560px,100%);max-height:94vh;overflow:auto;padding:20px;border:1px solid #e4ebe6;border-radius:18px;background:#fff;box-shadow:0 24px 80px rgba(0,0,0,.3)}
 @media(max-width:560px){.medicine-editor-overlay{padding:10px}.medicine-editor-overlay>.medicine-editor{padding:14px;border-radius:14px}}
+
+
+/* Mobile page scrolling safeguard */
+@media(max-width:760px){
+ html,body{height:auto;min-height:100%;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch}
+ body:not(.modal-open){overflow-y:auto}
+ #appView.app{min-height:100vh;min-height:100dvh;height:auto;overflow:visible;grid-template-rows:auto 1fr}
+ #appView .main{min-height:0;height:auto;overflow:visible;align-self:stretch}
+ #appView .page{min-height:0;overflow:visible;touch-action:pan-y}
+ #appView .sidebar{touch-action:pan-x;overscroll-behavior-x:contain}
+}
+.modal-open{overflow:hidden!important}
