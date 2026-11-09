@@ -71,9 +71,10 @@ async function loadLocal(){medicines=await localDB.getAll("medicines");renderMed
 const UNIT_OPTIONS=["Tablet","Strip","Capsule","Injection","Bottle","Packet","Box","Piece","Pack"];
 function normalizeMedicine(m){if(!m.unit||!Number.isFinite(Number(m.price))){const unit=Number(m.stripPrice)>0&&!Number(m.tabletPrice)?"Strip":"Tablet";m={...m,unit:m.unit||unit,price:Number(m.price??(unit==="Strip"?m.stripPrice:m.tabletPrice))||0};}return {...m,tags:Array.isArray(m.tags)?m.tags:[],roundingAllowed:m.roundingAllowed===true};}
 function medicineMatches(m,q){const term=q.trim().toLowerCase();return !term||[m.name,...(m.tags||[])].some(v=>String(v).toLowerCase().includes(term));}
-function resetMedicineImagePreview(){medicineImageDraft="";medicineImageRotation=0;medicineImageCrop=false;const preview=$("medicineImagePreview");if(preview){preview.innerHTML="";preview.classList.add("hidden");}}
-function showMedicineImagePreview(src){medicineImageDraft=src;const preview=$("medicineImagePreview");if(!preview)return;preview.innerHTML="";const img=document.createElement("img");img.src=src;img.alt="Medicine image preview";img.style.transform="rotate("+medicineImageRotation+"deg)";preview.append(img);const controls=document.createElement("div");controls.className="image-edit-controls";const rotate=document.createElement("button");rotate.type="button";rotate.className="tiny";rotate.textContent="↻ Rotate";rotate.onclick=()=>{medicineImageRotation=(medicineImageRotation+90)%360;img.style.transform="rotate("+medicineImageRotation+"deg)";};const crop=document.createElement("button");crop.type="button";crop.className="tiny";crop.textContent=medicineImageCrop?"Undo crop":"Crop square";crop.onclick=()=>{medicineImageCrop=!medicineImageCrop;crop.textContent=medicineImageCrop?"Undo crop":"Crop square";img.classList.toggle("crop-preview",medicineImageCrop);};controls.append(rotate,crop);preview.append(controls);preview.classList.remove("hidden");}
+function resetMedicineImagePreview(){medicineImageDraft="";medicineImageRotation=0;medicineImageCrop=false;const preview=$("medicineImagePreview");if(preview){preview.innerHTML="";preview.classList.add("hidden");}const picker=$("medicineImagePicker");if(picker)picker.classList.remove("has-image");const change=$("changeMedicineImage");if(change)change.textContent="＋ Upload image";}
+function showMedicineImagePreview(src){medicineImageDraft=src;const preview=$("medicineImagePreview");if(!preview)return;preview.innerHTML="";const img=document.createElement("img");img.src=src;img.alt="Selected medicine image";preview.append(img);preview.classList.remove("hidden");$("medicineImagePicker")?.classList.add("has-image");const change=$("changeMedicineImage");if(change)change.textContent="Change image";}
 function openAddMedicine(prefill=""){
+ if(!medicineModeEnabled||!currentUser||!localDB)return;
  $("medicineForm").reset();$("medicineId").value="";$("medicineName").value=prefill;resetMedicineImagePreview();
  $("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";
  show("medicineForm",true);openAppModal($("medicineForm"),"Add Medicine","Enter medicine details and optionally upload an image.","medicine");
@@ -85,10 +86,8 @@ function closeMedicineModal(){
  closeAppModal();show("medicineForm",false);
 }
 function emptyAction(message,label,prefill=""){
- const box=document.createElement("div");box.className="empty-state";
- const title=document.createElement("b");title.textContent=message;
- const action=document.createElement("button");action.type="button";action.className="primary";action.textContent=label;
- action.onclick=()=>openAddMedicine(prefill);box.append(title,action);return box;
+ const box=document.createElement("div");box.className="empty-state";const title=document.createElement("b");title.textContent=message;box.append(title);
+ if(medicineModeEnabled){const action=document.createElement("button");action.type="button";action.className="primary";action.textContent=label;action.onclick=()=>openAddMedicine(prefill);box.append(action);}return box;
 }
 function renderMedicines(filter=""){
  const list=$("medicineList");list.innerHTML="";medicines=medicines.map(normalizeMedicine);$("addMedicineBtn").disabled=!medicineModeEnabled;$("addMedicineBtn").classList.toggle("hidden",!medicineModeEnabled);
@@ -97,13 +96,12 @@ function renderMedicines(filter=""){
   const el=document.createElement("article");el.className="medicine-card";
   el.innerHTML=(m.image?'<img alt="">':'<div class="medicine-placeholder">✚</div>')+'<div class="medicine-info"><b></b><small></small></div>'+(medicineModeEnabled?'<div class="card-actions"><button class="tiny edit">Edit</button><button class="tiny danger del">×</button></div>':'');
   if(m.image)el.querySelector("img").src=m.image;
-  el.querySelector(".edit").type="button";el.querySelector(".del").type="button";
   el.querySelector(".medicine-info b").textContent=m.name;
   el.querySelector(".medicine-info small").textContent=m.unit+" · "+money(m.price);
-  el.querySelector(".edit").onclick=()=>editMedicine(m);el.querySelector(".del").onclick=()=>removeMedicine(m.id);
+  if(medicineModeEnabled){const edit=el.querySelector(".edit"),del=el.querySelector(".del");edit.type="button";del.type="button";edit.onclick=()=>editMedicine(m);del.onclick=()=>removeMedicine(m.id);}
   list.append(el);
  });
- if(!filtered.length)list.append(emptyAction(filter?"Medicine not found":"No medicines added yet",filter?"＋ Add new medicine":"＋ Add medicine",filter.trim()));
+ if(!filtered.length){if(medicineModeEnabled)list.append(emptyAction(filter?"Medicine not found":"No medicines added yet",filter?"＋ Add new medicine":"＋ Add medicine",filter.trim()));else{const empty=document.createElement("div");empty.className="empty-state";const title=document.createElement("b");title.textContent=filter?"Medicine not found":"No medicines available";empty.append(title);list.append(empty);}}
 }
 function askBillQuantity(m){
  const box=document.createElement("div");box.className="quantity-prompt";
@@ -215,14 +213,14 @@ function renderBill(){
 }
 
 async function saveMedicine(e){
- e.preventDefault();
+ e.preventDefault();if(!medicineModeEnabled||!currentUser||!localDB)return;
  const id=$("medicineId").value||crypto.randomUUID(),old=medicines.find(m=>m.id===id);
  let image=old?.image||"";
  const file=$("medicineImage").files[0];
- if(file||medicineImageRotation!==0||medicineImageCrop){
+ if(file){
   if(file&&file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");return;}
   image=await new Promise((resolve,reject)=>{
-   const source=medicineImageDraft||"";const img=new Image();img.onload=()=>{let sw=img.width,sh=img.height,sx=0,sy=0;if(medicineImageCrop){const side=Math.min(sw,sh);sx=(sw-side)/2;sy=(sh-side)/2;sw=sh=side;}const rotated=medicineImageRotation%180!==0,scale=Math.min(1,900/Math.max(sw,sh)),w=Math.round(sw*scale),h=Math.round(sh*scale);const canvas=document.createElement("canvas");canvas.width=rotated?h:w;canvas.height=rotated?w:h;const ctx=canvas.getContext("2d");ctx.translate(canvas.width/2,canvas.height/2);ctx.rotate(medicineImageRotation*Math.PI/180);ctx.drawImage(img,sx,sy,sw,sh,-w/2,-h/2,w,h);resolve(canvas.toDataURL("image/jpeg",0.75));};img.onerror=reject;img.src=medicineImageDraft;});
+   const source=medicineImageDraft||"";const img=new Image();img.onload=()=>{const scale=Math.min(1,1200/Math.max(img.width,img.height)),w=Math.round(img.width*scale),h=Math.round(img.height*scale);const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;const ctx=canvas.getContext("2d");ctx.drawImage(img,0,0,w,h);resolve(canvas.toDataURL("image/jpeg",0.82));};img.onerror=reject;img.src=source;});
  }
  const tags=[...new Set($("medicineTags").value.split(",").map(x=>x.trim()).filter(Boolean))];
  const m={id,name:$("medicineName").value.trim(),tags,roundingAllowed:$("roundingAllowed").checked,unit:$("medicineUnit").value,price:Math.max(0,Number($("medicinePrice").value)||0),image,updatedAt:Date.now()};
@@ -230,7 +228,7 @@ async function saveMedicine(e){
  medicines=medicines.filter(x=>x.id!==id).concat(m);
  await localDB.put("medicines",m);await queueChange(id,"set",m);
  renderMedicines($("medicineSearch").value);
- $("medicineForm").reset();$("medicineId").value="";
+ $("medicineForm").reset();$("medicineId").value="";resetMedicineImagePreview();
  $("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";
  closeAppModal();show("medicineForm",false);if(navigator.onLine)syncOnline();
 }
@@ -335,10 +333,9 @@ function renderBillingHistory(){
   const section=document.createElement("section");section.className="history-date-group";
   const heading=document.createElement("div");heading.className="history-date-heading";const label=document.createElement("b");label.textContent=dateHeading(group.date);const count=document.createElement("small");count.textContent=group.items.length+" "+(group.items.length===1?"bill":"bills");heading.append(label,count);section.append(heading);
   group.items.forEach(item=>{
-   const row=document.createElement("div");row.className="history-row";const info=document.createElement("span");info.className="history-info";info.innerHTML="<b></b><small></small>";info.querySelector("b").textContent=item.patientName||"Patient";info.querySelector("small").textContent=(item.receiptNumber||"Receipt")+" · "+billDate(item).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-   const total=document.createElement("strong");total.textContent=money(item.finalTotal);const actions=document.createElement("span");actions.className="history-actions";const view=document.createElement("button");view.type="button";view.className="tiny";view.textContent="View";view.onclick=()=>showReceipt(item);actions.append(view);
-   if(billEditAllowed(item)){const edit=document.createElement("button");edit.type="button";edit.className="tiny";edit.textContent="Edit";edit.onclick=()=>beginBillEdit(item);const del=document.createElement("button");del.type="button";del.className="tiny danger";del.textContent="Delete";del.onclick=()=>deleteSavedBill(item);actions.append(edit,del);}else{const lock=document.createElement("small");lock.className="bill-locked";lock.textContent="Locked";actions.append(lock);}
-   row.append(info,total,actions);section.append(row);
+   const row=document.createElement("div");row.className="history-row";row.tabIndex=0;row.setAttribute("role","button");row.setAttribute("aria-label","Open receipt "+(item.receiptNumber||""));const info=document.createElement("span");info.className="history-info";info.innerHTML="<b></b><small></small>";info.querySelector("b").textContent=item.patientName||"Patient";info.querySelector("small").textContent=(item.receiptNumber||"Receipt")+" · "+billDate(item).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+   const total=document.createElement("strong");total.textContent=money(item.finalTotal);row.append(info,total);row.onclick=()=>showReceipt(item);row.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();showReceipt(item);}};
+   if(billEditAllowed(item)){const actions=document.createElement("span");actions.className="history-actions";const edit=document.createElement("button");edit.type="button";edit.className="tiny";edit.textContent="Edit";edit.onclick=e=>{e.stopPropagation();beginBillEdit(item);};const del=document.createElement("button");del.type="button";del.className="tiny danger";del.textContent="Delete";del.onclick=e=>{e.stopPropagation();deleteSavedBill(item);};actions.append(edit,del);row.append(actions);}section.append(row);
   });root.append(section);
  }
 }
@@ -348,7 +345,7 @@ function beginBillEdit(item){
  editingBillId=item.id;editingBillCreatedAt=Number(item.createdAtMillis)||Date.now();
  $("patientName").value=item.patientName||"";$("tokenNumber").value=item.tokenNumber||"";$("discount").value=Number(item.discount)||0;
  bill=(item.items||[]).map(line=>({id:line.medicineId||crypto.randomUUID(),name:line.name,unit:line.unit||"Piece",qty:Number(line.quantity)||1,price:Number(line.originalUnitPrice??line.unitPrice)||0,roundingAllowed:line.roundingAllowed===true,adjustment:Number(line.lineAdjustment)||0}));
- $("saveBill").textContent="Update Bill";$("printBill").textContent="Update & Print";
+ $("saveBill").textContent="Update Bill";$("printBill").textContent="Update & Print";$("billMessage").textContent="";
  let cancel=$("cancelBillEdit");if(!cancel){cancel=document.createElement("button");cancel.id="cancelBillEdit";cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";$("billActions")?.append(cancel);if(!$("billActions"))$("saveBill").parentNode.append(cancel);}
  cancel.onclick=cancelBillEdit;
  renderBill();$("billMessage").textContent="Editing "+item.receiptNumber+" — only available during the first hour.";
@@ -432,8 +429,9 @@ $("statementBtn").onclick=openStatement;$("statementClose").onclick=closeStateme
 $("statementPrint").onclick=()=>{if(!$("statementPrintArea").children.length)generateStatement();if($("statementPrintArea").children.length){document.body.classList.add("printing-statement");window.print();document.body.classList.remove("printing-statement");}};
 $("statementModal").addEventListener("click",e=>{if(e.target===$("statementModal"))closeStatement();});
 
-$("medicineEditMode").onchange=async()=>{medicineModeEnabled=$("medicineEditMode").checked;await localDB.put("meta",medicineModeEnabled,"medicineModeEnabled");renderMedicines($("medicineSearch").value);};
-$("medicineImage").onchange=()=>{const file=$("medicineImage").files?.[0];if(!file){const existing=medicines.find(m=>m.id===$("medicineId").value);if(existing?.image)showMedicineImagePreview(existing.image);else resetMedicineImagePreview();return;}if(!file.type.startsWith("image/")){resetMedicineImagePreview();return;}medicineImageRotation=0;medicineImageCrop=false;const reader=new FileReader();reader.onload=()=>showMedicineImagePreview(reader.result);reader.readAsDataURL(file);};
+$("medicineEditMode").onchange=async()=>{medicineModeEnabled=$("medicineEditMode").checked;await localDB.put("meta",medicineModeEnabled,"medicineModeEnabled");if(!medicineModeEnabled&&modalKind==="medicine")closeMedicineModal();renderMedicines($("medicineSearch").value);};
+$("changeMedicineImage").onclick=()=>{if(!medicineModeEnabled)return;$("medicineImage").click();};
+$("medicineImage").onchange=()=>{const file=$("medicineImage").files?.[0];if(!file){const existing=medicines.find(m=>m.id===$("medicineId").value);if(existing?.image)showMedicineImagePreview(existing.image);else resetMedicineImagePreview();return;}if(!file.type.startsWith("image/")){alert("Please select a valid image.");$("medicineImage").value="";return;}if(file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");$("medicineImage").value="";return;}const reader=new FileReader();reader.onload=()=>showMedicineImagePreview(reader.result);reader.readAsDataURL(file);};
 $("saveName").onclick=async()=>{if(!currentUser)return;await updateProfile(currentUser,{displayName:$("displayName").value.trim()});$("userLabel").textContent=$("displayName").value.trim()||currentUser.email;};
 $("exportData").onclick=async()=>{try{const [allMedicines,allBills]=await Promise.all([localDB.getAll("medicines"),localDB.getAll("bills")]);const blob=new Blob([JSON.stringify({version:2,exportedAt:new Date().toISOString(),medicines:allMedicines,bills:allBills},null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="friends-pharmacy-backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(err){alert("Backup export failed: "+err.message);}};
 
