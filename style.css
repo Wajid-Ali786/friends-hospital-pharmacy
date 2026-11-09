@@ -253,9 +253,8 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 @media print {
   @page { size: auto; margin: 0; }
   html, body {
-    width: 72mm !important;
     min-width: 0 !important;
-    max-width: 72mm !important;
+    max-width: none !important;
     height: auto !important;
     min-height: 0 !important;
     margin: 0 !important;
@@ -264,13 +263,40 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
     background: #fff !important;
   }
   body * { visibility: hidden !important; }
+  .app-modal:not(.hidden) {
+    display: block !important;
+    position: static !important;
+    width: 72mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  .app-modal-dialog, .app-modal-body {
+    display: block !important;
+    position: static !important;
+    width: 72mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  .app-modal-head { display: none !important; }
   .receipt-detail.printing-receipt,
   .receipt-detail.printing-receipt * { visibility: visible !important; }
   .receipt-detail.printing-receipt {
     display: block !important;
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
+    position: static !important;
     width: 72mm !important;
     min-width: 0 !important;
     max-width: 72mm !important;
@@ -284,33 +310,14 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
     transform: none !important;
     box-shadow: none !important;
     border: 0 !important;
-    break-after: auto !important;
-    page-break-after: auto !important;
   }
+  .receipt-detail.printing-receipt .print-hide { display: none !important; }
   .receipt-detail.printing-receipt * {
     max-height: none !important;
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
-  .app-modal, .app-modal-dialog, .app-modal-body {
-    position: static !important;
-    display: block !important;
-    width: auto !important;
-    max-width: none !important;
-    height: auto !important;
-    max-height: none !important;
-    min-height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: visible !important;
-    background: #fff !important;
-    border: 0 !important;
-    box-shadow: none !important;
-  }
-  .app-modal-head { display: none !important; }
 }
-
-
 /* Compact quantity modal in billing */
 .quantity-prompt{display:grid;gap:12px;max-width:300px;margin:0 auto;padding:4px 0}
 .quantity-prompt label{font-size:13px;font-weight:700;color:var(--ink)}
