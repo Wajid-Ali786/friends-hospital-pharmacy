@@ -309,3 +309,11 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
   }
   .app-modal-head { display: none !important; }
 }
+
+
+/* Compact quantity modal in billing */
+.quantity-prompt{display:grid;gap:12px;max-width:300px;margin:0 auto;padding:4px 0}
+.quantity-prompt label{font-size:13px;font-weight:700;color:var(--ink)}
+.quantity-prompt-input{width:100%;height:44px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font-size:18px;font-weight:700;text-align:center;color:var(--ink);background:#fff}
+.quantity-prompt .modal-actions{margin-top:2px}
+.quantity-prompt .modal-actions button{min-height:40px}
