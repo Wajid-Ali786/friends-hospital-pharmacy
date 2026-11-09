@@ -125,11 +125,19 @@ function renderBillSearch(q=""){
 }
 function roundingSuggestion(total){
  if(!Number.isFinite(total)||total<=0)return 0;
- // Offer a practical next-Rs.10 adjustment; cap the suggestion to avoid large jumps.
- const target=Math.ceil((total-0.000001)/10)*10;
- const extra=Number((target-total).toFixed(2));
- const cap=total>4000?150:50;
- return extra>0.009&&extra<=cap?extra:0;
+ // Final policy: up to 1500 -> 50/100, up to 4000 -> 100,
+ // above 4000 -> next 500/1000 if within 150, otherwise next 100.
+ const amount=Math.round(total*100)/100;
+ const ceilMultiple=(value,step)=>Math.ceil((value-0.0000001)/step)*step;
+ let target;
+ if(amount<1500)target=ceilMultiple(amount,50);
+ else if(amount<=4000)target=ceilMultiple(amount,100);
+ else{
+  const next500=ceilMultiple(amount,500);
+  const difference=next500-amount;
+  target=difference>0&&difference<=150?next500:ceilMultiple(amount,100);
+ }
+ return Math.max(0,Number((target-amount).toFixed(2)));
 }
 function applyMedicineRounding(extra){
  let remaining=Math.round(extra*100),adjusted=bill.map(x=>({...x,adjustment:0}));
