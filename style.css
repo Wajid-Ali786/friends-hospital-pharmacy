@@ -219,81 +219,27 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 .quantity-prompt .modal-actions button{min-height:40px}
 
 
-/* Standard thermal receipt printing: print only the receipt, natural content height */
-@media print {
-  @page {
-    size: auto;
-    margin: 3mm;
-  }
 
-  html, body {
-    width: auto !important;
-    min-width: 0 !important;
-    height: auto !important;
-    min-height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #fff !important;
-  }
-
-  body > * { display: none !important; }
-  body > #appView {
-    display: block !important;
-    width: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  #appView > * { display: none !important; }
-  #appView > #appModal:not(.hidden) {
-    display: block !important;
-    position: static !important;
-    width: 72mm !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #fff !important;
-    border: 0 !important;
-    box-shadow: none !important;
-  }
-
-  #appModal .app-modal-dialog,
-  #appModal .app-modal-body {
-    display: block !important;
-    position: static !important;
-    width: 72mm !important;
-    height: auto !important;
-    max-height: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: visible !important;
-    background: #fff !important;
-    border: 0 !important;
-    box-shadow: none !important;
-  }
-
-  #appModal .app-modal-head { display: none !important; }
-
-  #receiptDetail {
-    display: block !important;
-    position: static !important;
-    width: 72mm !important;
-    max-width: 72mm !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: visible !important;
-    box-sizing: border-box !important;
-    color: #000 !important;
-    background: #fff !important;
-    border: 0 !important;
-    box-shadow: none !important;
-  }
-
-  #receiptDetail .print-hide { display: none !important; }
-  #receiptDetail * {
-    max-height: none !important;
-    box-shadow: none !important;
-  }
+/* Independent app scrolling: fixed sidebar, scrollable main content */
+@media (min-width: 761px) {
+  #appView.app { height: 100dvh; min-height: 0; overflow: hidden; }
+  #appView .sidebar { position: sticky; top: 0; height: 100dvh; min-height: 0; align-self: start; overflow-y: auto; }
+  #appView .main { height: 100dvh; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 }
+@media (max-width: 760px) {
+  #appView.app { height: 100dvh; min-height: 0; overflow: hidden; grid-template-rows: auto minmax(0, 1fr); }
+  #appView .sidebar { position: sticky; top: 0; z-index: 5; height: auto; max-height: 76px; overflow-x: auto; overflow-y: hidden; }
+  #appView .main { height: auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+}
+
+/* Medicine thumbnails in billing search results */
+.bill-option { justify-content: flex-start; }
+.bill-option .bill-medicine-image,
+.bill-option .bill-medicine-placeholder {
+  width: 44px; height: 44px; flex: 0 0 44px; object-fit: cover;
+  border-radius: 9px; background: #edf4f0; display: grid; place-items: center;
+  color: var(--green); font-size: 18px;
+}
+.bill-option .bill-medicine-info { min-width: 0; flex: 1; }
+.bill-option .bill-medicine-info b { display: block; overflow-wrap: anywhere; }
+.bill-option .bill-medicine-info small { display: block; }
