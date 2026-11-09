@@ -234,11 +234,26 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 
 /* Medicine thumbnails in billing search results */
 .bill-option { justify-content: flex-start; }
-.bill-option .bill-medicine-image,
+.bill-option .bill-medicine-image {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: block;
+  object-fit: contain;
+  border-radius: 9px;
+  background: transparent;
+}
 .bill-option .bill-medicine-placeholder {
-  width: 44px; height: 44px; flex: 0 0 44px; object-fit: cover;
-  border-radius: 9px; background: #edf4f0; display: grid; place-items: center;
-  color: var(--green); font-size: 18px;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  object-fit: contain;
+  border-radius: 9px;
+  background: #edf4f0;
+  color: var(--green);
+  font-size: 18px;
 }
 .bill-option .bill-medicine-info { min-width: 0; flex: 1; }
 .bill-option .bill-medicine-info b { display: block; overflow-wrap: anywhere; }
