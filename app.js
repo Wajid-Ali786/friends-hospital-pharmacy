@@ -10,6 +10,38 @@ let localDB=null;async function openUserDB(uid){if(localDB)localDB.close();local
 let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncNotice="";
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2);
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
+let modalNode=null,modalPlaceholder=null,modalKind="";
+function openAppModal(node,title,subtitle="",kind="content"){
+ if(!node)return;
+ if(modalNode)closeAppModal();
+ modalNode=node;modalKind=kind;modalPlaceholder=document.createComment("modal-origin");
+ node.parentNode.insertBefore(modalPlaceholder,node);
+ $("appModalTitle").textContent=title;$("appModalSubtitle").textContent=subtitle;
+ $("appModalBody").replaceChildren(node);$("appModal").classList.remove("hidden");
+ document.body.classList.add("modal-open");
+}
+function closeAppModal(){
+ if(modalNode&&modalPlaceholder?.parentNode){modalPlaceholder.parentNode.insertBefore(modalNode,modalPlaceholder);modalPlaceholder.remove();}
+ if(modalNode&&modalKind==="view")modalNode.classList.add("hidden");
+ $("appModal").classList.add("hidden");$("appModalBody").replaceChildren();
+ document.body.classList.remove("modal-open");modalNode=null;modalPlaceholder=null;modalKind="";
+}
+function confirmAction(title,message,confirmLabel="Delete"){
+ return new Promise(resolve=>{
+  const box=document.createElement("div");box.className="confirm-dialog-content";
+  const copy=document.createElement("p");copy.textContent=message;
+  const actions=document.createElement("div");actions.className="modal-actions";
+  const cancel=document.createElement("button");cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";
+  const yes=document.createElement("button");yes.type="button";yes.className="danger-button";yes.textContent=confirmLabel;
+  actions.append(cancel,yes);box.append(copy,actions);
+  const finish=value=>{closeAppModal();resolve(value);};
+  cancel.onclick=()=>finish(false);yes.onclick=()=>finish(true);
+  openAppModal(box,title,"Please confirm this action.","confirm");
+ });
+}
+$("appModalClose").onclick=()=>{if(modalKind==="edit")cancelBillEdit();else closeAppModal();};
+$("appModal").addEventListener("click",e=>{if(e.target===$("appModal")){if(modalKind==="edit")cancelBillEdit();else closeAppModal();}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("appModal").classList.contains("hidden")){if(modalKind==="edit")cancelBillEdit();else closeAppModal();}});
 function status(){ $("connection").textContent=navigator.onLine?"● Online / Firebase sync":"● Offline / Local mode"; }
 window.addEventListener("online",status);window.addEventListener("offline",status);status();
 async function cacheAll(){const tx=localDB.transaction("medicines","readwrite");await tx.store.clear();for(const m of medicines)await tx.store.put(m);await tx.done;}
@@ -171,7 +203,7 @@ function editMedicine(m){
  show("medicineForm",true);window.scrollTo({top:0,behavior:"smooth"});
 }
 async function removeMedicine(id){
- if(!confirm("Delete this medicine?"))return;
+ if(!await confirmAction("Delete medicine","Are you sure you want to delete this medicine?","Delete medicine"))return;
  medicines=medicines.filter(m=>m.id!==id);await localDB.delete("medicines",id);
  await queueChange(id,"delete");renderMedicines($("medicineSearch").value);
  if(navigator.onLine)syncOnline();
@@ -223,7 +255,7 @@ async function saveCurrentBill({printAfter=false}={}){
   if(editingBillId&&!billEditAllowed({createdAtMillis:editingBillCreatedAt}))throw new Error("The 1-hour edit period has expired.");
   await localDB.put("bills",snapshot);await queueChange(snapshot.id,"set",snapshot,"bills");
   savedBills=[snapshot,...savedBills.filter(x=>x.id!==snapshot.id)].sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();
-  const wasEditing=!!editingBillId;editingBillId=null;editingBillCreatedAt=0;$("saveBill").textContent="Save Bill";$("printBill").textContent="Save & Print";
+  const wasEditing=!!editingBillId;editingBillId=null;editingBillCreatedAt=0;$("saveBill").textContent="Save Bill";$("printBill").textContent="Save & Print";if(wasEditing){$("cancelBillEdit")?.remove();closeAppModal();}
   $("billMessage").textContent=(wasEditing?"Bill updated":"Bill saved")+(navigator.onLine?" locally; syncing…":" offline. It will sync when internet returns.")+" Receipt: "+snapshot.receiptNumber;
   if(navigator.onLine)flushQueue().then(()=>{$("billMessage").textContent="Bill saved and synced. Receipt: "+snapshot.receiptNumber;}).catch(console.warn);
   bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";roundingApplied=0;roundingBase=null;renderBill();
@@ -239,8 +271,8 @@ function startBillingHistory(){
  localDB.getAll("bills").then(items=>{savedBills=items.sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();}).catch(console.warn);
  if(!navigator.onLine){$("billingHistoryList").innerHTML='<p class="muted">Offline — showing locally saved bills.</p>';return;}
  historyUnsubscribe=onSnapshot(collection(db,"users",currentUser.uid,"bills"),async snap=>{
-  const pending=await localDB.getAll("pending"),pendingIds=new Set(pending.filter(x=>x.collectionName==="bills").map(x=>x.targetId));
-  const cloud=snap.docs.map(d=>d.data());
+  const pending=await localDB.getAll("pending"),billJobs=pending.filter(x=>x.collectionName==="bills"),pendingIds=new Set(billJobs.map(x=>x.targetId||x.id)),pendingDeletes=new Set(billJobs.filter(x=>x.type==="delete").map(x=>x.targetId||x.id));
+  const cloud=snap.docs.map(d=>d.data()).filter(x=>!pendingDeletes.has(x.id));
   for(const item of cloud)if(!pendingIds.has(item.id))await localDB.put("bills",item);
   const local=await localDB.getAll("bills"),merged=new Map(cloud.map(x=>[x.id,x]));
   for(const item of local)if(pendingIds.has(item.id))merged.set(item.id,item);
@@ -275,11 +307,20 @@ function beginBillEdit(item){
  editingBillId=item.id;editingBillCreatedAt=Number(item.createdAtMillis)||Date.now();
  $("patientName").value=item.patientName||"";$("tokenNumber").value=item.tokenNumber||"";$("discount").value=Number(item.discount)||0;
  bill=(item.items||[]).map(line=>({id:line.medicineId||crypto.randomUUID(),name:line.name,unit:line.unit||"Piece",qty:Number(line.quantity)||1,price:Number(line.originalUnitPrice??line.unitPrice)||0,roundingAllowed:line.roundingAllowed===true,adjustment:Number(line.lineAdjustment)||0}));
- $("saveBill").textContent="Update Bill";$("printBill").textContent="Update & Print";document.querySelector('.nav[data-page="billing"]').click();renderBill();$("billMessage").textContent="Editing "+item.receiptNumber+" — only available during the first hour.";
+ $("saveBill").textContent="Update Bill";$("printBill").textContent="Update & Print";
+ let cancel=$("cancelBillEdit");if(!cancel){cancel=document.createElement("button");cancel.id="cancelBillEdit";cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";$("billActions")?.append(cancel);if(!$("billActions"))$("saveBill").parentNode.append(cancel);}
+ cancel.onclick=cancelBillEdit;
+ renderBill();$("billMessage").textContent="Editing "+item.receiptNumber+" — only available during the first hour.";
+ openAppModal(document.querySelector(".bill-panel"),"Edit Bill", "Update the patient, items or discount.","edit");
+}
+function cancelBillEdit(){
+ editingBillId=null;editingBillCreatedAt=0;bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";
+ $("saveBill").textContent="Save Bill";$("printBill").textContent="Save & Print";$("billMessage").textContent="";
+ renderBill();closeAppModal();
 }
 async function deleteSavedBill(item){
  if(!billEditAllowed(item)){alert("This bill is locked after 1 hour.");return;}
- if(!confirm("Delete receipt "+item.receiptNumber+"? This cannot be undone."))return;
+ if(!await confirmAction("Delete bill","Delete receipt "+item.receiptNumber+"? This cannot be undone.","Delete bill"))return;
  try{await localDB.delete("bills",item.id);await queueChange(item.id,"delete",item,"bills");savedBills=savedBills.filter(x=>x.id!==item.id);renderBillingHistory();if(navigator.onLine)flushQueue().catch(console.warn);}
  catch(err){alert("Delete failed: "+err.message);}
 }
@@ -323,7 +364,7 @@ function showReceipt(item){
  root.append(summary);
  const footer=document.createElement("p");footer.className="receipt-thanks";footer.textContent="Thank you. Get well soon!";root.append(footer);
  const print=document.createElement("button");print.type="button";print.className="secondary print-hide";print.textContent="Print receipt";print.onclick=printReceipt;root.append(print);
- root.scrollIntoView({behavior:"smooth",block:"start"});
+ openAppModal(root,"Bill "+item.receiptNumber,"Receipt details and print options.","view");
 }
 $("historySearch").oninput=renderBillingHistory;
 function setStatementDates(){const now=new Date(),mode=$("statementPeriod").value;let from=new Date(now),to=new Date(now);if(mode==="week"){const day=(now.getDay()+6)%7;from.setDate(now.getDate()-day);from.setHours(0,0,0,0);to.setHours(23,59,59,999);}else if(mode==="month"){from=new Date(now.getFullYear(),now.getMonth(),1);to=new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59,999);}else if(mode==="lastMonth"){from=new Date(now.getFullYear(),now.getMonth()-1,1);to=new Date(now.getFullYear(),now.getMonth(),0,23,59,59,999);}else if(mode==="today"){from=new Date(now);from.setHours(0,0,0,0);to=new Date(now);to.setHours(23,59,59,999);} $("statementFrom").value=localDateKey(from);$("statementTo").value=localDateKey(to);$("statementCustomDates").classList.toggle("hidden",mode!=="custom");}
