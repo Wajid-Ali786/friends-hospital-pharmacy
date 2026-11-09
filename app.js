@@ -72,7 +72,38 @@ const UNIT_OPTIONS=["Tablet","Strip","Capsule","Injection","Bottle","Packet","Bo
 function normalizeMedicine(m){if(!m.unit||!Number.isFinite(Number(m.price))){const unit=Number(m.stripPrice)>0&&!Number(m.tabletPrice)?"Strip":"Tablet";m={...m,unit:m.unit||unit,price:Number(m.price??(unit==="Strip"?m.stripPrice:m.tabletPrice))||0};}return {...m,tags:Array.isArray(m.tags)?m.tags:[],roundingAllowed:m.roundingAllowed===true};}
 function medicineMatches(m,q){const term=q.trim().toLowerCase();return !term||[m.name,...(m.tags||[])].some(v=>String(v).toLowerCase().includes(term));}
 function resetMedicineImagePreview(){medicineImageDraft="";medicineImageRotation=0;medicineImageCrop=false;const preview=$("medicineImagePreview");if(preview){preview.innerHTML="";preview.classList.add("hidden");}const picker=$("medicineImagePicker");if(picker)picker.classList.remove("has-image");const change=$("changeMedicineImage");if(change)change.textContent="＋ Upload image";}
-function showMedicineImagePreview(src){medicineImageDraft=src;const preview=$("medicineImagePreview");if(!preview)return;preview.innerHTML="";const img=document.createElement("img");img.src=src;img.alt="Selected medicine image";preview.append(img);preview.classList.remove("hidden");$("medicineImagePicker")?.classList.add("has-image");const change=$("changeMedicineImage");if(change)change.textContent="Change image";}
+function showMedicineImagePreview(src){medicineImageDraft=src;const preview=$("medicineImagePreview");if(!preview)return;preview.innerHTML="";const img=document.createElement("img");img.src=src;img.alt="Selected medicine image";const edit=document.createElement("button");edit.type="button";edit.className="image-edit-open";edit.textContent="Edit image";edit.onclick=openMedicineImageEditor;preview.append(img,edit);preview.classList.remove("hidden");$("medicineImagePicker")?.classList.add("has-image");const change=$("changeMedicineImage");if(change)change.textContent="Change image";}
+function openMedicineImageEditor(){
+ if(!medicineModeEnabled||!medicineImageDraft)return;
+ const wrap=document.createElement("div");wrap.className="medicine-editor";
+ const preview=document.createElement("div");preview.className="medicine-editor-preview";
+ const img=document.createElement("img");img.src=medicineImageDraft;img.alt="Image editor preview";preview.append(img);
+ const controls=document.createElement("div");controls.className="medicine-editor-controls";
+ const left=document.createElement("button"),right=document.createElement("button"),crop=document.createElement("button");
+ [left,right,crop].forEach(b=>{b.type="button";b.className="secondary";});
+ left.textContent="↶ Rotate left";right.textContent="↷ Rotate right";crop.textContent="Square crop: OFF";
+ left.onclick=()=>{medicineImageRotation=(medicineImageRotation+270)%360;img.style.transform="rotate("+medicineImageRotation+"deg)";};
+ right.onclick=()=>{medicineImageRotation=(medicineImageRotation+90)%360;img.style.transform="rotate("+medicineImageRotation+"deg)";};
+ crop.onclick=()=>{medicineImageCrop=!medicineImageCrop;crop.textContent=medicineImageCrop?"Square crop: ON":"Square crop: OFF";preview.classList.toggle("square-crop",medicineImageCrop);};
+ controls.append(left,right,crop);
+ const note=document.createElement("p");note.className="muted small-text";note.textContent="Rotate the image and optionally crop it to a square before saving.";
+ const actions=document.createElement("div");actions.className="modal-actions";
+ const cancel=document.createElement("button"),apply=document.createElement("button");cancel.type=apply.type="button";cancel.className="secondary";apply.className="primary";cancel.textContent="Cancel";apply.textContent="Apply image";
+ cancel.onclick=()=>closeAppModal();
+ apply.onclick=()=>{
+  const source=new Image();source.onload=()=>{
+   const radians=medicineImageRotation*Math.PI/180,sw=source.width,sh=source.height;
+   const rw=Math.abs(Math.cos(radians))*sw+Math.abs(Math.sin(radians))*sh,rh=Math.abs(Math.sin(radians))*sw+Math.abs(Math.cos(radians))*sh;
+   const rotated=document.createElement("canvas");rotated.width=Math.ceil(rw);rotated.height=Math.ceil(rh);
+   const ctx=rotated.getContext("2d");ctx.translate(rotated.width/2,rotated.height/2);ctx.rotate(radians);ctx.drawImage(source,-sw/2,-sh/2);
+   let output=rotated;
+   if(medicineImageCrop){const side=Math.min(rotated.width,rotated.height),x=Math.floor((rotated.width-side)/2),y=Math.floor((rotated.height-side)/2),cropped=document.createElement("canvas");cropped.width=side;cropped.height=side;cropped.getContext("2d").drawImage(rotated,x,y,side,side,0,0,side,side);output=cropped;}
+   const scale=Math.min(1,1200/Math.max(output.width,output.height)),finalCanvas=document.createElement("canvas");finalCanvas.width=Math.max(1,Math.round(output.width*scale));finalCanvas.height=Math.max(1,Math.round(output.height*scale));finalCanvas.getContext("2d").drawImage(output,0,0,finalCanvas.width,finalCanvas.height);
+   showMedicineImagePreview(finalCanvas.toDataURL("image/jpeg",.86));$("medicineImage").value="";medicineImageRotation=0;medicineImageCrop=false;closeAppModal();
+  };source.onerror=()=>alert("Could not read this image.");source.src=medicineImageDraft;
+ };
+ actions.append(cancel,apply);wrap.append(preview,controls,note,actions);openAppModal(wrap,"Medicine Image Editor","Crop and rotate your medicine photo.","image-editor");
+}
 function openAddMedicine(prefill=""){
  if(!medicineModeEnabled||!currentUser||!localDB)return;
  $("medicineForm").reset();$("medicineId").value="";$("medicineName").value=prefill;resetMedicineImagePreview();
@@ -266,7 +297,7 @@ $("showRegister").onclick=()=>{show("loginForm",false);show("registerForm",true)
 $("showLogin").onclick=()=>{show("registerForm",false);show("loginForm",true);$("authHeading").textContent="Friends Hospital Pharmacy";$("authSubtitle").textContent="Sign in to continue";$("loginMessage").textContent="";$("registerMessage").textContent="";};
 $("registerForm").onsubmit=async e=>{e.preventDefault();const name=$("registerName").value.trim(),email=$("registerEmail").value.trim(),password=$("registerPassword").value,confirm=$("confirmPassword").value;if(password.length<6){$("registerMessage").textContent="Password must be at least 6 characters.";return;}if(password!==confirm){$("registerMessage").textContent="Passwords do not match.";return;}$("registerMessage").textContent="";setAuthLoading("registerSubmit",true,"Creating account…");try{const credential=await createUserWithEmailAndPassword(auth,email,password);if(name)await updateProfile(credential.user,{displayName:name});$("registerMessage").textContent="Account created successfully.";}catch(err){$("registerMessage").textContent=authError(err);}finally{setAuthLoading("registerSubmit",false);}};
 $("forgotPassword").onclick=async()=>{const email=$("email").value.trim();if(!email){$("loginMessage").textContent="Enter your email address first, then select Forgot password.";return;}try{await sendPasswordResetEmail(auth,email);$("loginMessage").textContent="Password reset email sent. Check your inbox.";}catch(err){$("loginMessage").textContent=authError(err);}};
-onAuthStateChanged(auth,async user=>{currentUser=user;if(user){await openUserDB(user.uid);medicineModeEnabled=(await localDB.get("meta","medicineModeEnabled"))!==false;const editToggle=$("medicineEditMode");if(editToggle)editToggle.checked=medicineModeEnabled;show("loginView",false);show("appView",true);$("userLabel").textContent=user.displayName||user.email;$("settingsEmail").textContent=user.email;try{await loadLocal();savedBills=await localDB.getAll("bills");}catch(err){console.warn("Local cache unavailable:",err);renderMedicines();}if(unsubscribe)unsubscribe();if(navigator.onLine){startCloudSync(user);flushQueue().catch(err=>console.warn("Pending sync will retry:",err));}status();}else{show("loginView",true);show("appView",false);if(unsubscribe){unsubscribe();unsubscribe=null;}if(historyUnsubscribe){historyUnsubscribe();historyUnsubscribe=null;}if(localDB){localDB.close();localDB=null;}medicines=[];savedBills=[];}});
+onAuthStateChanged(auth,async user=>{currentUser=user;if(user){await openUserDB(user.uid);const savedEditPassword=await localDB.get("meta","medicineEditPassword");medicineModeEnabled=!!savedEditPassword&&(await localDB.get("meta","medicineModeEnabled"))!==false;const editToggle=$("medicineEditMode");if(editToggle)editToggle.checked=medicineModeEnabled;show("loginView",false);show("appView",true);$("userLabel").textContent=user.displayName||user.email;$("settingsEmail").textContent=user.email;try{await loadLocal();savedBills=await localDB.getAll("bills");}catch(err){console.warn("Local cache unavailable:",err);renderMedicines();}if(unsubscribe)unsubscribe();if(navigator.onLine){startCloudSync(user);flushQueue().catch(err=>console.warn("Pending sync will retry:",err));}status();}else{show("loginView",true);show("appView",false);if(unsubscribe){unsubscribe();unsubscribe=null;}if(historyUnsubscribe){historyUnsubscribe();historyUnsubscribe=null;}if(localDB){localDB.close();localDB=null;}medicines=[];savedBills=[];}});
 $("logoutBtn").onclick=()=>signOut(auth);
 $("addMedicineBtn").onclick=()=>openAddMedicine();
 $("cancelMedicine").onclick=closeMedicineModal;$("medicineForm").onsubmit=saveMedicine;
@@ -407,8 +438,10 @@ function showReceipt(item){
  else addTotal("TOTAL",item.finalTotal,"final");
  root.append(summary);
  const footer=document.createElement("p");footer.className="receipt-thanks";footer.textContent="Thank you. Get well soon!";root.append(footer);
- const print=document.createElement("button");print.type="button";print.className="secondary print-hide";print.textContent="Print receipt";print.onclick=printReceipt;root.append(print);
- openAppModal(root,"Bill "+item.receiptNumber,"Receipt details and print options.","view");
+ const receiptActions=document.createElement("div");receiptActions.className="receipt-detail-actions print-hide";
+ if(billEditAllowed(item)){const edit=document.createElement("button");edit.type="button";edit.className="primary";edit.textContent="Edit bill";edit.onclick=()=>{closeAppModal();beginBillEdit(item);};const del=document.createElement("button");del.type="button";del.className="danger-button";del.textContent="Delete bill";del.onclick=async()=>{closeAppModal();await deleteSavedBill(item);};receiptActions.append(edit,del);}
+ const print=document.createElement("button");print.type="button";print.className="secondary print-hide";print.textContent="Print receipt";print.onclick=printReceipt;receiptActions.append(print);root.append(receiptActions);
+ openAppModal(root,"Bill "+item.receiptNumber,"Receipt details, edit and print options.","view");
 }
 $("historySearch").oninput=renderBillingHistory;
 function setStatementDates(){const now=new Date(),mode=$("statementPeriod").value;let from=new Date(now),to=new Date(now);if(mode==="week"){const day=(now.getDay()+6)%7;from.setDate(now.getDate()-day);from.setHours(0,0,0,0);to.setHours(23,59,59,999);}else if(mode==="month"){from=new Date(now.getFullYear(),now.getMonth(),1);to=new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59,999);}else if(mode==="lastMonth"){from=new Date(now.getFullYear(),now.getMonth()-1,1);to=new Date(now.getFullYear(),now.getMonth(),0,23,59,59,999);}else if(mode==="today"){from=new Date(now);from.setHours(0,0,0,0);to=new Date(now);to.setHours(23,59,59,999);} $("statementFrom").value=localDateKey(from);$("statementTo").value=localDateKey(to);$("statementCustomDates").classList.toggle("hidden",mode!=="custom");}
@@ -429,9 +462,50 @@ $("statementBtn").onclick=openStatement;$("statementClose").onclick=closeStateme
 $("statementPrint").onclick=()=>{if(!$("statementPrintArea").children.length)generateStatement();if($("statementPrintArea").children.length){document.body.classList.add("printing-statement");window.print();document.body.classList.remove("printing-statement");}};
 $("statementModal").addEventListener("click",e=>{if(e.target===$("statementModal"))closeStatement();});
 
-$("medicineEditMode").onchange=async()=>{medicineModeEnabled=$("medicineEditMode").checked;await localDB.put("meta",medicineModeEnabled,"medicineModeEnabled");if(!medicineModeEnabled&&modalKind==="medicine")closeMedicineModal();renderMedicines($("medicineSearch").value);};
+async function passwordDigest(password,salt){
+ const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveBits"]);
+ const bits=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:180000,hash:"SHA-256"},material,256);
+ return btoa(String.fromCharCode(...new Uint8Array(bits)));
+}
+async function saveEditModePassword(password){
+ const salt=crypto.getRandomValues(new Uint8Array(16));
+ const record={salt:btoa(String.fromCharCode(...salt)),hash:await passwordDigest(password,salt),iterations:180000};
+ await localDB.put("meta",record,"medicineEditPassword");
+}
+async function verifyEditModePassword(password,record){
+ try{const salt=Uint8Array.from(atob(record.salt),c=>c.charCodeAt(0));return (await passwordDigest(password,salt))===record.hash;}catch{return false;}
+}
+function editModePasswordDialog(setup=false){
+ return new Promise(resolve=>{
+  const box=document.createElement("form");box.className="edit-mode-password";
+  const intro=document.createElement("p");intro.textContent=setup?"Set a separate password to protect medicine changes. You will need it whenever you turn Edit Mode on.":"Enter your Edit Mode password to enable medicine changes.";
+  const first=document.createElement("input");first.type="password";first.autocomplete=setup?"new-password":"current-password";first.minLength=6;first.required=true;first.placeholder=setup?"Create password (at least 6 characters)":"Edit Mode password";
+  const second=document.createElement("input");second.type="password";second.autocomplete="new-password";second.minLength=6;second.required=true;second.placeholder="Confirm password";if(!setup)second.classList.add("hidden");
+  const error=document.createElement("p");error.className="message";
+  const actions=document.createElement("div");actions.className="modal-actions";
+  const cancel=document.createElement("button"),submit=document.createElement("button");cancel.type="button";submit.type="submit";cancel.className="secondary";submit.className="primary";cancel.textContent="Cancel";submit.textContent=setup?"Set password & Enable":"Unlock Edit Mode";
+  cancel.onclick=()=>{closeAppModal();resolve(false);};actions.append(cancel,submit);box.append(intro,first,second,error,actions);
+  box.onsubmit=async e=>{e.preventDefault();if(setup&&first.value!==second.value){error.textContent="Passwords do not match.";return;}if(first.value.length<6){error.textContent="Use at least 6 characters.";return;}submit.disabled=true;
+   try{if(setup)await saveEditModePassword(first.value);else{const record=await localDB.get("meta","medicineEditPassword");if(!record||!await verifyEditModePassword(first.value,record)){error.textContent="Incorrect password.";submit.disabled=false;first.focus();return;}}
+    closeAppModal();resolve(true);
+   }catch(err){error.textContent="Could not save password: "+err.message;submit.disabled=false;}
+  };
+  openAppModal(box,setup?"Set Edit Mode Password":"Unlock Edit Mode",setup?"Create your medicine-edit security password.":"Password verification required.","edit-password");first.focus();
+ });
+}
+async function enableMedicineEditMode(){
+ if(!currentUser||!localDB)return;
+ const record=await localDB.get("meta","medicineEditPassword");
+ const ok=await editModePasswordDialog(!record);
+ if(!ok){$("medicineEditMode").checked=false;medicineModeEnabled=false;await localDB.put("meta",false,"medicineModeEnabled");renderMedicines($("medicineSearch").value);return;}
+ medicineModeEnabled=true;$("medicineEditMode").checked=true;await localDB.put("meta",true,"medicineModeEnabled");renderMedicines($("medicineSearch").value);
+}
+$("medicineEditMode").onchange=async()=>{
+ if($("medicineEditMode").checked){$("medicineEditMode").checked=false;await enableMedicineEditMode();return;}
+ medicineModeEnabled=false;await localDB.put("meta",false,"medicineModeEnabled");if(modalKind==="medicine")closeMedicineModal();renderMedicines($("medicineSearch").value);
+};
 $("changeMedicineImage").onclick=()=>{if(!medicineModeEnabled)return;$("medicineImage").click();};
-$("medicineImage").onchange=()=>{const file=$("medicineImage").files?.[0];if(!file){const existing=medicines.find(m=>m.id===$("medicineId").value);if(existing?.image)showMedicineImagePreview(existing.image);else resetMedicineImagePreview();return;}if(!file.type.startsWith("image/")){alert("Please select a valid image.");$("medicineImage").value="";return;}if(file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");$("medicineImage").value="";return;}const reader=new FileReader();reader.onload=()=>showMedicineImagePreview(reader.result);reader.readAsDataURL(file);};
+$("medicineImage").onchange=()=>{const file=$("medicineImage").files?.[0];if(!file){const existing=medicines.find(m=>m.id===$("medicineId").value);if(existing?.image)showMedicineImagePreview(existing.image);else resetMedicineImagePreview();return;}if(!file.type.startsWith("image/")){alert("Please select a valid image.");$("medicineImage").value="";return;}if(file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");$("medicineImage").value="";return;}const reader=new FileReader();reader.onload=()=>{medicineImageRotation=0;medicineImageCrop=false;showMedicineImagePreview(reader.result);openMedicineImageEditor();};reader.readAsDataURL(file);};
 $("saveName").onclick=async()=>{if(!currentUser)return;await updateProfile(currentUser,{displayName:$("displayName").value.trim()});$("userLabel").textContent=$("displayName").value.trim()||currentUser.email;};
 $("exportData").onclick=async()=>{try{const [allMedicines,allBills]=await Promise.all([localDB.getAll("medicines"),localDB.getAll("bills")]);const blob=new Blob([JSON.stringify({version:2,exportedAt:new Date().toISOString(),medicines:allMedicines,bills:allBills},null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="friends-pharmacy-backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(err){alert("Backup export failed: "+err.message);}};
 
