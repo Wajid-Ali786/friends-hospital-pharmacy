@@ -103,6 +103,28 @@ function renderMedicines(filter=""){
  });
  if(!filtered.length)list.append(emptyAction(filter?"Medicine not found":"No medicines added yet",filter?"＋ Add new medicine":"＋ Add medicine",filter.trim()));
 }
+function askBillQuantity(m){
+ const box=document.createElement("div");box.className="quantity-prompt";
+ const label=document.createElement("label");label.textContent="Quantity";
+ const input=document.createElement("input");input.type="number";input.min="1";input.step="1";input.value="1";input.inputMode="numeric";input.className="quantity-prompt-input";
+ const actions=document.createElement("div");actions.className="modal-actions";
+ const cancel=document.createElement("button");cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";
+ const add=document.createElement("button");add.type="button";add.className="primary";add.textContent="Add medicine";
+ actions.append(cancel,add);box.append(label,input,actions);
+ openAppModal(box,"Add Medicine",m.name+" · "+money(m.price??m.tabletPrice),"quantity");
+ const finish=()=>closeAppModal();
+ cancel.onclick=finish;
+ add.onclick=()=>{
+  const qty=Math.floor(Number(input.value));
+  if(!Number.isFinite(qty)||qty<1){input.focus();return;}
+  const existing=bill.find(x=>x.id===m.id);
+  if(existing)existing.qty+=qty;
+  else bill.push({id:m.id,name:m.name,unit:m.unit||"Tablet",qty,price:Number(m.price??m.tabletPrice)||0,roundingAllowed:m.roundingAllowed===true,adjustment:0});
+  renderBill();$("billSearch").value="";renderBillSearch("");finish();
+ };
+ input.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();add.click();}});
+ setTimeout(()=>{input.focus();input.select();},0);
+}
 function renderBillSearch(q=""){
  const list=$("billMedicineList");list.innerHTML="";
  const matches=medicines.filter(m=>medicineMatches(m,q));
@@ -112,7 +134,7 @@ function renderBillSearch(q=""){
   info.querySelector("b").textContent=m.name;
   info.querySelector("small").textContent=(m.unit||"Tablet")+" · "+money(m.price??m.tabletPrice);
   const btn=document.createElement("button");btn.type="button";btn.className="tiny add-bill";btn.textContent="＋ Add";
-  btn.onclick=()=>{const existing=bill.find(x=>x.id===m.id);if(existing)existing.qty+=1;else bill.push({id:m.id,name:m.name,unit:m.unit||"Tablet",qty:1,price:Number(m.price??m.tabletPrice)||0,roundingAllowed:m.roundingAllowed===true,adjustment:0});renderBill();};
+  btn.onclick=()=>askBillQuantity(m);
   row.append(info,btn);list.append(row);
  });
  if(!matches.length){
