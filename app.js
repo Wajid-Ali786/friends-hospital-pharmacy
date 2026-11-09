@@ -75,7 +75,7 @@ function resetMedicineImagePreview(){medicineImageDraft="";medicineImageRotation
 function showMedicineImagePreview(src){medicineImageDraft=src;const preview=$("medicineImagePreview");if(!preview)return;preview.innerHTML="";const img=document.createElement("img");img.src=src;img.alt="Selected medicine image";const edit=document.createElement("button");edit.type="button";edit.className="image-edit-open";edit.textContent="Edit image";edit.onclick=openMedicineImageEditor;preview.append(img,edit);preview.classList.remove("hidden");$("medicineImagePicker")?.classList.add("has-image");const change=$("changeMedicineImage");if(change)change.textContent="Change image";}
 function openMedicineImageEditor(){
  if(!medicineModeEnabled||!medicineImageDraft)return;
- const wrap=document.createElement("div");wrap.className="medicine-editor";
+ const overlay=document.createElement("div");overlay.className="medicine-editor-overlay";const wrap=document.createElement("div");wrap.className="medicine-editor";
  const preview=document.createElement("div");preview.className="medicine-editor-preview";
  const img=document.createElement("img");img.src=medicineImageDraft;img.alt="Image editor preview";preview.append(img);
  const controls=document.createElement("div");controls.className="medicine-editor-controls";
@@ -89,7 +89,7 @@ function openMedicineImageEditor(){
  const note=document.createElement("p");note.className="muted small-text";note.textContent="Rotate the image and optionally crop it to a square before saving.";
  const actions=document.createElement("div");actions.className="modal-actions";
  const cancel=document.createElement("button"),apply=document.createElement("button");cancel.type=apply.type="button";cancel.className="secondary";apply.className="primary";cancel.textContent="Cancel";apply.textContent="Apply image";
- cancel.onclick=()=>closeAppModal();
+ cancel.onclick=()=>overlay.remove();
  apply.onclick=()=>{
   const source=new Image();source.onload=()=>{
    const radians=medicineImageRotation*Math.PI/180,sw=source.width,sh=source.height;
@@ -99,10 +99,10 @@ function openMedicineImageEditor(){
    let output=rotated;
    if(medicineImageCrop){const side=Math.min(rotated.width,rotated.height),x=Math.floor((rotated.width-side)/2),y=Math.floor((rotated.height-side)/2),cropped=document.createElement("canvas");cropped.width=side;cropped.height=side;cropped.getContext("2d").drawImage(rotated,x,y,side,side,0,0,side,side);output=cropped;}
    const scale=Math.min(1,1200/Math.max(output.width,output.height)),finalCanvas=document.createElement("canvas");finalCanvas.width=Math.max(1,Math.round(output.width*scale));finalCanvas.height=Math.max(1,Math.round(output.height*scale));finalCanvas.getContext("2d").drawImage(output,0,0,finalCanvas.width,finalCanvas.height);
-   showMedicineImagePreview(finalCanvas.toDataURL("image/jpeg",.86));$("medicineImage").value="";medicineImageRotation=0;medicineImageCrop=false;closeAppModal();
+   showMedicineImagePreview(finalCanvas.toDataURL("image/jpeg",.86));$("medicineImage").value="";medicineImageRotation=0;medicineImageCrop=false;overlay.remove();
   };source.onerror=()=>alert("Could not read this image.");source.src=medicineImageDraft;
  };
- actions.append(cancel,apply);wrap.append(preview,controls,note,actions);openAppModal(wrap,"Medicine Image Editor","Crop and rotate your medicine photo.","image-editor");
+ actions.append(cancel,apply);wrap.append(preview,controls,note,actions);overlay.append(wrap);document.body.append(overlay);
 }
 function openAddMedicine(prefill=""){
  if(!medicineModeEnabled||!currentUser||!localDB)return;
