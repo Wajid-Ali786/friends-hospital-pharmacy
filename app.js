@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, updateProfile, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { getFirestore, collection, doc, setDoc, getDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js";
 import { openDB } from "https://cdn.jsdelivr.net/npm/idb@8/+esm";
@@ -477,20 +477,56 @@ async function verifyEditModePassword(password,record){
 }
 function editModePasswordDialog(setup=false){
  return new Promise(resolve=>{
-  const box=document.createElement("form");box.className="edit-mode-password";
-  const intro=document.createElement("p");intro.textContent=setup?"Set a separate password to protect medicine changes. You will need it whenever you turn Edit Mode on.":"Enter your Edit Mode password to enable medicine changes.";
-  const first=document.createElement("input");first.type="password";first.autocomplete=setup?"new-password":"current-password";first.minLength=6;first.required=true;first.placeholder=setup?"Create password (at least 6 characters)":"Edit Mode password";
-  const second=document.createElement("input");second.type="password";second.autocomplete="new-password";second.minLength=6;second.required=true;second.placeholder="Confirm password";if(!setup)second.classList.add("hidden");
+  const box=document.createElement("div");box.className="edit-mode-password";
+  const intro=document.createElement("p");intro.textContent=setup?"Create a separate password to protect medicine changes.":"Enter your Edit Mode password to unlock medicine changes.";
+  const first=document.createElement("input");first.type="password";first.autocomplete=setup?"new-password":"current-password";first.placeholder=setup?"Create password (at least 6 characters)":"Edit Mode password";
+  const second=document.createElement("input");second.type="password";second.autocomplete="new-password";second.placeholder="Confirm password";second.classList.toggle("hidden",!setup);
   const error=document.createElement("p");error.className="message";
   const actions=document.createElement("div");actions.className="modal-actions";
-  const cancel=document.createElement("button"),submit=document.createElement("button");cancel.type="button";submit.type="submit";cancel.className="secondary";submit.className="primary";cancel.textContent="Cancel";submit.textContent=setup?"Set password & Enable":"Unlock Edit Mode";
-  cancel.onclick=()=>{closeAppModal();resolve(false);};actions.append(cancel,submit);box.append(intro,first,second,error,actions);
-  box.onsubmit=async e=>{e.preventDefault();if(setup&&first.value!==second.value){error.textContent="Passwords do not match.";return;}if(first.value.length<6){error.textContent="Use at least 6 characters.";return;}submit.disabled=true;
-   try{if(setup)await saveEditModePassword(first.value);else{const record=await localDB.get("meta","medicineEditPassword");if(!record||!await verifyEditModePassword(first.value,record)){error.textContent="Incorrect password.";submit.disabled=false;first.focus();return;}}
+  const cancel=document.createElement("button"),submit=document.createElement("button");
+  cancel.type=submit.type="button";cancel.className="secondary";submit.className="primary";
+  cancel.textContent="Cancel";submit.textContent=setup?"Set password & Enable":"Unlock Edit Mode";
+  cancel.onclick=()=>{closeAppModal();resolve(false);};
+  submit.onclick=async()=>{
+   error.textContent="";
+   if(first.value.length<6){error.textContent="Password must be at least 6 characters.";first.focus();return;}
+   if(setup&&first.value!==second.value){error.textContent="Passwords do not match.";second.focus();return;}
+   submit.disabled=true;
+   try{
+    if(setup)await saveEditModePassword(first.value);
+    else{const record=await localDB.get("meta","medicineEditPassword");if(!record||!await verifyEditModePassword(first.value,record)){error.textContent="Incorrect Edit Mode password. Try again or use Forgot password.";submit.disabled=false;first.focus();return;}}
     closeAppModal();resolve(true);
-   }catch(err){error.textContent="Could not save password: "+err.message;submit.disabled=false;}
+   }catch(err){error.textContent="Could not verify password: "+(err?.message||"Unknown error");submit.disabled=false;}
   };
-  openAppModal(box,setup?"Set Edit Mode Password":"Unlock Edit Mode",setup?"Create your medicine-edit security password.":"Password verification required.","edit-password");first.focus();
+  actions.append(cancel,submit);box.append(intro,first,second,error,actions);
+  if(!setup){
+   const forgot=document.createElement("button");forgot.type="button";forgot.className="text-button edit-mode-forgot";forgot.textContent="Forgot Edit Mode password?";
+   forgot.onclick=async()=>{
+    const accountPass=document.createElement("input");accountPass.type="password";accountPass.autocomplete="current-password";accountPass.placeholder="Your pharmacy account password";
+    const newPass=document.createElement("input");newPass.type="password";newPass.autocomplete="new-password";newPass.placeholder="New Edit Mode password (6+ characters)";
+    const confirm=document.createElement("input");confirm.type="password";confirm.autocomplete="new-password";confirm.placeholder="Confirm new password";
+    const msg=document.createElement("p");msg.className="message";
+    const actions2=document.createElement("div");actions2.className="modal-actions";
+    const back=document.createElement("button"),reset=document.createElement("button");back.type=reset.type="button";back.className="secondary";reset.className="primary";back.textContent="Back";reset.textContent="Verify & Reset";
+    back.onclick=()=>{closeAppModal();resolve(false);};
+    reset.onclick=async()=>{
+     msg.textContent="";
+     if(!accountPass.value||newPass.value.length<6||newPass.value!==confirm.value){msg.textContent="Enter your account password and matching new passwords (at least 6 characters).";return;}
+     reset.disabled=true;
+     try{
+      const credential=EmailAuthProvider.credential(currentUser.email,accountPass.value);
+      await reauthenticateWithCredential(currentUser,credential);
+      await saveEditModePassword(newPass.value);
+      closeAppModal();resolve(true);
+     }catch(err){msg.textContent=err.code==="auth/wrong-password"||err.code==="auth/invalid-credential"?"Pharmacy account password is incorrect.":(err.message||"Password reset failed.");reset.disabled=false;}
+    };
+    actions2.append(back,reset);box.replaceChildren(intro,accountPass,newPass,confirm,msg,actions2);
+    accountPass.focus();
+   };
+   box.append(forgot);
+  }
+  openAppModal(box,setup?"Set Edit Mode Password":"Unlock Edit Mode",setup?"Create your medicine-edit security password.":"Verify your password to continue.","edit-password");
+  first.focus();
  });
 }
 async function enableMedicineEditMode(){
