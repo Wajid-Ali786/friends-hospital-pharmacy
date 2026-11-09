@@ -130,12 +130,16 @@ function renderBillSearch(q=""){
  const matches=medicines.filter(m=>medicineMatches(m,q));
  matches.forEach(m=>{
   const row=document.createElement("div");row.className="bill-option";
-  const info=document.createElement("div");info.innerHTML="<b></b><small></small>";
+  const image=m.image?document.createElement("img"):document.createElement("div");
+  image.className=m.image?"bill-medicine-image":"bill-medicine-placeholder";
+  if(m.image){image.src=m.image;image.alt=m.name;image.loading="lazy";}
+  else image.textContent="✚";
+  const info=document.createElement("div");info.className="bill-medicine-info";info.innerHTML="<b></b><small></small>";
   info.querySelector("b").textContent=m.name;
   info.querySelector("small").textContent=(m.unit||"Tablet")+" · "+money(m.price??m.tabletPrice);
   const btn=document.createElement("button");btn.type="button";btn.className="tiny add-bill";btn.textContent="＋ Add";
   btn.onclick=()=>askBillQuantity(m);
-  row.append(info,btn);list.append(row);
+  row.append(image,info,btn);list.append(row);
  });
  if(!matches.length){
   const box=document.createElement("div");box.className="empty-state";
