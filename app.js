@@ -435,4 +435,43 @@ $("saveName").onclick=async()=>{if(!currentUser)return;await updateProfile(curre
 $("exportData").onclick=async()=>{try{const [allMedicines,allBills]=await Promise.all([localDB.getAll("medicines"),localDB.getAll("bills")]);const blob=new Blob([JSON.stringify({version:2,exportedAt:new Date().toISOString(),medicines:allMedicines,bills:allBills},null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="friends-pharmacy-backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(err){alert("Backup export failed: "+err.message);}};
 
 let installPrompt=null;function updateInstallButton(){const installed=window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;show("installAppWrap",!!installPrompt&&!installed);}window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;updateInstallButton();});window.addEventListener("appinstalled",()=>{installPrompt=null;updateInstallButton();});$("installAppBtn").onclick=async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;updateInstallButton();};window.matchMedia("(display-mode: standalone)").addEventListener?.("change",updateInstallButton);if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(err=>console.warn("Service worker:",err)));updateInstallButton();
-$("importData").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const data=JSON.parse(await f.text());if(!Array.isArray(data.medicines))throw Error("Invalid backup: medicines list missing");for(const m of data.medicines){if(!m.id||!m.name)continue;await localDB.put(m);await queueChange(m.id,"set",m,"medicines");}let importedBills=0;if(Array.isArray(data.bills)){for(const item of data.bills){if(!item.id||!item.receiptNumber)continue;const restored={...item,ownerUid:currentUser.uid,createdAtMillis:Number(item.createdAtMillis)||Date.now()};await localDB.put("bills",restored);await queueChange(restored.id,"set",restored,"bills");importedBills++;}const maxNumber=(await localDB.getAll("bills")).reduce((max,item)=>Math.max(max,Number(String(item.receiptNumber||"").replace(/^B-/,""))||0),0);await localDB.put("meta",maxNumber,"billCounter");}if(navigator.onLine)await flushQueue();medicines=await localDB.getAll("medicines");renderMedicines();alert("Backup imported: "+data.medicines.length+" medicines and "+importedBills+" bills.");}catch(err){alert("Import failed: "+err.message);}e.target.value="";};
+$("importData").onchange=async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ const button=$("importData");button.disabled=true;
+ try{
+  if(!currentUser||!localDB)throw Error("Please sign in before importing a backup.");
+  const data=JSON.parse(await file.text());
+  if(!data||typeof data!=="object"||!Array.isArray(data.medicines))throw Error("Invalid backup file. Medicines data is missing.");
+  if(data.bills!==undefined&&!Array.isArray(data.bills))throw Error("Invalid backup file. Bills data is not a valid list.");
+  let importedMedicines=0,importedBills=0;
+  for(const raw of data.medicines){
+   if(!raw||!raw.id||!raw.name)continue;
+   const medicine=normalizeMedicine({...raw,id:String(raw.id),name:String(raw.name).trim()});
+   await localDB.put("medicines",medicine);
+   await queueChange(medicine.id,"set",medicine,"medicines");
+   importedMedicines++;
+  }
+  for(const raw of (data.bills||[])){
+   if(!raw||!raw.id||!raw.receiptNumber)continue;
+   const restored={...raw,id:String(raw.id),ownerUid:currentUser.uid,createdAtMillis:Number(raw.createdAtMillis)||Date.now()};
+   await localDB.put("bills",restored);
+   await queueChange(restored.id,"set",restored,"bills");
+   importedBills++;
+  }
+  if(importedBills){
+   const allBills=await localDB.getAll("bills");
+   const maxNumber=allBills.reduce((max,item)=>Math.max(max,Number(String(item.receiptNumber||"").replace(/^B-/,""))||0),0);
+   await localDB.put("meta",maxNumber,"billCounter");
+  }
+  medicines=await localDB.getAll("medicines");
+  renderMedicines($("medicineSearch")?.value||"");
+  if(navigator.onLine)await flushQueue();
+  const pending=(await localDB.getAll("pending")).length;
+  alert("Import complete: "+importedMedicines+" medicines and "+importedBills+" bills imported."+(pending?" "+pending+" item(s) are waiting to sync; check internet/Firebase permissions.":" Data synced."));
+ }catch(err){
+  console.error("Backup import failed:",err);
+  alert("Import failed: "+(err?.message||"Unknown error"));
+ }finally{
+  button.disabled=false;e.target.value="";
+ }
+};
