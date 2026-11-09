@@ -15,7 +15,7 @@ function openAppModal(node,title,subtitle="",kind="content"){
  if(!node)return;
  if(modalNode)closeAppModal();
  modalNode=node;modalKind=kind;modalPlaceholder=document.createComment("modal-origin");
- node.parentNode.insertBefore(modalPlaceholder,node);
+ if(node.parentNode)node.parentNode.insertBefore(modalPlaceholder,node);else modalPlaceholder=null;
  $("appModalTitle").textContent=title;$("appModalSubtitle").textContent=subtitle;
  $("appModalBody").replaceChildren(node);$("appModal").classList.remove("hidden");
  document.body.classList.add("modal-open");
