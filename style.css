@@ -247,3 +247,65 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 /* Medicine create/edit modal */
 .app-modal-body #medicineForm{display:grid!important;grid-template-columns:1fr 1fr;gap:14px;margin:0;padding:0;border:0;box-shadow:none;background:transparent}.app-modal-body #medicineForm.hidden{display:none!important}.app-modal-body #medicineForm>label{min-width:0}.app-modal-body #medicineForm .rounding-eligibility,.app-modal-body #medicineForm .file-label,.app-modal-body #medicineForm .form-actions{grid-column:1/-1}.app-modal-body #medicineForm .form-actions{display:flex;gap:10px;justify-content:flex-end}.app-modal-body #medicineForm .form-actions button{min-width:120px}.app-modal-body #medicineForm input,.app-modal-body #medicineForm select{max-width:100%}
 @media(max-width:560px){.app-modal-body #medicineForm{grid-template-columns:1fr}.app-modal-body #medicineForm .form-actions{flex-direction:row}.app-modal-body #medicineForm .form-actions button{flex:1;min-width:0}}
+
+
+/* FINAL THERMAL RECEIPT PRINT OVERRIDE */
+@media print {
+  @page { size: auto; margin: 0; }
+  html, body {
+    width: 72mm !important;
+    min-width: 0 !important;
+    max-width: 72mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  body * { visibility: hidden !important; }
+  .receipt-detail.printing-receipt,
+  .receipt-detail.printing-receipt * { visibility: visible !important; }
+  .receipt-detail.printing-receipt {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 72mm !important;
+    min-width: 0 !important;
+    max-width: 72mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 2mm !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+    transform: none !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+  .receipt-detail.printing-receipt * {
+    max-height: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  .app-modal, .app-modal-dialog, .app-modal-body {
+    position: static !important;
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  .app-modal-head { display: none !important; }
+}
