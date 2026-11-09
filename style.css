@@ -251,15 +251,17 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 
 /* FINAL THERMAL RECEIPT PRINT OVERRIDE */
 @media print {
-  @page { size: auto; margin: 0; }
+  @page { size: 72mm 100mm; margin: 0; }
   html, body {
-    min-width: 0 !important;
-    max-width: none !important;
-    height: auto !important;
-    min-height: 0 !important;
+    width: 72mm !important;
+    min-width: 72mm !important;
+    max-width: 72mm !important;
+    height: 100mm !important;
+    min-height: 100mm !important;
+    max-height: 100mm !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     background: #fff !important;
   }
   body * { visibility: hidden !important; }
@@ -267,12 +269,12 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
     display: block !important;
     position: static !important;
     width: 72mm !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
+    height: 100mm !important;
+    min-height: 100mm !important;
+    max-height: 100mm !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     background: #fff !important;
     border: 0 !important;
     box-shadow: none !important;
@@ -281,12 +283,12 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
     display: block !important;
     position: static !important;
     width: 72mm !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
+    height: 100mm !important;
+    min-height: 100mm !important;
+    max-height: 100mm !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     background: #fff !important;
     border: 0 !important;
     box-shadow: none !important;
@@ -300,13 +302,13 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
     width: 72mm !important;
     min-width: 0 !important;
     max-width: 72mm !important;
-    height: auto !important;
+    height: 100mm !important;
     min-height: 0 !important;
-    max-height: none !important;
+    max-height: 100mm !important;
     margin: 0 !important;
     padding: 2mm !important;
     box-sizing: border-box !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     transform: none !important;
     box-shadow: none !important;
     border: 0 !important;
