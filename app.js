@@ -248,7 +248,7 @@ async function saveMedicine(e){
  const id=$("medicineId").value||crypto.randomUUID(),old=medicines.find(m=>m.id===id);
  let image=old?.image||"";
  const file=$("medicineImage").files[0];
- if(file){
+ if(file||medicineImageDraft){
   if(file&&file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");return;}
   image=await new Promise((resolve,reject)=>{
    const source=medicineImageDraft||"";const img=new Image();img.onload=()=>{const scale=Math.min(1,1200/Math.max(img.width,img.height)),w=Math.round(img.width*scale),h=Math.round(img.height*scale);const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;const ctx=canvas.getContext("2d");ctx.drawImage(img,0,0,w,h);resolve(canvas.toDataURL("image/jpeg",0.82));};img.onerror=reject;img.src=source;});
