@@ -252,3 +252,19 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 .setting-toggle-row>div{display:grid;gap:4px}.setting-toggle-row small{font-size:11px;color:var(--muted);line-height:1.4;max-width:420px}
 .switch-control{position:relative;display:inline-flex;flex:0 0 46px;width:46px;height:26px;cursor:pointer}.switch-control input{position:absolute;opacity:0;width:1px;height:1px}.switch-slider{position:absolute;inset:0;border-radius:99px;background:#cbd5cf;transition:.2s}.switch-slider:before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0002;transition:.2s}.switch-control input:checked+.switch-slider{background:var(--green)}.switch-control input:checked+.switch-slider:before{transform:translateX(20px)}.switch-control input:focus-visible+.switch-slider{outline:3px solid #82bda0;outline-offset:2px}
 @media(max-width:560px){.medicine-image-preview{grid-column:1}.setting-toggle-row{align-items:flex-start}}
+
+
+/* Professional medicine image picker */
+.medicine-image-picker{grid-column:1/-1;display:flex;align-items:center;gap:14px;min-height:94px;padding:12px;border:1px dashed #cbd8d0;border-radius:12px;background:#fafcfb}
+.medicine-image-picker .medicine-image-preview{display:none;flex:0 0 76px;width:76px;height:76px;min-height:76px;padding:0;border:1px solid #dce6df;border-radius:10px;background:#fff;overflow:hidden;align-items:center;justify-content:center}
+.medicine-image-picker .medicine-image-preview:not(.hidden){display:flex}
+.medicine-image-picker .medicine-image-preview img{width:100%;height:100%;object-fit:contain;border:0;border-radius:0;padding:4px;background:#fff}
+.image-picker-button{min-height:38px;padding:9px 14px;border:1px solid #cbd9d0;border-radius:9px;background:#fff;color:var(--green);font-size:12px;font-weight:700;cursor:pointer}
+.medicine-image-picker.has-image{border-style:solid;background:#fff}
+.medicine-image-picker.has-image .image-picker-button{margin-left:0}
+.visually-hidden-file{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.history-row{cursor:pointer;grid-template-columns:minmax(0,1fr) auto auto;transition:background .15s}
+.history-row:hover,.history-row:focus-visible{background:#f7faf8;outline:none}
+.history-row:focus-visible{box-shadow:inset 0 0 0 2px #7ca995;border-radius:8px}
+.history-actions{padding:0!important}
+@media(max-width:560px){.medicine-image-picker{grid-column:1;min-height:86px}.history-row{grid-template-columns:minmax(0,1fr) auto auto!important}.history-actions{grid-column:auto!important;justify-content:flex-end!important;padding:0!important}.history-row>strong{grid-column:auto!important;grid-row:auto!important}}
