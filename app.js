@@ -10,7 +10,7 @@ let localDB=null;async function openUserDB(uid){if(localDB)localDB.close();local
 let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncNotice="",medicineModeEnabled=true,medicineImageDraft="",medicineImageRotation=0,medicineImageCrop=false;
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2);
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
-let modalNode=null,modalPlaceholder=null,modalKind="";
+let modalNode=null,modalPlaceholder=null,modalKind="",billSearchActiveIndex=-1;
 function openAppModal(node,title,subtitle="",kind="content"){
  if(!node)return;
  if(modalNode)closeAppModal();
@@ -158,10 +158,10 @@ function askBillQuantity(m){
  setTimeout(()=>{input.focus();input.select();},0);
 }
 function renderBillSearch(q=""){
- const list=$("billMedicineList");list.innerHTML="";
+ const list=$("billMedicineList");list.innerHTML="";billSearchActiveIndex=-1;
  const matches=medicines.filter(m=>medicineMatches(m,q));
  matches.forEach(m=>{
-  const row=document.createElement("div");row.className="bill-option";
+  const row=document.createElement("div");row.className="bill-option";row.setAttribute("role","option");row.setAttribute("aria-selected","false");
   const image=m.image?document.createElement("img"):document.createElement("div");
   image.className=m.image?"bill-medicine-image":"bill-medicine-placeholder";
   if(m.image){image.src=m.image;image.alt=m.name;image.loading="lazy";}
@@ -303,7 +303,26 @@ onAuthStateChanged(auth,async user=>{currentUser=user;if(user){await openUserDB(
 $("logoutBtn").onclick=()=>signOut(auth);
 $("addMedicineBtn").onclick=()=>openAddMedicine();
 $("cancelMedicine").onclick=closeMedicineModal;$("medicineForm").onsubmit=saveMedicine;
-$("medicineSearch").oninput=e=>renderMedicines(e.target.value);$("billSearch").oninput=e=>renderBillSearch(e.target.value);$("discount").oninput=renderBill;
+$("medicineSearch").oninput=e=>renderMedicines(e.target.value);
+$("billSearch").oninput=e=>renderBillSearch(e.target.value);
+$("billSearch").addEventListener("keydown",e=>{
+ if(!["ArrowDown","ArrowUp","Enter"].includes(e.key))return;
+ const options=[...$("billMedicineList").querySelectorAll(".bill-option")];
+ if(!options.length)return;
+ if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+  e.preventDefault();
+  const step=e.key==="ArrowDown"?1:-1;
+  billSearchActiveIndex=billSearchActiveIndex<0?(step>0?0:options.length-1):(billSearchActiveIndex+step+options.length)%options.length;
+  options.forEach((row,index)=>{const active=index===billSearchActiveIndex;row.classList.toggle("keyboard-active",active);row.setAttribute("aria-selected",String(active));});
+  options[billSearchActiveIndex].scrollIntoView({block:"nearest",behavior:"smooth"});
+ }else{
+  e.preventDefault();
+  const index=billSearchActiveIndex<0?0:billSearchActiveIndex;
+  const add=options[index]?.querySelector(".add-bill");
+  if(add)add.click();
+ }
+});
+$("discount").oninput=renderBill;
 document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-page]").forEach(x=>x.classList.toggle("active",x===b));["medicines","billing","history","settings"].forEach(p=>show(p+"Page",p===b.dataset.page));$("pageTitle").textContent=b.textContent.trim().replace(/^\S+\s*/,"");if(b.dataset.page==="billing")renderBillSearch();if(b.dataset.page==="history")startBillingHistory();});
 function showBillValidation(errors){
  const patient=$("patientName"),items=$("billItems"),message=$("billMessage");
