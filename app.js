@@ -305,6 +305,19 @@ $("addMedicineBtn").onclick=()=>openAddMedicine();
 $("cancelMedicine").onclick=closeMedicineModal;$("medicineForm").onsubmit=saveMedicine;
 $("medicineSearch").oninput=e=>renderMedicines(e.target.value);
 $("billSearch").oninput=e=>renderBillSearch(e.target.value);
+document.addEventListener("keydown",e=>{
+ const billing=$("billingPage"),search=$("billSearch");
+ if(!billing||billing.classList.contains("hidden")||!search||!$("appModal").classList.contains("hidden"))return;
+ if(e.key.length!==1||e.ctrlKey||e.metaKey||e.altKey)return;
+ const target=e.target;
+ if(target===search||target?.isContentEditable||target instanceof HTMLInputElement||target instanceof HTMLTextAreaElement||target instanceof HTMLSelectElement)return;
+ if(target instanceof HTMLButtonElement&&e.key===" ")return;
+ e.preventDefault();
+ search.focus();
+ const start=search.selectionStart??search.value.length,end=search.selectionEnd??search.value.length;
+ search.setRangeText(e.key,start,end,"end");
+ search.dispatchEvent(new Event("input",{bubbles:true}));
+});
 $("billSearch").addEventListener("keydown",e=>{
  if(!["ArrowDown","ArrowUp","Enter"].includes(e.key))return;
  const options=[...$("billMedicineList").querySelectorAll(".bill-option")];
