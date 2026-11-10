@@ -317,3 +317,52 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
  #appView .sidebar{touch-action:pan-x;overscroll-behavior-x:contain}
 }
 .modal-open{overflow:hidden!important}
+
+
+/* FINAL MOBILE SCROLL FIX: use document scrolling, not a nested app scroller */
+@media (max-width:760px) {
+  html, body {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #appView.app {
+    display: block !important;
+    width: 100%;
+    height: auto !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    overflow: visible !important;
+  }
+  #appView .sidebar {
+    position: sticky !important;
+    top: 0;
+    z-index: 20;
+    width: 100%;
+    height: auto !important;
+    max-height: none !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+  #appView .main {
+    display: block !important;
+    width: 100%;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    overscroll-behavior: auto !important;
+  }
+  #appView .page {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  #appView .billing-layout,
+  #appView .panel,
+  #appView #billItems {
+    overflow: visible;
+  }
+}
