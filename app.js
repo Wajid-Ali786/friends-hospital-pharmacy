@@ -152,6 +152,7 @@ function askBillQuantity(m){
   if(existing)existing.qty+=qty;
   else bill.push({id:m.id,name:m.name,unit:m.unit||"Tablet",qty,price:Number(m.price??m.tabletPrice)||0,roundingAllowed:m.roundingAllowed===true,adjustment:0});
   renderBill();$("billSearch").value="";renderBillSearch("");finish();
+  setTimeout(()=>{if($("billingPage")&&!$("billingPage").classList.contains("hidden")&&$("appModal").classList.contains("hidden")){$("billSearch").focus();$("billSearch").select();}},80);
  };
  input.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();add.click();}});
  setTimeout(()=>{input.focus();input.select();},0);
