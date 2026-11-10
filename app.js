@@ -206,6 +206,7 @@ function applyMedicineRounding(extra){
 }
 function renderBill(){
  const root=$("billItems");root.innerHTML="";
+ if(bill.length){root.classList.remove("bill-items-error");if($("patientName").value.trim())$("billMessage").classList.remove("validation-alert");}
  if(!bill.length)root.innerHTML='<p class="muted">No items added yet.</p>';
  bill.forEach((it,i)=>{
   const row=document.createElement("div");row.className="bill-row";
@@ -303,10 +304,29 @@ $("addMedicineBtn").onclick=()=>openAddMedicine();
 $("cancelMedicine").onclick=closeMedicineModal;$("medicineForm").onsubmit=saveMedicine;
 $("medicineSearch").oninput=e=>renderMedicines(e.target.value);$("billSearch").oninput=e=>renderBillSearch(e.target.value);$("discount").oninput=renderBill;
 document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-page]").forEach(x=>x.classList.toggle("active",x===b));["medicines","billing","history","settings"].forEach(p=>show(p+"Page",p===b.dataset.page));$("pageTitle").textContent=b.textContent.trim().replace(/^\S+\s*/,"");if(b.dataset.page==="billing")renderBillSearch();if(b.dataset.page==="history")startBillingHistory();});
+function showBillValidation(errors){
+ const patient=$("patientName"),items=$("billItems"),message=$("billMessage");
+ patient.classList.toggle("field-error",errors.some(x=>x.field==="patient"));
+ items.classList.toggle("bill-items-error",errors.some(x=>x.field==="items"));
+ message.classList.toggle("validation-alert",errors.length>0);
+ message.textContent=errors.length?errors.map(x=>"• "+x.text).join("  "):"";
+ if(errors.length){
+  const first=errors[0].field==="patient"?patient:items;
+  first.scrollIntoView({behavior:"smooth",block:"center"});
+  if(errors[0].field==="patient")patient.focus({preventScroll:true});
+ }
+}
+$("patientName").addEventListener("input",()=>{
+ if($("patientName").value.trim())$("patientName").classList.remove("field-error");
+ if(!$("patientName").classList.contains("field-error")&&!$("billItems").classList.contains("bill-items-error"))$("billMessage").classList.remove("validation-alert");
+});
 async function buildBillSnapshot(){
  const patientName=$("patientName").value.trim();
- if(!patientName){$("billMessage").textContent="Please enter the patient name."; $("patientName").focus();return null;}
- if(!bill.length){$("billMessage").textContent="Add at least one medicine before saving.";return null;}
+ const errors=[];
+ if(!patientName)errors.push({field:"patient",text:"Patient name is required."});
+ if(!bill.length)errors.push({field:"items",text:"Please select at least one medicine."});
+ if(errors.length){showBillValidation(errors);return null;}
+ showBillValidation([]);
  const subtotal=bill.reduce((sum,item)=>sum+Number(item.qty)*Number(item.price),0);
  const discount=Math.min(subtotal,Math.max(0,Number($("discount").value)||0));
  const rounding=bill.reduce((sum,item)=>sum+(item.adjustment||0),0);
@@ -319,7 +339,7 @@ async function buildBillSnapshot(){
 }
 async function saveCurrentBill({printAfter=false}={}){
  if(!currentUser){$("billMessage").textContent="Please sign in again.";return;}
- $("saveBill").disabled=true;$("printBill").disabled=true;$("billMessage").textContent="Saving bill…";
+ $("saveBill").disabled=true;$("printBill").disabled=true;$("billMessage").classList.remove("validation-alert");$("billMessage").textContent="Saving bill…";
  try{
   const snapshot=await buildBillSnapshot();if(!snapshot)return;
   if(editingBillId&&!billEditAllowed({createdAtMillis:editingBillCreatedAt}))throw new Error("The 1-hour edit period has expired.");
@@ -330,7 +350,7 @@ async function saveCurrentBill({printAfter=false}={}){
   if(navigator.onLine)flushQueue().then(()=>{$("billMessage").textContent="Bill saved and synced. Receipt: "+snapshot.receiptNumber;}).catch(console.warn);
   bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";roundingApplied=0;roundingBase=null;renderBill();
   if(printAfter){showReceipt(snapshot);printReceipt();}
- }catch(err){console.error("Save bill failed:",err);$("billMessage").textContent="Bill could not be saved: "+(err?.message||"Unknown error");}
+ }catch(err){console.error("Save bill failed:",err);$("billMessage").classList.remove("validation-alert");$("billMessage").textContent="Bill could not be saved: "+(err?.message||"Unknown error");}
  finally{$("saveBill").disabled=false;$("printBill").disabled=false;}
 }
 $("saveBill").onclick=()=>saveCurrentBill();
