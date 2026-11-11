@@ -589,6 +589,7 @@ function editModePasswordDialog(setup=false){
       const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(code.value.trim())))).map(x=>x.toString(16).padStart(2,"0")).join("");
       if(digest!==data.codeHash)throw new Error("Incorrect recovery code. Please check and try again.");
       await saveEditModePassword(newPass.value);
+      await deleteDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));
       closeAppModal();resolve(true);
      }catch(err){msg.textContent=err?.message||"Recovery failed.";reset.disabled=false;}
     };
