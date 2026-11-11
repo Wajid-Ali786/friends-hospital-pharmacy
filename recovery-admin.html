@@ -13,20 +13,20 @@
 <main class="card">
 <h1>Recovery Code Helper</h1>
 <p class="hint">Verify the user's identity first. Generate a short code, then copy its hash into the matching Firebase recovery request.</p>
-<div class="step actions"><button id="generate">Generate 6-digit code</button></div>
+<div class="step actions"><button id="generate">Generate 8-digit code</button></div>
 <div class="step">
 <span class="label">1. Recovery code — send this to the user</span>
 <div id="code" class="value code">------</div>
 <div class="actions"><button id="copyCode" class="secondary">Copy recovery code</button></div>
 </div>
 <div class="step">
-<span class="label">2. SHA-256 hash — paste this into Firestore</span>
+<span class="label">2. Salted PBKDF2 hash — paste this into Firestore</span>
 <div id="hashValue" class="value hash">Generate a code first</div>
 <div class="actions"><button id="copyHash" class="secondary">Copy hash</button></div>
 <p id="status" class="status" role="status" aria-live="polite"></p>
 </div>
 <div class="step warning"><b>Firebase document:</b> <code>editModeRecoveryApprovals/{USER_UID}</code><br>
-Fields: <code>approved</code> = Boolean <code>true</code>; <code>codeHash</code> = copied hash; <code>expiresAt</code> = Firestore Timestamp, 24 hours ahead.<br>
+Fields: <code>approved</code> = Boolean <code>true</code>; <code>codeHash</code> = copied salted hash; <code>expiresAt</code> = Firestore Timestamp, 24 hours ahead.<br>
 Use the UID of the matching request. Each request needs its own new code and hash. The raw code is never stored in Firestore.</div>
 <p class="muted">This helper works locally in your browser. It does not connect to Firebase or send messages.</p>
 </main>
@@ -35,9 +35,13 @@ const $=id=>document.getElementById(id);
 let rawCode="",hash="";
 async function generate(){
  const values=crypto.getRandomValues(new Uint32Array(1));
- rawCode=String(values[0]%1000000).padStart(6,"0");
- const bytes=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(rawCode));
- hash=Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,"0")).join("");
+ rawCode=String(values[0]%100000000).padStart(8,"0");
+ const salt=crypto.getRandomValues(new Uint8Array(16));
+ const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(rawCode),"PBKDF2",false,["deriveBits"]);
+ const derived=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:250000,hash:"SHA-256"},material,256);
+ const saltHex=Array.from(salt,b=>b.toString(16).padStart(2,"0")).join("");
+ const digest=Array.from(new Uint8Array(derived),b=>b.toString(16).padStart(2,"0")).join("");
+ hash=saltHex+":"+digest;
  $("code").textContent=rawCode;
  $("hashValue").textContent=hash;
  $("status").textContent="Code and hash generated.";
