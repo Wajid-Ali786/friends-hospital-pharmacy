@@ -532,7 +532,7 @@ async function verifyEditModePassword(password,record){
 function editModePasswordDialog(setup=false){
  return new Promise(resolve=>{
   const box=document.createElement("div");box.className="edit-mode-password";
-  const intro=document.createElement("p");intro.textContent=setup?"Create a separate password to protect medicine changes.":"Enter your Edit Mode password to unlock medicine changes.";
+  const intro=document.createElement("p");intro.textContent=setup?"Create a password for medicine editing.":"Enter your password to unlock editing.";
   const first=document.createElement("input");first.type="password";first.autocomplete=setup?"new-password":"current-password";first.placeholder=setup?"Create password (at least 6 characters)":"Edit Mode password";
   const second=document.createElement("input");second.type="password";second.autocomplete="new-password";second.placeholder="Confirm password";second.classList.toggle("hidden",!setup);
   const error=document.createElement("p");error.className="message";
@@ -556,19 +556,19 @@ function editModePasswordDialog(setup=false){
   if(!setup){
    const forgot=document.createElement("button");forgot.type="button";forgot.className="text-button edit-mode-forgot";forgot.textContent="Forgot Edit Mode password?";
    forgot.onclick=()=>{
-    const note=document.createElement("p");note.textContent="Submit your request and contact us on WhatsApp. After verification, you will receive a reset code within 24–48 hours. Enter the code below to set a new password.";
-    const number=document.createElement("p");number.className="support-number";number.textContent="WhatsApp Support: +92 348 6314013";
+    const note=document.createElement("p");note.textContent="Request a reset code. Support will verify your account and contact you within 24–48 hours.";
+    const number=document.createElement("p");number.className="support-number";number.textContent="WhatsApp: +92 348 631 4013";
     const contact=document.createElement("a");contact.className="primary full";contact.href="https://wa.me/"+SUPPORT_WHATSAPP+"?text="+encodeURIComponent("Friends Hospital Pharmacy: Please help me reset my Edit Mode password. Registered email: "+(currentUser?.email||""));contact.target="_blank";contact.rel="noopener noreferrer";contact.textContent="WhatsApp Support";
     const request=document.createElement("button");request.type="button";request.className="secondary full";request.textContent="Send reset request";
-    const requestStatus=document.createElement("p");requestStatus.className="message";
+    const requestStatus=document.createElement("p");requestStatus.className="recovery-success hidden";requestStatus.setAttribute("role","status");requestStatus.setAttribute("aria-live","polite");
     request.onclick=async()=>{
      if(!currentUser?.uid||!currentUser.email){requestStatus.textContent="Please sign in again before submitting a request.";return;}
-     request.disabled=true;requestStatus.textContent="Submitting request…";
+     request.disabled=true;request.classList.add("is-loading");requestStatus.classList.add("hidden");requestStatus.replaceChildren();requestStatus.textContent="";request.textContent="Sending…";
      try{
       await setDoc(doc(db,"editModeRecoveryRequests",currentUser.uid),{email:currentUser.email,requestedAt:serverTimestamp()});
-      requestStatus.textContent="Request received. Support will contact you within 24–48 hours. Please also message us on WhatsApp.";
-     }catch(err){requestStatus.textContent="Could not submit request: "+(err?.message||"Please try again.");}
-     finally{request.disabled=false;}
+      const tick=document.createElement("span");tick.className="recovery-success-icon";tick.setAttribute("aria-hidden","true");tick.textContent="✓";const successCopy=document.createElement("span");successCopy.textContent="Request sent successfully. We’ll contact you within 24–48 hours.";requestStatus.append(tick,successCopy);requestStatus.classList.remove("hidden");request.hidden=true;
+     }catch(err){requestStatus.textContent="Could not send request. Please try again.";requestStatus.classList.remove("hidden");request.disabled=false;request.textContent="Send reset request";}
+     finally{request.classList.remove("is-loading");if(!request.hidden){request.disabled=false;request.textContent="Send reset request";}}
     };
     const code=document.createElement("input");code.type="text";code.autocomplete="one-time-code";code.placeholder="Recovery code from support";
     const newPass=document.createElement("input");newPass.type="password";newPass.autocomplete="new-password";newPass.placeholder="New Edit Mode password (6+ characters)";
