@@ -2,10 +2,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/fireba
 import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, updateProfile, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { getFirestore, collection, doc, setDoc, getDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js";
 import { openDB } from "https://cdn.jsdelivr.net/npm/idb@8/+esm";
 
 const firebaseConfig={apiKey:"AIzaSyDu3T1shPJoooMNwhpPijfJsPaNc2JWWhM",authDomain:"friends-hospital-pharmacy.firebaseapp.com",projectId:"friends-hospital-pharmacy",storageBucket:"friends-hospital-pharmacy.firebasestorage.app",messagingSenderId:"277311494482",appId:"1:277311494482:web:84f77fd637d765c08f028b",measurementId:"G-RWBC6T7X1T"};
 const app=initializeApp(firebaseConfig),auth=initializeAuth(app,{persistence:[indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence]}),db=getFirestore(app),storage=getStorage(app);
+const functions=getFunctions(app,"us-central1"),redeemEditModeRecovery=httpsCallable(functions,"redeemEditModeRecovery");
+const SUPPORT_WHATSAPP="923486314013";
 let localDB=null;async function openUserDB(uid){if(localDB)localDB.close();localDB=await openDB("friends-pharmacy-"+uid,3,{upgrade(d){if(!d.objectStoreNames.contains("medicines"))d.createObjectStore("medicines",{keyPath:"id"});if(!d.objectStoreNames.contains("pending"))d.createObjectStore("pending",{keyPath:"id"});if(!d.objectStoreNames.contains("meta"))d.createObjectStore("meta");if(!d.objectStoreNames.contains("bills"))d.createObjectStore("bills",{keyPath:"id"});}});}
 let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncNotice="",medicineModeEnabled=true,medicineImageDraft="",medicineImageRotation=0,medicineImageCrop=false;
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2);
@@ -554,8 +557,10 @@ function editModePasswordDialog(setup=false){
   actions.append(cancel,submit);box.append(intro,first,second,error,actions);
   if(!setup){
    const forgot=document.createElement("button");forgot.type="button";forgot.className="text-button edit-mode-forgot";forgot.textContent="Forgot Edit Mode password?";
-   forgot.onclick=async()=>{
-    const accountPass=document.createElement("input");accountPass.type="password";accountPass.autocomplete="current-password";accountPass.placeholder="Your pharmacy account password";
+   forgot.onclick=()=>{
+    const note=document.createElement("p");note.textContent="WhatsApp par support se rabta karein. Verification ke baad aapko one-time recovery code diya jayega.";
+    const contact=document.createElement("a");contact.className="primary full";contact.href="https://wa.me/"+SUPPORT_WHATSAPP+"?text="+encodeURIComponent("Friends Hospital Pharmacy: I need to reset my Edit Mode password. My registered account email is: "+(currentUser?.email||""));contact.target="_blank";contact.rel="noopener noreferrer";contact.textContent="Contact WhatsApp Support";
+    const code=document.createElement("input");code.type="text";code.inputMode="numeric";code.autocomplete="one-time-code";code.maxLength=12;code.placeholder="One-time recovery code";
     const newPass=document.createElement("input");newPass.type="password";newPass.autocomplete="new-password";newPass.placeholder="New Edit Mode password (6+ characters)";
     const confirm=document.createElement("input");confirm.type="password";confirm.autocomplete="new-password";confirm.placeholder="Confirm new password";
     const msg=document.createElement("p");msg.className="message";
@@ -564,17 +569,18 @@ function editModePasswordDialog(setup=false){
     back.onclick=()=>{closeAppModal();resolve(false);};
     reset.onclick=async()=>{
      msg.textContent="";
-     if(!accountPass.value||newPass.value.length<6||newPass.value!==confirm.value){msg.textContent="Enter your account password and matching new passwords (at least 6 characters).";return;}
+     if(!code.value.trim()||newPass.value.length<6||newPass.value!==confirm.value){msg.textContent="Enter your recovery code and matching new passwords (at least 6 characters).";return;}
      reset.disabled=true;
      try{
-      const credential=EmailAuthProvider.credential(currentUser.email,accountPass.value);
-      await reauthenticateWithCredential(currentUser,credential);
+      await redeemEditModeRecovery({code:code.value.trim()});
       await saveEditModePassword(newPass.value);
       closeAppModal();resolve(true);
-     }catch(err){msg.textContent=err.code==="auth/wrong-password"||err.code==="auth/invalid-credential"?"Pharmacy account password is incorrect.":(err.message||"Password reset failed.");reset.disabled=false;}
+     }catch(err){
+      const reason=err?.code==="functions/not-found"||err?.code==="functions/permission-denied"?"Recovery code is invalid or expired. Contact support again.":(err?.message||"Recovery failed.");
+      msg.textContent=reason;reset.disabled=false;
+     }
     };
-    actions2.append(back,reset);box.replaceChildren(intro,accountPass,newPass,confirm,msg,actions2);
-    accountPass.focus();
+    actions2.append(back,reset);box.replaceChildren(intro,note,contact,code,newPass,confirm,msg,actions2);code.focus();
    };
    box.append(forgot);
   }
