@@ -377,3 +377,16 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 
 /* Keyboard selection in billing medicine search */
 .bill-option.keyboard-active{background:#e8f3ed;outline:2px solid #236b5b;outline-offset:-2px;border-radius:10px;padding-left:10px;padding-right:10px;}
+
+
+/* Simple billing validation feedback */
+#patientName.field-error{border-color:#d7a29b!important;background:#fffdfc;box-shadow:0 0 0 2px rgba(185,105,94,.08)!important}
+#billItems.bill-items-error{border:0;border-left:2px solid #d7a29b;border-radius:0;padding:4px 0 4px 10px;background:transparent}
+#billItems.bill-items-error>.muted{color:#9b655e;font-weight:500}
+#billMessage.validation-alert{display:block;margin:8px 0 0;padding:0;border:0;background:transparent;color:#9b655e;font-size:11px;font-weight:500;line-height:1.5;min-height:0}
+
+/* Keyboard navigation: soft full-row highlight and a scrollable results area */
+#billMedicineList{max-height:min(52vh,480px);overflow-y:auto;overflow-x:hidden;padding:8px 4px 18px;margin-top:8px;overscroll-behavior:contain;scroll-padding:12px 0 18px;scrollbar-gutter:stable}
+#billMedicineList .bill-option{border-radius:10px;padding-left:10px;padding-right:10px;min-height:66px;scroll-margin:8px 0}
+#billMedicineList .bill-option.keyboard-active{background:#f0f6f2;outline:0;box-shadow:inset 3px 0 #6b9b83}
+#billMedicineList .bill-option:last-child{margin-bottom:4px}
