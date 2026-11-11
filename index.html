@@ -17,7 +17,7 @@
       <form id="loginForm">
         <label>Email<input id="email" type="email" autocomplete="username" required placeholder="name@example.com"></label>
         <label>Password<div class="password-field"><input id="password" type="password" autocomplete="current-password" required placeholder="Your password"><button class="password-toggle" type="button" data-password-target="password" aria-label="Show password" title="Show password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></label>
-        <div class="auth-options"><label class="remember-option"><input id="rememberMe" type="checkbox" checked><span>Remember me</span></label><button id="forgotPassword" class="text-button" type="button">Forgot password?</button></div>
+        <div class="auth-options"><button id="forgotPassword" class="text-button" type="button">Forgot password?</button></div>
         <button id="loginSubmit" class="primary full auth-submit" type="submit"><span class="button-label">Sign in</span><span class="button-spinner hidden" aria-hidden="true"></span></button><p id="loginMessage" class="message"></p>
         <p class="auth-switch">New user? <button id="showRegister" class="text-button" type="button">Create account</button></p>
       </form>
