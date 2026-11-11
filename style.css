@@ -409,3 +409,14 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
  .receipt-line{grid-template-columns:22px minmax(0,1fr) 78px 68px;gap:5px;font-size:10px}
  .receipt-line .receipt-qty,.receipt-line .receipt-amount{font-size:10px}
 }
+
+
+/* Compact Edit Mode recovery feedback */
+.edit-mode-password{gap:10px}
+.edit-mode-password>p{font-size:13px;line-height:1.45}
+.edit-mode-password .edit-mode-forgot{justify-self:start;padding:4px 0}
+.edit-mode-password .support-number{margin:0;font-size:12px;font-weight:700;color:var(--green)}
+.edit-mode-password .recovery-success{display:flex;align-items:center;gap:10px;margin:2px 0;padding:11px 12px;border:1px solid #cce8d7;border-radius:11px;background:#f1faf4;color:#245b3b;font-size:12px;font-weight:650;line-height:1.45}
+.edit-mode-password .recovery-success.hidden{display:none!important}
+.edit-mode-password .recovery-success-icon{display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;border-radius:50%;background:#d9f2e2;color:#187044;font-size:17px;font-weight:800}
+.edit-mode-password button.is-loading{opacity:.75;pointer-events:none}
