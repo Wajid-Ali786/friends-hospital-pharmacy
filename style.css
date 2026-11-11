@@ -390,3 +390,22 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 #billMedicineList .bill-option{border-radius:10px;padding-left:10px;padding-right:10px;min-height:66px;scroll-margin:8px 0}
 #billMedicineList .bill-option.keyboard-active{background:#f0f6f2;outline:0;box-shadow:inset 3px 0 #6b9b83}
 #billMedicineList .bill-option:last-child{margin-bottom:4px}
+
+
+/* Receipt preview: consistent column alignment and compact modal */
+.app-modal-dialog:has(.receipt-detail){width:min(600px,100%);padding:18px}
+.app-modal-body .receipt-detail{display:block!important;width:100%;max-width:480px;margin:0 auto;padding:18px 16px 20px}
+.receipt-line{display:grid;grid-template-columns:28px minmax(0,1fr) 92px 78px;gap:8px;align-items:center}
+.receipt-line>span:first-child{min-width:0;overflow-wrap:anywhere}
+.receipt-line.receipt-head span:first-child{text-align:center}
+.receipt-line.receipt-head span:nth-child(2){text-align:left}
+.receipt-line.receipt-head span:nth-child(3){text-align:center}
+.receipt-line.receipt-head span:last-child{text-align:right}
+.receipt-line .receipt-qty{text-align:center;white-space:nowrap}
+.receipt-line .receipt-amount{text-align:right;white-space:nowrap}
+@media(max-width:560px){
+ .app-modal-dialog:has(.receipt-detail){padding:12px}
+ .app-modal-body .receipt-detail{padding:14px 11px 16px}
+ .receipt-line{grid-template-columns:22px minmax(0,1fr) 78px 68px;gap:5px;font-size:10px}
+ .receipt-line .receipt-qty,.receipt-line .receipt-amount{font-size:10px}
+}
