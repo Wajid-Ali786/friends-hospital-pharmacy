@@ -327,7 +327,7 @@ $("billSearch").addEventListener("keydown",e=>{
   const step=e.key==="ArrowDown"?1:-1;
   billSearchActiveIndex=billSearchActiveIndex<0?(step>0?0:options.length-1):(billSearchActiveIndex+step+options.length)%options.length;
   options.forEach((row,index)=>{const active=index===billSearchActiveIndex;row.classList.toggle("keyboard-active",active);row.setAttribute("aria-selected",String(active));});
-  options[billSearchActiveIndex].scrollIntoView({block:"nearest",behavior:"smooth"});
+  options[billSearchActiveIndex].scrollIntoView({block:"nearest",behavior:"auto"});
  }else{
   e.preventDefault();
   const index=billSearchActiveIndex<0?0:billSearchActiveIndex;
@@ -342,7 +342,7 @@ function showBillValidation(errors){
  patient.classList.toggle("field-error",errors.some(x=>x.field==="patient"));
  items.classList.toggle("bill-items-error",errors.some(x=>x.field==="items"));
  message.classList.toggle("validation-alert",errors.length>0);
- message.textContent=errors.length?errors.map(x=>"• "+x.text).join("  "):"";
+ message.textContent=errors.length?errors.map(x=>x.text).join(" · "):"";
  if(errors.length){
   const first=errors[0].field==="patient"?patient:items;
   first.scrollIntoView({behavior:"smooth",block:"center"});
@@ -356,8 +356,8 @@ $("patientName").addEventListener("input",()=>{
 async function buildBillSnapshot(){
  const patientName=$("patientName").value.trim();
  const errors=[];
- if(!patientName)errors.push({field:"patient",text:"Patient name is required."});
- if(!bill.length)errors.push({field:"items",text:"Please select at least one medicine."});
+ if(!patientName)errors.push({field:"patient",text:"Add patient name"});
+ if(!bill.length)errors.push({field:"items",text:"Add a medicine"});
  if(errors.length){showBillValidation(errors);return null;}
  showBillValidation([]);
  const subtotal=bill.reduce((sum,item)=>sum+Number(item.qty)*Number(item.price),0);
