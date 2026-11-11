@@ -586,8 +586,12 @@ function editModePasswordDialog(setup=false){
       if(!approval.exists())throw new Error("No approved recovery found. Please contact support.");
       const data=approval.data(),expiry=data.expiresAt;
       if(data.approved!==true||typeof data.codeHash!=="string"||!expiry?.toMillis||expiry.toMillis()<=Date.now())throw new Error("Recovery code is invalid or expired. Please contact support.");
-      const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(code.value.trim())))).map(x=>x.toString(16).padStart(2,"0")).join("");
-      if(digest!==data.codeHash)throw new Error("Incorrect recovery code. Please check and try again.");
+      const parts=String(data.codeHash||"").split(":");if(parts.length!==2)throw new Error("Recovery approval is not configured correctly. Please contact support.");
+      const salt=Uint8Array.from(parts[0].match(/.{1,2}/g)||[],x=>parseInt(x,16));
+      const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(code.value.trim()),"PBKDF2",false,["deriveBits"]);
+      const derived=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:250000,hash:"SHA-256"},material,256);
+      const digest=Array.from(new Uint8Array(derived),x=>x.toString(16).padStart(2,"0")).join("");
+      if(digest!==parts[1])throw new Error("Incorrect recovery code. Please check and try again.");
       await saveEditModePassword(newPass.value);
       await deleteDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));
       closeAppModal();resolve(true);
