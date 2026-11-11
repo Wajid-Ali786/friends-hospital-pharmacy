@@ -4,33 +4,52 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#102b27">
-<title>Pharmacy Recovery Code Helper</title>
+<title>Recovery Code Helper</title>
 <style>
-*{box-sizing:border-box}body{margin:0;padding:24px;background:#f3f6f5;color:#17211f;font:16px system-ui,sans-serif}.card{max-width:520px;margin:30px auto;padding:24px;background:white;border:1px solid #dce5e1;border-radius:18px;box-shadow:0 8px 28px #102b2710}h1{font-size:22px;margin:0 0 8px}p{color:#52615c;line-height:1.5}label{display:block;font-weight:600;margin:18px 0 7px}input{width:100%;padding:13px;border:1px solid #cbd6d1;border-radius:10px;font:inherit}button{padding:12px 16px;border:0;border-radius:10px;background:#145b4b;color:white;font:600 15px system-ui;cursor:pointer;margin:10px 6px 0 0}.secondary{background:#e8efec;color:#183d33}.result{padding:12px;background:#f0f5f2;border-radius:10px;overflow-wrap:anywhere;font-family:monospace}.small{font-size:13px}.warn{color:#8a4a13}
+*{box-sizing:border-box}body{margin:0;padding:18px;background:#f3f6f5;color:#17211f;font:15px system-ui,sans-serif}.card{max-width:480px;margin:20px auto;padding:22px;background:#fff;border:1px solid #dce5e1;border-radius:18px;box-shadow:0 8px 28px #102b2710}h1{font-size:21px;margin:0 0 6px}p{color:#52615c;line-height:1.5}.hint{font-size:13px}.step{margin-top:18px}.label{display:block;font-weight:650;margin-bottom:7px}.value{padding:13px;border:1px solid #d5e0da;border-radius:10px;background:#f7faf8;overflow-wrap:anywhere;font-family:ui-monospace,monospace}.code{font-size:26px;letter-spacing:5px;font-weight:800;text-align:center}.hash{font-size:12px;line-height:1.5}.actions{display:flex;gap:8px;flex-wrap:wrap}button{flex:1;min-width:120px;padding:12px;border:0;border-radius:10px;background:#145b4b;color:#fff;font:650 14px system-ui;cursor:pointer}.secondary{background:#e8efec;color:#183d33}.muted{font-size:12px;color:#687771}.status{min-height:20px;color:#176b43;font-size:13px;font-weight:600}.warning{padding:12px;border-radius:10px;background:#fff7e9;color:#76501b;font-size:12px;line-height:1.5}
 </style>
 </head>
 <body>
 <main class="card">
 <h1>Recovery Code Helper</h1>
-<p>Use this after verifying the user on WhatsApp. This page works locally in the browser; it does not send or save data.</p>
-<button id="generate">Generate secure code</button>
-<label for="code">Recovery code (send this to the verified user)</label>
-<input id="code" autocomplete="off" spellcheck="false">
-<button id="hash">Generate SHA-256 hash</button>
-<label>Code hash (paste into Firestore)</label>
-<div id="hashValue" class="result">Not generated yet</div>
-<button id="copyCode" class="secondary">Copy code</button>
-<button id="copyHash" class="secondary">Copy hash</button>
-<p class="small warn">In Firestore create editModeRecoveryApprovals/{USER_UID} with: approved = true, codeHash = the hash above, expiresAt = a Firestore Timestamp 24 hours from now. Send the raw code to the user. Delete the approval document after successful use.</p>
+<p class="hint">Verify the user's identity first. Generate a short code, then copy its hash into the matching Firebase recovery request.</p>
+<div class="step actions"><button id="generate">Generate 6-digit code</button></div>
+<div class="step">
+<span class="label">1. Recovery code — send this to the user</span>
+<div id="code" class="value code">------</div>
+<div class="actions"><button id="copyCode" class="secondary">Copy recovery code</button></div>
+</div>
+<div class="step">
+<span class="label">2. SHA-256 hash — paste this into Firestore</span>
+<div id="hashValue" class="value hash">Generate a code first</div>
+<div class="actions"><button id="copyHash" class="secondary">Copy hash</button></div>
+<p id="status" class="status" role="status" aria-live="polite"></p>
+</div>
+<div class="step warning"><b>Firebase document:</b> <code>editModeRecoveryApprovals/{USER_UID}</code><br>
+Fields: <code>approved</code> = Boolean <code>true</code>; <code>codeHash</code> = copied hash; <code>expiresAt</code> = Firestore Timestamp, 24 hours ahead.<br>
+Use the UID of the matching request. Each request needs its own new code and hash. The raw code is never stored in Firestore.</div>
+<p class="muted">This helper works locally in your browser. It does not connect to Firebase or send messages.</p>
 </main>
 <script>
 const $=id=>document.getElementById(id);
-function randomCode(){const bytes=crypto.getRandomValues(new Uint8Array(16));return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("").toUpperCase();}
-async function digest(){const value=$("code").value.trim();if(value.length<16){$("hashValue").textContent="Enter or generate a secure code first.";return;}const bytes=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));$("hashValue").textContent=Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,"0")).join("");}
-$("generate").onclick=()=>{$("code").value=randomCode();$("hashValue").textContent="Click Generate SHA-256 hash";};
-$("hash").onclick=digest;
-$("copyCode").onclick=()=>navigator.clipboard?.writeText($("code").value);
-$("copyHash").onclick=()=>navigator.clipboard?.writeText($("hashValue").textContent);
+let rawCode="",hash="";
+async function generate(){
+ const values=crypto.getRandomValues(new Uint32Array(1));
+ rawCode=String(values[0]%1000000).padStart(6,"0");
+ const bytes=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(rawCode));
+ hash=Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,"0")).join("");
+ $("code").textContent=rawCode;
+ $("hashValue").textContent=hash;
+ $("status").textContent="Code and hash generated.";
+}
+async function copy(value,label){
+ if(!value){$("status").textContent="Generate a code first.";return;}
+ try{await navigator.clipboard.writeText(value);$("status").textContent=label+" copied.";}
+ catch{$("status").textContent="Copy unavailable. Please select and copy manually.";}
+}
+$("generate").onclick=generate;
+$("copyCode").onclick=()=>copy(rawCode,"Recovery code");
+$("copyHash").onclick=()=>copy(hash,"SHA-256 hash");
 </script>
 </body>
 </html>
