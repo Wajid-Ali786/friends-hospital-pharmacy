@@ -6,54 +6,87 @@
 <meta name="theme-color" content="#102b27">
 <title>Recovery Code Helper</title>
 <style>
-*{box-sizing:border-box}body{margin:0;padding:18px;background:#f3f6f5;color:#17211f;font:15px system-ui,sans-serif}.card{max-width:480px;margin:20px auto;padding:22px;background:#fff;border:1px solid #dce5e1;border-radius:18px;box-shadow:0 8px 28px #102b2710}h1{font-size:21px;margin:0 0 6px}p{color:#52615c;line-height:1.5}.hint{font-size:13px}.step{margin-top:18px}.label{display:block;font-weight:650;margin-bottom:7px}.value{padding:13px;border:1px solid #d5e0da;border-radius:10px;background:#f7faf8;overflow-wrap:anywhere;font-family:ui-monospace,monospace}.code{font-size:26px;letter-spacing:5px;font-weight:800;text-align:center}.hash{font-size:12px;line-height:1.5}.actions{display:flex;gap:8px;flex-wrap:wrap}button{flex:1;min-width:120px;padding:12px;border:0;border-radius:10px;background:#145b4b;color:#fff;font:650 14px system-ui;cursor:pointer}.secondary{background:#e8efec;color:#183d33}.muted{font-size:12px;color:#687771}.status{min-height:20px;color:#176b43;font-size:13px;font-weight:600}.warning{padding:12px;border-radius:10px;background:#fff7e9;color:#76501b;font-size:12px;line-height:1.5}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:#f3f6f5;color:#17211f;font:15px system-ui,sans-serif}.card{max-width:560px;margin:18px auto;padding:22px;background:#fff;border:1px solid #dce5e1;border-radius:18px;box-shadow:0 8px 28px #102b2710}h1{font-size:22px;margin:0 0 6px}h2{font-size:17px;margin:0 0 9px}p{color:#52615c;line-height:1.5}.hint{font-size:13px}.step{margin-top:20px;padding-top:16px;border-top:1px solid #e7eeea}.label{display:block;font-weight:700;margin-bottom:8px}.value{padding:13px;border:1px solid #d5e0da;border-radius:10px;background:#f7faf8;overflow-wrap:anywhere;font-family:ui-monospace,monospace}.code{font-size:28px;letter-spacing:5px;font-weight:850;text-align:center}.hash{font-size:12px;line-height:1.5}.actions{display:flex;gap:8px;flex-wrap:wrap}button{flex:1;min-width:130px;padding:12px;border:0;border-radius:10px;background:#145b4b;color:#fff;font:650 14px system-ui;cursor:pointer}.secondary{background:#e8efec;color:#183d33}.muted{font-size:12px;color:#687771}.status{min-height:18px;color:#176b43;font-size:13px;font-weight:650}.qr-wrap{display:flex;justify-content:center;align-items:center;min-height:190px;padding:14px;background:#f7faf8;border:1px dashed #cbd9d1;border-radius:12px}.qr-wrap canvas,.qr-wrap img{max-width:100%;height:auto!important}.guide{padding-left:22px;margin:8px 0}.guide li{padding:5px 0;line-height:1.45}.warning{padding:13px;border-radius:10px;background:#fff7e9;color:#76501b;font-size:12px;line-height:1.55}.field{display:block;margin:8px 0;font-size:13px}.field b{color:#17211f}.topbtn{margin-top:16px}.hidden{display:none!important}
 </style>
 </head>
 <body>
 <main class="card">
 <h1>Recovery Code Helper</h1>
-<p class="hint">Verify the user's identity first. Generate a short code, then copy its hash into the matching Firebase recovery request.</p>
-<div class="step actions"><button id="generate">Generate 8-digit code</button></div>
-<div class="step">
-<span class="label">1. Recovery code — send this to the user</span>
-<div id="code" class="value code">------</div>
+<p class="hint">Verify the user's identity first. Generate one new code for each request. The QR code contains only the hash, not the recovery code.</p>
+<div class="actions topbtn"><button id="generate">Generate new 8-digit code + QR</button></div>
+
+<section class="step">
+<span class="label">1. Recovery code — send this to the user on WhatsApp</span>
+<div id="code" class="value code">--------</div>
 <div class="actions"><button id="copyCode" class="secondary">Copy recovery code</button></div>
-</div>
-<div class="step">
-<span class="label">2. Salted PBKDF2 hash — paste this into Firestore</span>
+</section>
+
+<section class="step">
+<span class="label">2. Hash — add this to Firebase as codeHash</span>
 <div id="hashValue" class="value hash">Generate a code first</div>
 <div class="actions"><button id="copyHash" class="secondary">Copy hash</button></div>
+<p class="hint">Computer par QR show hoga. Mobile camera/QR scanner se scan karein, phir scanned text ko copy karke Firebase ke codeHash field mein paste karein.</p>
+<div id="qr" class="qr-wrap"><span class="muted">QR code will appear here</span></div>
+</section>
 <p id="status" class="status" role="status" aria-live="polite"></p>
+
+<section class="step">
+<h2>Firebase mein approval add karne ka complete method</h2>
+<ol class="guide">
+<li>Firebase Console open karein → <b>Firestore Database</b> → <b>Data</b>.</li>
+<li><b>editModeRecoveryRequests</b> collection open karein.</li>
+<li>Jis user ki request approve karni hai, uska document open karein. Document ID/UID copy karein. Email field se user verify karein.</li>
+<li>Firestore Data mein wapas jaakar <b>Start collection</b> select karein. Collection ID exactly <code>editModeRecoveryApprovals</code> likhein.</li>
+<li>Document ID mein usi request ka UID paste karein. Agar collection pehle se hai, usay open karke <b>Add document</b> karein.</li>
+<li>Ye fields add karein, spelling aur types bilkul same rakhein:</li>
+</ol>
+<div class="value">
+<div class="field"><b>approved</b> — Boolean — <code>true</code></div>
+<div class="field"><b>codeHash</b> — String — upar wala copied hash / QR se copied text</div>
+<div class="field"><b>expiresAt</b> — Timestamp — current time se 24 hours baad</div>
 </div>
-<div class="step warning"><b>Firebase document:</b> <code>editModeRecoveryApprovals/{USER_UID}</code><br>
-Fields: <code>approved</code> = Boolean <code>true</code>; <code>codeHash</code> = copied salted hash; <code>expiresAt</code> = Firestore Timestamp, 24 hours ahead.<br>
-Use the UID of the matching request. Each request needs its own new code and hash. The raw code is never stored in Firestore.</div>
-<p class="muted">This helper works locally in your browser. It does not connect to Firebase or send messages.</p>
+<ol class="guide" start="7">
+<li><b>Save</b> karein. Raw 8-digit recovery code WhatsApp par verified user ko bhej dein.</li>
+<li>User app mein Forgot Edit Mode Password khol kar code aur new password enter karega. Successful reset par approval document app khud delete kar degi.</li>
+</ol>
+</section>
+
+<div class="warning"><b>Important:</b> Har request ke liye naya code aur hash banayein. Hamesha usi request ke UID document mein save karein. Raw code ko Firebase mein save na karein. Expiry 24 hours rakhein. Ye helper Firebase se automatically connect nahi hota; aap fields manually add karte hain.</div>
+<p class="muted">QR contains the salted PBKDF2 hash only. Keep the raw recovery code private and send it only to the verified account owner.</p>
 </main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 let rawCode="",hash="";
 async function generate(){
- const values=crypto.getRandomValues(new Uint32Array(1));
- rawCode=String(values[0]%100000000).padStart(8,"0");
- const salt=crypto.getRandomValues(new Uint8Array(16));
- const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(rawCode),"PBKDF2",false,["deriveBits"]);
- const derived=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:250000,hash:"SHA-256"},material,256);
- const saltHex=Array.from(salt,b=>b.toString(16).padStart(2,"0")).join("");
- const digest=Array.from(new Uint8Array(derived),b=>b.toString(16).padStart(2,"0")).join("");
- hash=saltHex+":"+digest;
- $("code").textContent=rawCode;
- $("hashValue").textContent=hash;
- $("status").textContent="Code and hash generated.";
+ $("status").textContent="Generating secure code…";
+ $("generate").disabled=true;
+ try{
+  const values=crypto.getRandomValues(new Uint32Array(1));
+  rawCode=String(values[0]%100000000).padStart(8,"0");
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(rawCode),"PBKDF2",false,["deriveBits"]);
+  const derived=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:250000,hash:"SHA-256"},material,256);
+  const saltHex=Array.from(salt,b=>b.toString(16).padStart(2,"0")).join("");
+  const digest=Array.from(new Uint8Array(derived),b=>b.toString(16).padStart(2,"0")).join("");
+  hash=saltHex+":"+digest;
+  $("code").textContent=rawCode;
+  $("hashValue").textContent=hash;
+  $("qr").replaceChildren();
+  if(typeof QRCode==="undefined")throw new Error("QR library could not load. Check internet and refresh this page.");
+  new QRCode($("qr"),{text:hash,width:180,height:180,colorDark:"#102b27",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});
+  $("status").textContent="New recovery code and QR generated.";
+ }catch(err){$("status").textContent=err.message||"Could not generate. Please try again.";}
+ finally{$("generate").disabled=false;}
 }
 async function copy(value,label){
  if(!value){$("status").textContent="Generate a code first.";return;}
  try{await navigator.clipboard.writeText(value);$("status").textContent=label+" copied.";}
- catch{$("status").textContent="Copy unavailable. Please select and copy manually.";}
+ catch{$("status").textContent="Copy unavailable. Select the text and copy manually.";}
 }
 $("generate").onclick=generate;
 $("copyCode").onclick=()=>copy(rawCode,"Recovery code");
-$("copyHash").onclick=()=>copy(hash,"SHA-256 hash");
+$("copyHash").onclick=()=>copy(hash,"Hash");
 </script>
 </body>
 </html>
