@@ -100,7 +100,7 @@ function openMedicineImageEditor(){
    let output=rotated;
    if(medicineImageCrop){const side=Math.min(rotated.width,rotated.height),x=Math.floor((rotated.width-side)/2),y=Math.floor((rotated.height-side)/2),cropped=document.createElement("canvas");cropped.width=side;cropped.height=side;cropped.getContext("2d").drawImage(rotated,x,y,side,side,0,0,side,side);output=cropped;}
    const scale=Math.min(1,1200/Math.max(output.width,output.height)),finalCanvas=document.createElement("canvas");finalCanvas.width=Math.max(1,Math.round(output.width*scale));finalCanvas.height=Math.max(1,Math.round(output.height*scale));finalCanvas.getContext("2d").drawImage(output,0,0,finalCanvas.width,finalCanvas.height);
-   showMedicineImagePreview(finalCanvas.toDataURL("image/jpeg",.86));$("medicineImage").value="";medicineImageRotation=0;medicineImageCrop=false;overlay.remove();
+   showMedicineImagePreview(finalCanvas.toDataURL("image/png"));$("medicineImage").value="";medicineImageRotation=0;medicineImageCrop=false;overlay.remove();
   };source.onerror=()=>alert("Could not read this image.");source.src=medicineImageDraft;
  };
  actions.append(cancel,apply);wrap.append(preview,controls,note,actions);overlay.append(wrap);document.body.append(overlay);
@@ -254,7 +254,7 @@ async function saveMedicine(e){
  if(file||medicineImageDraft){
   if(file&&file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");return;}
   image=await new Promise((resolve,reject)=>{
-   const source=medicineImageDraft||"";const img=new Image();img.onload=()=>{const scale=Math.min(1,1200/Math.max(img.width,img.height)),w=Math.round(img.width*scale),h=Math.round(img.height*scale);const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;const ctx=canvas.getContext("2d");ctx.drawImage(img,0,0,w,h);resolve(canvas.toDataURL("image/jpeg",0.82));};img.onerror=reject;img.src=source;});
+   const source=medicineImageDraft||"";const img=new Image();img.onload=()=>{const scale=Math.min(1,1200/Math.max(img.width,img.height)),w=Math.round(img.width*scale),h=Math.round(img.height*scale);const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;const ctx=canvas.getContext("2d");ctx.drawImage(img,0,0,w,h);resolve(canvas.toDataURL("image/png"));};img.onerror=reject;img.src=source;});
  }
  const tags=[...new Set($("medicineTags").value.split(",").map(x=>x.trim()).filter(Boolean))];
  const m={id,name:$("medicineName").value.trim(),tags,roundingAllowed:$("roundingAllowed").checked,unit:$("medicineUnit").value,price:Math.max(0,Number($("medicinePrice").value)||0),image,updatedAt:Date.now()};
@@ -556,10 +556,10 @@ function editModePasswordDialog(setup=false){
   if(!setup){
    const forgot=document.createElement("button");forgot.type="button";forgot.className="text-button edit-mode-forgot";forgot.textContent="Forgot Edit Mode password?";
    forgot.onclick=()=>{
-    const note=document.createElement("p");note.textContent="Request a password reset. After verifying your account, support will send you a recovery code within 24–48 hours.";
+    const note=document.createElement("p");note.textContent="Submit your request and contact us on WhatsApp. After verification, you will receive a reset code within 24–48 hours. Enter the code below to set a new password.";
     const number=document.createElement("p");number.className="support-number";number.textContent="WhatsApp Support: +92 348 6314013";
-    const contact=document.createElement("a");contact.className="primary full";contact.href="https://wa.me/"+SUPPORT_WHATSAPP+"?text="+encodeURIComponent("Friends Hospital Pharmacy: Please help me reset my Edit Mode password. Registered email: "+(currentUser?.email||""));contact.target="_blank";contact.rel="noopener noreferrer";contact.textContent="Contact on WhatsApp";
-    const request=document.createElement("button");request.type="button";request.className="secondary full";request.textContent="Submit recovery request";
+    const contact=document.createElement("a");contact.className="primary full";contact.href="https://wa.me/"+SUPPORT_WHATSAPP+"?text="+encodeURIComponent("Friends Hospital Pharmacy: Please help me reset my Edit Mode password. Registered email: "+(currentUser?.email||""));contact.target="_blank";contact.rel="noopener noreferrer";contact.textContent="WhatsApp Support";
+    const request=document.createElement("button");request.type="button";request.className="secondary full";request.textContent="Send reset request";
     const requestStatus=document.createElement("p");requestStatus.className="message";
     request.onclick=async()=>{
      if(!currentUser?.uid||!currentUser.email){requestStatus.textContent="Please sign in again before submitting a request.";return;}
