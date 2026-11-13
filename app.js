@@ -555,23 +555,81 @@ function editModePasswordDialog(setup=false){
   if(!setup){
    const forgot=document.createElement("button");forgot.type="button";forgot.className="text-button edit-mode-forgot";forgot.textContent="Forgot password?";
    forgot.onclick=async()=>{
-    const recovery=document.createElement("div");recovery.className="edit-mode-password";
-    const status=document.createElement("p");status.className="message";status.setAttribute("role","status");
-    const request=document.createElement("button");request.type="button";request.className="secondary full";
-    const support=document.createElement("a");support.href="https://wa.me/"+SUPPORT_WHATSAPP+"?text="+encodeURIComponent("Please help me reset my Edit Mode password. Registered email: "+(currentUser?.email||""));support.target="_blank";support.rel="noopener noreferrer";support.className="text-button";support.textContent="Contact support";
-    const code=document.createElement("input");code.type="text";code.inputMode="numeric";code.autocomplete="one-time-code";code.placeholder="8-digit recovery code";
-    const verify=document.createElement("button");verify.type="button";verify.className="primary full";verify.textContent="Verify code";
+    const recovery=document.createElement("div");recovery.className="edit-mode-password recovery-flow";
+    const statusCard=document.createElement("div");statusCard.className="recovery-status-card";
+    const icon=document.createElement("span");icon.className="recovery-status-icon";icon.textContent="✓";
+    const title=document.createElement("b");title.textContent="Request a recovery code";
+    const detail=document.createElement("p");detail.textContent="Submit one request. Our admin will verify it and send your 8-digit recovery code on WhatsApp within 24–48 hours.";
+    statusCard.append(icon,title,detail);
+    const status=document.createElement("p");status.className="recovery-inline-status";status.setAttribute("role","status");
+    const request=document.createElement("button");request.type="button";request.className="primary full";request.textContent="Send recovery request";
+    const contact=document.createElement("a");contact.href="https://wa.me/"+SUPPORT_WHATSAPP+"?text="+encodeURIComponent("I need help with Edit Mode password recovery. Registered email: "+(currentUser?.email||""));contact.target="_blank";contact.rel="noopener noreferrer";contact.className="recovery-contact";
+    contact.innerHTML='<span>Contact support</span><b>+92 348 631 4013</b>';
+    const code=document.createElement("input");code.type="text";code.inputMode="numeric";code.autocomplete="one-time-code";code.placeholder="Enter your 8-digit recovery code";code.maxLength=8;
+    const verify=document.createElement("button");verify.type="button";verify.className="primary full";verify.textContent="Verify recovery code";
     const newPass=document.createElement("input");newPass.type="password";newPass.autocomplete="new-password";newPass.placeholder="New password (6+ characters)";
-    const confirm=document.createElement("input");confirm.type="password";confirm.autocomplete="new-password";confirm.placeholder="Confirm password";
-    const save=document.createElement("button");save.type="button";save.className="primary full";save.textContent="Save password";
-    const fields=document.createElement("div");fields.className="hidden";fields.append(newPass,confirm,save);let verified=null;
-    const showRequest=exists=>{request.textContent=exists?"Request already submitted":"Request recovery code";request.disabled=exists;status.textContent=exists?"Your request is pending. Please wait for admin approval.":"";};
-    try{const existing=await getDoc(doc(db,"editModeRecoveryRequests",currentUser.uid));showRequest(existing.exists());}catch(err){status.textContent="Could not check request status. Check connection.";}
-    request.onclick=async()=>{if(!currentUser?.uid||!currentUser.email)return;request.disabled=true;request.textContent="Sending…";status.textContent="";try{const existing=await getDoc(doc(db,"editModeRecoveryRequests",currentUser.uid));if(!existing.exists())await setDoc(doc(db,"editModeRecoveryRequests",currentUser.uid),{email:currentUser.email,requestedAt:serverTimestamp()});showRequest(true);}catch(err){status.textContent="Request failed. Try again.";request.disabled=false;request.textContent="Request recovery code";}};
-    verify.onclick=async()=>{status.textContent="";verify.disabled=true;try{const snap=await getDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));if(!snap.exists())throw new Error("Code not approved yet.");const data=snap.data(),expiry=data.expiresAt;if(data.approved!==true||typeof data.codeHash!=="string"||!expiry?.toMillis||expiry.toMillis()<=Date.now())throw new Error("Code is invalid or expired.");const parts=data.codeHash.split(":");if(parts.length!==2)throw new Error("Invalid approval.");const salt=Uint8Array.from(parts[0].match(/.{1,2}/g)||[],x=>parseInt(x,16));const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(code.value.trim()),"PBKDF2",false,["deriveBits"]);const derived=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:250000,hash:"SHA-256"},material,256);const digest=Array.from(new Uint8Array(derived),x=>x.toString(16).padStart(2,"0")).join("");if(digest!==parts[1])throw new Error("Incorrect recovery code.");verified=data;code.disabled=true;verify.classList.add("hidden");fields.classList.remove("hidden");status.textContent="Code verified. Set your new password.";}catch(err){status.textContent=err?.message||"Verification failed.";verify.disabled=false;}};
-    save.onclick=async()=>{status.textContent="";if(newPass.value.length<6||newPass.value!==confirm.value){status.textContent="Enter matching passwords (6+ characters).";return;}save.disabled=true;try{const latest=await getDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));if(!verified||!latest.exists()||latest.data().codeHash!==verified.codeHash)throw new Error("Approval changed. Verify the code again.");await saveEditModePassword(newPass.value);await deleteDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));closeAppModal();resolve(true);}catch(err){status.textContent=err?.message||"Could not save password.";save.disabled=false;}};
-    const back=document.createElement("button");back.type="button";back.className="text-button";back.textContent="Back";back.onclick=()=>openAppModal(box,"Unlock Edit Mode","","edit-password");
-    recovery.append(request,status,support,code,verify,fields,back);openAppModal(recovery,"Recover password","","recovery");
+    const confirm=document.createElement("input");confirm.type="password";confirm.autocomplete="new-password";confirm.placeholder="Confirm new password";
+    const save=document.createElement("button");save.type="button";save.className="primary full";save.textContent="Save new password";
+    const fields=document.createElement("div");fields.className="hidden recovery-password-fields";fields.append(newPass,confirm,save);let verified=null;
+    const showPending=()=>{
+      statusCard.classList.add("is-success");icon.textContent="✓";title.textContent="Request successfully submitted";
+      detail.textContent="Your request is safely received. Your recovery code will be sent to your registered WhatsApp number within 24–48 hours. Please don't submit another request.";
+      request.classList.add("hidden");status.textContent="Status: Pending admin verification.";
+    };
+    const loadRecoveryState=async()=>{
+      status.textContent="Checking request status…";request.disabled=true;
+      try{
+       const [pending,cooldown]=await Promise.all([getDoc(doc(db,"editModeRecoveryRequests",currentUser.uid)),getDoc(doc(db,"editModeRecoveryCooldown",currentUser.uid))]);
+       if(pending.exists()){showPending();return;}
+       if(cooldown.exists()){
+        const until=cooldown.data().retryAfter?.toMillis?.()||0,remaining=until-Date.now();
+        if(remaining>0){statusCard.classList.add("is-success");icon.textContent="✓";title.textContent="Recovery recently completed";detail.textContent="For security, you can submit another request after the waiting period.";request.classList.add("hidden");const when=new Date(until).toLocaleString();status.textContent="You can request again after: "+when;return;}
+       }
+       status.textContent="";request.disabled=false;
+      }catch(err){status.textContent="Unable to check request status. Please check your internet connection and try again.";request.disabled=false;}
+    };
+    request.onclick=async()=>{
+      if(!currentUser?.uid||!currentUser.email)return;
+      request.disabled=true;request.textContent="Sending request…";status.textContent="";
+      try{
+       const pending=await getDoc(doc(db,"editModeRecoveryRequests",currentUser.uid));
+       if(pending.exists()){showPending();return;}
+       const cooldown=await getDoc(doc(db,"editModeRecoveryCooldown",currentUser.uid));
+       const until=cooldown.data()?.retryAfter?.toMillis?.()||0;
+       if(until>Date.now()){await loadRecoveryState();return;}
+       await setDoc(doc(db,"editModeRecoveryRequests",currentUser.uid),{email:currentUser.email,requestedAt:serverTimestamp()});
+       showPending();
+      }catch(err){status.textContent=err?.code==="permission-denied"?"Request blocked by Firestore permissions. Please contact support.":"Request could not be sent. Check your connection and try again.";request.disabled=false;request.textContent="Send recovery request";}
+    };
+    verify.onclick=async()=>{
+      status.textContent="";verify.disabled=true;
+      try{
+       const snap=await getDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));if(!snap.exists())throw new Error("Your request is still being reviewed. The code will be sent after approval.");
+       const data=snap.data(),expiry=data.expiresAt;
+       if(data.approved!==true||typeof data.codeHash!=="string"||!expiry?.toMillis||expiry.toMillis()<=Date.now())throw new Error("Code is invalid or expired. Contact support.");
+       const parts=data.codeHash.split(":");if(parts.length!==2)throw new Error("Invalid approval.");
+       const salt=Uint8Array.from(parts[0].match(/.{1,2}/g)||[],x=>parseInt(x,16));
+       const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(code.value.trim()),"PBKDF2",false,["deriveBits"]);
+       const derived=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:250000,hash:"SHA-256"},material,256);
+       const digest=Array.from(new Uint8Array(derived),x=>x.toString(16).padStart(2,"0")).join("");
+       if(digest!==parts[1])throw new Error("Incorrect recovery code. Please check it.");
+       verified=data;code.disabled=true;verify.classList.add("hidden");fields.classList.remove("hidden");status.textContent="✓ Code verified. Now create your new password.";
+      }catch(err){status.textContent=err?.message||"Verification failed.";verify.disabled=false;}
+    };
+    save.onclick=async()=>{
+      status.textContent="";
+      if(newPass.value.length<6||newPass.value!==confirm.value){status.textContent="Enter matching passwords (6+ characters).";return;}
+      save.disabled=true;
+      try{
+       const latest=await getDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));
+       if(!verified||!latest.exists()||latest.data().codeHash!==verified.codeHash)throw new Error("Approval changed. Verify the code again.");
+       await saveEditModePassword(newPass.value);await deleteDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));
+       closeAppModal();resolve(true);
+      }catch(err){status.textContent=err?.message||"Could not save password.";save.disabled=false;}
+    };
+    const back=document.createElement("button");back.type="button";back.className="text-button";back.textContent="← Back";back.onclick=()=>openAppModal(box,"Unlock Edit Mode","","edit-password");
+    recovery.append(statusCard,status,request,contact,code,verify,fields,back);
+    openAppModal(recovery,"Recover Edit Mode password","","recovery");loadRecoveryState();
    };box.append(forgot);
   }
   openAppModal(box,setup?"Set Edit Mode Password":"Unlock Edit Mode","","edit-password");first.focus();
