@@ -75,13 +75,29 @@ async function loadRequests(){
   setStatus(err?.message||"Permission denied.",true);
  }
 }
+
+function showApproveDialog(email){
+ return new Promise(resolve=>{
+  const overlay=document.createElement("div");overlay.style.cssText="position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:18px;background:#10251d88;backdrop-filter:blur(5px)";
+  const card=document.createElement("div");card.style.cssText="width:min(390px,100%);padding:23px;border-radius:20px;background:#fff;box-shadow:0 24px 70px #10251d40;color:#172a25";
+  const mark=document.createElement("div");mark.textContent="✓";mark.style.cssText="width:42px;height:42px;display:grid;place-items:center;border-radius:50%;background:#e5f4e9;color:#18714f;font-size:22px;font-weight:800;margin-bottom:12px";
+  const title=document.createElement("h3");title.textContent="Approve recovery request?";title.style.margin="0 0 7px";
+  const copy=document.createElement("p");copy.textContent="Generate a one-time recovery code for "+email+". Confirm that you have verified this account owner.";copy.style.cssText="font-size:13px;line-height:1.55;color:#71817b;margin:0 0 18px;overflow-wrap:anywhere";
+  const row=document.createElement("div");row.style.cssText="display:flex;gap:9px";
+  const cancel=document.createElement("button"),yes=document.createElement("button");cancel.type=yes.type="button";cancel.className="secondary";cancel.textContent="Cancel";yes.textContent="Approve & generate";yes.style.flex="1";cancel.style.flex="1";
+  row.append(cancel,yes);card.append(mark,title,copy,row);overlay.append(card);document.body.append(overlay);
+  const finish=value=>{overlay.remove();resolve(value);};cancel.onclick=()=>finish(false);yes.onclick=()=>finish(true);overlay.addEventListener("click",e=>{if(e.target===overlay)finish(false);});
+ });
+}
+
 async function approveRequest(uid,email,button){
- if(!confirm("Verify the user's identity before approval. Generate a recovery code for "+email+"?"))return;
+ if(!await showApproveDialog(email))return;
  button.disabled=true;button.textContent="Creating approval…";setStatus("");
  try{
   const code=newCode(),codeHash=await makeHash(code);
   const expiresAt=Timestamp.fromDate(new Date(Date.now()+24*60*60*1000));
   await setDoc(doc(db,"editModeRecoveryApprovals",uid),{approved:true,codeHash,expiresAt});
+  await setDoc(doc(db,"editModeRecoveryCooldown",uid),{retryAfter:Timestamp.fromDate(new Date(Date.now()+48*60*60*1000))});
   await deleteDoc(doc(db,"editModeRecoveryRequests",uid));
   activeCode=code;activeEmail=email;
   $("resultEmail").textContent="For: "+email;$("recoveryCode").textContent=code;$("resultPanel").classList.remove("hidden");
