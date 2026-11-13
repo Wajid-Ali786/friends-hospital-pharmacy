@@ -1,0 +1,81 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isRecoveryAdmin() {
+      return request.auth != null
+        && request.auth.uid == "Ud1gC1ZCaqZWSOhGPU63Wl26IzY2";
+    }
+
+    // Medicines
+    match /users/{userId}/medicines/{medicineId} {
+      allow read, write:
+        if request.auth != null
+        && request.auth.uid == userId;
+    }
+
+    // Bills
+    match /users/{userId}/bills/{billId} {
+      allow read:
+        if request.auth != null
+        && request.auth.uid == userId;
+
+      allow create:
+        if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+
+      allow update:
+        if request.auth != null
+        && request.auth.uid == userId
+        && resource.data.ownerUid == request.auth.uid
+        && request.time < resource.data.createdAt + duration.value(1, 'h')
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.receiptNumber == resource.data.receiptNumber;
+
+      allow delete:
+        if request.auth != null
+        && request.auth.uid == userId
+        && resource.data.ownerUid == request.auth.uid
+        && request.time < resource.data.createdAt + duration.value(1, 'h');
+    }
+
+    // Users can submit only their own recovery request.
+    // Only the designated admin can list/read/delete requests.
+    match /editModeRecoveryRequests/{userId} {
+      allow create, update:
+        if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['email', 'requestedAt'])
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.requestedAt == request.time;
+
+      allow get, list, delete: if isRecoveryAdmin();
+    }
+
+    // Legacy recovery collection stays blocked.
+    match /editModeRecovery/{userId} {
+      allow read, write: if false;
+    }
+
+    // Account owner can read/delete their own approval.
+    // Only designated admin can create/update approvals.
+    match /editModeRecoveryApprovals/{userId} {
+      allow get, delete:
+        if request.auth != null
+        && request.auth.uid == userId;
+
+      allow create, update:
+        if isRecoveryAdmin()
+        && request.resource.data.keys().hasOnly(['approved', 'codeHash', 'expiresAt'])
+        && request.resource.data.approved == true
+        && request.resource.data.codeHash is string
+        && request.resource.data.expiresAt is timestamp;
+
+      allow list: if false;
+    }
+  }
+}
