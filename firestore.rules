@@ -53,7 +53,18 @@ service cloud.firestore {
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.requestedAt == request.time;
 
-      allow get, list, delete: if isRecoveryAdmin();
+      allow get: if isRecoveryAdmin() || (request.auth != null && request.auth.uid == userId);
+      allow list, delete: if isRecoveryAdmin();
+    }
+
+
+    // Admin-controlled retry cooldown. Users can read only their own status.
+    match /editModeRecoveryCooldown/{userId} {
+      allow get: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if isRecoveryAdmin()
+        && request.resource.data.keys().hasOnly(['retryAfter'])
+        && request.resource.data.retryAfter is timestamp;
+      allow list, delete: if false;
     }
 
     // Legacy recovery collection stays blocked.
