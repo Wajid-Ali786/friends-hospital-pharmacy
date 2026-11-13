@@ -46,14 +46,14 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("appModal").clas
 const RECOVERY_ADMIN_UID="Ud1gC1ZCaqZWSOhGPU63Wl26IzY2";
 let recoveryAdminUnsubscribe=null;
 function setupRecoveryAdmin(user){
- const settings=$("settingsPage")?.querySelector(".settings-panel");
- let link=$("recoveryAdminLink"),bell=$("recoveryAdminBell");
- if(bell)bell.remove();
+ const header=document.querySelector(".main header"),settings=$("settingsPage")?.querySelector(".settings-panel");
+ let bell=$("recoveryAdminBell"),link=$("recoveryAdminLink");
  if(user?.uid===RECOVERY_ADMIN_UID){
-  if(!link&&settings){link=document.createElement("a");link.id="recoveryAdminLink";link.href="./recovery-admin.html";link.style.cssText="display:flex;justify-content:center;margin:18px 0 0;padding:11px 14px;border:1px solid #cfe2d6;border-radius:11px;background:#f0f8f3;color:#176b55;font-weight:700;text-decoration:none";settings.append(link);}
+  if(!bell&&header){bell=document.createElement("button");bell.id="recoveryAdminBell";bell.type="button";bell.className="secondary";bell.style.cssText="margin-right:10px;min-height:38px;padding:7px 12px";bell.innerHTML="♢ <span id='recoveryAdminCount'>0</span>";bell.title="Pending recovery requests";header.insertBefore(bell,$("userLabel"));bell.onclick=()=>window.open("./recovery-admin.html","_blank","noopener");}
+  if(!link&&settings){link=document.createElement("a");link.id="recoveryAdminLink";link.href="./recovery-admin.html";link.textContent="♢ Recovery Admin";link.style.cssText="display:inline-flex;margin:12px 0;padding:10px 14px;border-radius:10px;background:#e8f3ec;color:#176b55;font-weight:700;text-decoration:none";settings.insertBefore(link,settings.firstChild);}
   if(recoveryAdminUnsubscribe)recoveryAdminUnsubscribe();
-  recoveryAdminUnsubscribe=onSnapshot(collection(db,"editModeRecoveryRequests"),snap=>{if(link)link.textContent="♢ Recovery Admin ("+snap.size+" "+(snap.size===1?"request":"requests")+")";},err=>{console.warn("Recovery notifications unavailable:",err);if(link)link.textContent="♢ Recovery Admin (count unavailable)";});
- }else{if(link)link.remove();if(recoveryAdminUnsubscribe){recoveryAdminUnsubscribe();recoveryAdminUnsubscribe=null;}}
+  recoveryAdminUnsubscribe=onSnapshot(collection(db,"editModeRecoveryRequests"),snap=>{const count=$("recoveryAdminCount");if(count)count.textContent=String(snap.size);if(bell){bell.title=snap.size+" pending recovery request"+(snap.size===1?"":"s");bell.style.background=snap.size?"#dff3e6":"#edf5f0";}},err=>console.warn("Recovery notifications unavailable:",err));
+ }else{if(bell)bell.remove();if(link)link.remove();if(recoveryAdminUnsubscribe){recoveryAdminUnsubscribe();recoveryAdminUnsubscribe=null;}}
 }
 function status(){ $("connection").textContent=navigator.onLine?"● Online / Firebase sync":"● Offline / Local mode"; }
 window.addEventListener("online",status);window.addEventListener("offline",status);status();
@@ -589,21 +589,106 @@ function editModePasswordDialog(setup=false){
       }catch(err){status.textContent="Unable to check request status. Please check your internet connection and try again.";request.disabled=false;}
     };
     request.onclick=async()=>{
-       if(request.textContent==="Retry status check"){await loadRecoveryState();return;}
-       if(!currentUser?.uid||!currentUser.email)return;
-       if(!navigator.onLine){status.textContent="Your device reports that it is offline. Check the connection and try again.";return;}
-       setRequestLoading(true,"Sending recovery request…");status.textContent="";
-       try{
-        const pending=await getDoc(doc(db,"editModeRecoveryRequests",currentUser.uid));
-        if(pending.exists()){showPending();return;}
-        const cooldown=await getDoc(doc(db,"editModeRecoveryCooldown",currentUser.uid));
-        const until=cooldown.data()?.retryAfter?.toMillis?.()||0;
-        if(until>Date.now()){await loadRecoveryState();return;}
-        await setDoc(doc(db,"editModeRecoveryRequests",currentUser.uid),{email:currentUser.email,requestedAt:serverTimestamp()});
-        showPending();
-       }catch(err){
-        console.warn("Recovery request failed:",err);
-        status.textContent=err?.code==="permission-denied"?"Firestore denied this operation. Publish the latest Firestore Rules; your recovery code still requires admin approval.":err?.code==="unavailable"?"Firebase is temporarily unavailable. Check your internet and retry.":"Request failed ("+(err?.code||"unknown error")+"). Please retry or contact support.";
-        setRequestLoading(false,"Send recovery request");
-       }
-     };
+      if(!currentUser?.uid||!currentUser.email)return;
+      request.disabled=true;request.textContent="Sending request…";status.textContent="";
+      try{
+       const pending=await getDoc(doc(db,"editModeRecoveryRequests",currentUser.uid));
+       if(pending.exists()){showPending();return;}
+       const cooldown=await getDoc(doc(db,"editModeRecoveryCooldown",currentUser.uid));
+       const until=cooldown.data()?.retryAfter?.toMillis?.()||0;
+       if(until>Date.now()){await loadRecoveryState();return;}
+       await setDoc(doc(db,"editModeRecoveryRequests",currentUser.uid),{email:currentUser.email,requestedAt:serverTimestamp()});
+       showPending();
+      }catch(err){status.textContent=err?.code==="permission-denied"?"Request blocked by Firestore permissions. Please contact support.":"Request could not be sent. Check your connection and try again.";request.disabled=false;request.textContent="Send recovery request";}
+    };
+    verify.onclick=async()=>{
+      status.textContent="";verify.disabled=true;
+      try{
+       const snap=await getDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));if(!snap.exists())throw new Error("Your request is still being reviewed. The code will be sent after approval.");
+       const data=snap.data(),expiry=data.expiresAt;
+       if(data.approved!==true||typeof data.codeHash!=="string"||!expiry?.toMillis||expiry.toMillis()<=Date.now())throw new Error("Code is invalid or expired. Contact support.");
+       const parts=data.codeHash.split(":");if(parts.length!==2)throw new Error("Invalid approval.");
+       const salt=Uint8Array.from(parts[0].match(/.{1,2}/g)||[],x=>parseInt(x,16));
+       const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(code.value.trim()),"PBKDF2",false,["deriveBits"]);
+       const derived=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:250000,hash:"SHA-256"},material,256);
+       const digest=Array.from(new Uint8Array(derived),x=>x.toString(16).padStart(2,"0")).join("");
+       if(digest!==parts[1])throw new Error("Incorrect recovery code. Please check it.");
+       verified=data;code.disabled=true;verify.classList.add("hidden");fields.classList.remove("hidden");status.textContent="✓ Code verified. Now create your new password.";
+      }catch(err){status.textContent=err?.message||"Verification failed.";verify.disabled=false;}
+    };
+    save.onclick=async()=>{
+      status.textContent="";
+      if(newPass.value.length<6||newPass.value!==confirm.value){status.textContent="Enter matching passwords (6+ characters).";return;}
+      save.disabled=true;
+      try{
+       const latest=await getDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));
+       if(!verified||!latest.exists()||latest.data().codeHash!==verified.codeHash)throw new Error("Approval changed. Verify the code again.");
+       await saveEditModePassword(newPass.value);await deleteDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));
+       closeAppModal();resolve(true);
+      }catch(err){status.textContent=err?.message||"Could not save password.";save.disabled=false;}
+    };
+    const back=document.createElement("button");back.type="button";back.className="text-button";back.textContent="← Back";back.onclick=()=>openAppModal(box,"Unlock Edit Mode","","edit-password");
+    recovery.append(statusCard,status,request,contact,code,verify,fields,back);
+    openAppModal(recovery,"Recover Edit Mode password","","recovery");loadRecoveryState();
+   };box.append(forgot);
+  }
+  openAppModal(box,setup?"Set Edit Mode Password":"Unlock Edit Mode","","edit-password");first.focus();
+ });
+}
+async function enableMedicineEditMode(){
+ if(!currentUser||!localDB)return;
+ const record=await localDB.get("meta","medicineEditPassword");
+ const ok=await editModePasswordDialog(!record);
+ if(!ok){$("medicineEditMode").checked=false;medicineModeEnabled=false;await localDB.put("meta",false,"medicineModeEnabled");renderMedicines($("medicineSearch").value);return;}
+ medicineModeEnabled=true;$("medicineEditMode").checked=true;await localDB.put("meta",true,"medicineModeEnabled");renderMedicines($("medicineSearch").value);
+}
+$("medicineEditMode").onchange=async()=>{
+ if($("medicineEditMode").checked){$("medicineEditMode").checked=false;await enableMedicineEditMode();return;}
+ medicineModeEnabled=false;await localDB.put("meta",false,"medicineModeEnabled");if(modalKind==="medicine")closeMedicineModal();renderMedicines($("medicineSearch").value);
+};
+$("changeMedicineImage").onclick=()=>{if(!medicineModeEnabled)return;$("medicineImage").click();};
+$("medicineImage").onchange=()=>{const file=$("medicineImage").files?.[0];if(!file){const existing=medicines.find(m=>m.id===$("medicineId").value);if(existing?.image)showMedicineImagePreview(existing.image);else resetMedicineImagePreview();return;}if(!file.type.startsWith("image/")){alert("Please select a valid image.");$("medicineImage").value="";return;}if(file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");$("medicineImage").value="";return;}const reader=new FileReader();reader.onload=()=>{medicineImageRotation=0;medicineImageCrop=false;showMedicineImagePreview(reader.result);openMedicineImageEditor();};reader.readAsDataURL(file);};
+$("saveName").onclick=async()=>{if(!currentUser)return;await updateProfile(currentUser,{displayName:$("displayName").value.trim()});$("userLabel").textContent=$("displayName").value.trim()||currentUser.email;};
+$("exportData").onclick=async()=>{try{const [allMedicines,allBills]=await Promise.all([localDB.getAll("medicines"),localDB.getAll("bills")]);const blob=new Blob([JSON.stringify({version:2,exportedAt:new Date().toISOString(),medicines:allMedicines,bills:allBills},null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="friends-pharmacy-backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(err){alert("Backup export failed: "+err.message);}};
+
+let installPrompt=null;function updateInstallButton(){const installed=window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;show("installAppWrap",!!installPrompt&&!installed);}window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;updateInstallButton();});window.addEventListener("appinstalled",()=>{installPrompt=null;updateInstallButton();});$("installAppBtn").onclick=async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;updateInstallButton();};window.matchMedia("(display-mode: standalone)").addEventListener?.("change",updateInstallButton);if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(err=>console.warn("Service worker:",err)));updateInstallButton();
+$("importData").onchange=async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ const button=$("importData");button.disabled=true;
+ try{
+  if(!currentUser||!localDB)throw Error("Please sign in before importing a backup.");
+  const data=JSON.parse(await file.text());
+  if(!data||typeof data!=="object"||!Array.isArray(data.medicines))throw Error("Invalid backup file. Medicines data is missing.");
+  if(data.bills!==undefined&&!Array.isArray(data.bills))throw Error("Invalid backup file. Bills data is not a valid list.");
+  let importedMedicines=0,importedBills=0;
+  for(const raw of data.medicines){
+   if(!raw||!raw.id||!raw.name)continue;
+   const medicine=normalizeMedicine({...raw,id:String(raw.id),name:String(raw.name).trim()});
+   await localDB.put("medicines",medicine);
+   await queueChange(medicine.id,"set",medicine,"medicines");
+   importedMedicines++;
+  }
+  for(const raw of (data.bills||[])){
+   if(!raw||!raw.id||!raw.receiptNumber)continue;
+   const restored={...raw,id:String(raw.id),ownerUid:currentUser.uid,createdAtMillis:Number(raw.createdAtMillis)||Date.now()};
+   await localDB.put("bills",restored);
+   await queueChange(restored.id,"set",restored,"bills");
+   importedBills++;
+  }
+  if(importedBills){
+   const allBills=await localDB.getAll("bills");
+   const maxNumber=allBills.reduce((max,item)=>Math.max(max,Number(String(item.receiptNumber||"").replace(/^B-/,""))||0),0);
+   await localDB.put("meta",maxNumber,"billCounter");
+  }
+  medicines=await localDB.getAll("medicines");
+  renderMedicines($("medicineSearch")?.value||"");
+  if(navigator.onLine)await flushQueue();
+  const pending=(await localDB.getAll("pending")).length;
+  alert("Import complete: "+importedMedicines+" medicines and "+importedBills+" bills imported."+(pending?" "+pending+" item(s) are waiting to sync; check internet/Firebase permissions.":" Data synced."));
+ }catch(err){
+  console.error("Backup import failed:",err);
+  alert("Import failed: "+(err?.message||"Unknown error"));
+ }finally{
+  button.disabled=false;e.target.value="";
+ }
+};
