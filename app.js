@@ -43,6 +43,18 @@ function confirmAction(title,message,confirmLabel="Delete"){
 $("appModalClose").onclick=()=>{if(modalKind==="edit")cancelBillEdit();else if(modalKind==="medicine")closeMedicineModal();else closeAppModal();};
 $("appModal").addEventListener("click",e=>{if(e.target===$("appModal")){if(modalKind==="edit")cancelBillEdit();else if(modalKind==="medicine")closeMedicineModal();else closeAppModal();}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("appModal").classList.contains("hidden")){if(modalKind==="edit")cancelBillEdit();else if(modalKind==="medicine")closeMedicineModal();else closeAppModal();}});
+const RECOVERY_ADMIN_UID="Ud1gC1ZCaqZWSOhGPU63Wl26IzY2";
+let recoveryAdminUnsubscribe=null;
+function setupRecoveryAdmin(user){
+ const header=document.querySelector(".main header"),settings=$("settingsPage")?.querySelector(".settings-panel");
+ let bell=$("recoveryAdminBell"),link=$("recoveryAdminLink");
+ if(user?.uid===RECOVERY_ADMIN_UID){
+  if(!bell&&header){bell=document.createElement("button");bell.id="recoveryAdminBell";bell.type="button";bell.className="secondary";bell.style.cssText="margin-right:10px;min-height:38px;padding:7px 12px";bell.innerHTML="♢ <span id='recoveryAdminCount'>0</span>";bell.title="Pending recovery requests";header.insertBefore(bell,$("userLabel"));bell.onclick=()=>window.open("./recovery-admin.html","_blank","noopener");}
+  if(!link&&settings){link=document.createElement("a");link.id="recoveryAdminLink";link.href="./recovery-admin.html";link.textContent="♢ Recovery Admin";link.style.cssText="display:inline-flex;margin:12px 0;padding:10px 14px;border-radius:10px;background:#e8f3ec;color:#176b55;font-weight:700;text-decoration:none";settings.insertBefore(link,settings.firstChild);}
+  if(recoveryAdminUnsubscribe)recoveryAdminUnsubscribe();
+  recoveryAdminUnsubscribe=onSnapshot(collection(db,"editModeRecoveryRequests"),snap=>{const count=$("recoveryAdminCount");if(count)count.textContent=String(snap.size);if(bell){bell.title=snap.size+" pending recovery request"+(snap.size===1?"":"s");bell.style.background=snap.size?"#dff3e6":"#edf5f0";}},err=>console.warn("Recovery notifications unavailable:",err));
+ }else{if(bell)bell.remove();if(link)link.remove();if(recoveryAdminUnsubscribe){recoveryAdminUnsubscribe();recoveryAdminUnsubscribe=null;}}
+}
 function status(){ $("connection").textContent=navigator.onLine?"● Online / Firebase sync":"● Offline / Local mode"; }
 window.addEventListener("online",status);window.addEventListener("offline",status);status();
 async function cacheAll(){const tx=localDB.transaction("medicines","readwrite");await tx.store.clear();for(const m of medicines)await tx.store.put(m);await tx.done;}
@@ -300,7 +312,7 @@ $("showRegister").onclick=()=>{show("loginForm",false);show("registerForm",true)
 $("showLogin").onclick=()=>{show("registerForm",false);show("loginForm",true);$("authHeading").textContent="Friends Hospital Pharmacy";$("authSubtitle").textContent="Sign in to continue";$("loginMessage").textContent="";$("registerMessage").textContent="";};
 $("registerForm").onsubmit=async e=>{e.preventDefault();const name=$("registerName").value.trim(),email=$("registerEmail").value.trim(),password=$("registerPassword").value,confirm=$("confirmPassword").value;if(password.length<6){$("registerMessage").textContent="Password must be at least 6 characters.";return;}if(password!==confirm){$("registerMessage").textContent="Passwords do not match.";return;}$("registerMessage").textContent="";setAuthLoading("registerSubmit",true,"Creating account…");try{const credential=await createUserWithEmailAndPassword(auth,email,password);if(name)await updateProfile(credential.user,{displayName:name});$("registerMessage").textContent="Account created successfully.";}catch(err){$("registerMessage").textContent=authError(err);}finally{setAuthLoading("registerSubmit",false);}};
 $("forgotPassword").onclick=async()=>{const email=$("email").value.trim();if(!email){$("loginMessage").textContent="Enter your email address first, then select Forgot password.";return;}try{await sendPasswordResetEmail(auth,email);$("loginMessage").textContent="Password reset email sent. Check your inbox.";}catch(err){$("loginMessage").textContent=authError(err);}};
-onAuthStateChanged(auth,async user=>{currentUser=user;if(user){await openUserDB(user.uid);const savedEditPassword=await localDB.get("meta","medicineEditPassword");medicineModeEnabled=!!savedEditPassword&&(await localDB.get("meta","medicineModeEnabled"))!==false;const editToggle=$("medicineEditMode");if(editToggle)editToggle.checked=medicineModeEnabled;show("loginView",false);show("appView",true);$("userLabel").textContent=user.displayName||user.email;$("settingsEmail").textContent=user.email;try{await loadLocal();savedBills=await localDB.getAll("bills");}catch(err){console.warn("Local cache unavailable:",err);renderMedicines();}if(unsubscribe)unsubscribe();if(navigator.onLine){startCloudSync(user);flushQueue().catch(err=>console.warn("Pending sync will retry:",err));}status();}else{show("loginView",true);show("appView",false);if(unsubscribe){unsubscribe();unsubscribe=null;}if(historyUnsubscribe){historyUnsubscribe();historyUnsubscribe=null;}if(localDB){localDB.close();localDB=null;}medicines=[];savedBills=[];}});
+onAuthStateChanged(auth,async user=>{currentUser=user;if(user){setupRecoveryAdmin(user);await openUserDB(user.uid);const savedEditPassword=await localDB.get("meta","medicineEditPassword");medicineModeEnabled=!!savedEditPassword&&(await localDB.get("meta","medicineModeEnabled"))!==false;const editToggle=$("medicineEditMode");if(editToggle)editToggle.checked=medicineModeEnabled;show("loginView",false);show("appView",true);$("userLabel").textContent=user.displayName||user.email;$("settingsEmail").textContent=user.email;try{await loadLocal();savedBills=await localDB.getAll("bills");}catch(err){console.warn("Local cache unavailable:",err);renderMedicines();}if(unsubscribe)unsubscribe();if(navigator.onLine){startCloudSync(user);flushQueue().catch(err=>console.warn("Pending sync will retry:",err));}status();}else{setupRecoveryAdmin(null);show("loginView",true);show("appView",false);if(unsubscribe){unsubscribe();unsubscribe=null;}if(historyUnsubscribe){historyUnsubscribe();historyUnsubscribe=null;}if(localDB){localDB.close();localDB=null;}medicines=[];savedBills=[];}});
 $("logoutBtn").onclick=()=>signOut(auth);
 $("addMedicineBtn").onclick=()=>openAddMedicine();
 $("cancelMedicine").onclick=closeMedicineModal;$("medicineForm").onsubmit=saveMedicine;
@@ -532,77 +544,37 @@ async function verifyEditModePassword(password,record){
 function editModePasswordDialog(setup=false){
  return new Promise(resolve=>{
   const box=document.createElement("div");box.className="edit-mode-password";
-  const intro=document.createElement("p");intro.textContent=setup?"Create a password for medicine editing.":"Enter your password to unlock editing.";
-  const first=document.createElement("input");first.type="password";first.autocomplete=setup?"new-password":"current-password";first.placeholder=setup?"Create password (at least 6 characters)":"Edit Mode password";
+  const first=document.createElement("input");first.type="password";first.autocomplete=setup?"new-password":"current-password";first.placeholder=setup?"Create password (6+ characters)":"Edit Mode password";
   const second=document.createElement("input");second.type="password";second.autocomplete="new-password";second.placeholder="Confirm password";second.classList.toggle("hidden",!setup);
   const error=document.createElement("p");error.className="message";
   const actions=document.createElement("div");actions.className="modal-actions";
-  const cancel=document.createElement("button"),submit=document.createElement("button");
-  cancel.type=submit.type="button";cancel.className="secondary";submit.className="primary";
-  cancel.textContent="Cancel";submit.textContent=setup?"Set password & Enable":"Unlock Edit Mode";
+  const cancel=document.createElement("button"),submit=document.createElement("button");cancel.type=submit.type="button";cancel.className="secondary";submit.className="primary";cancel.textContent="Cancel";submit.textContent=setup?"Set password":"Unlock";
   cancel.onclick=()=>{closeAppModal();resolve(false);};
-  submit.onclick=async()=>{
-   error.textContent="";
-   if(first.value.length<6){error.textContent="Password must be at least 6 characters.";first.focus();return;}
-   if(setup&&first.value!==second.value){error.textContent="Passwords do not match.";second.focus();return;}
-   submit.disabled=true;
-   try{
-    if(setup)await saveEditModePassword(first.value);
-    else{const record=await localDB.get("meta","medicineEditPassword");if(!record||!await verifyEditModePassword(first.value,record)){error.textContent="Incorrect Edit Mode password. Try again or use Forgot password.";submit.disabled=false;first.focus();return;}}
-    closeAppModal();resolve(true);
-   }catch(err){error.textContent="Could not verify password: "+(err?.message||"Unknown error");submit.disabled=false;}
-  };
-  actions.append(cancel,submit);box.append(intro,first,second,error,actions);
+  submit.onclick=async()=>{error.textContent="";if(first.value.length<6){error.textContent="Use at least 6 characters.";first.focus();return;}if(setup&&first.value!==second.value){error.textContent="Passwords do not match.";second.focus();return;}submit.disabled=true;try{if(setup)await saveEditModePassword(first.value);else{const record=await localDB.get("meta","medicineEditPassword");if(!record||!await verifyEditModePassword(first.value,record)){error.textContent="Incorrect password.";submit.disabled=false;first.focus();return;}}closeAppModal();resolve(true);}catch(err){error.textContent=err?.message||"Could not save password.";submit.disabled=false;}};
+  actions.append(cancel,submit);box.append(first,second,error,actions);
   if(!setup){
-   const forgot=document.createElement("button");forgot.type="button";forgot.className="text-button edit-mode-forgot";forgot.textContent="Forgot Edit Mode password?";
-   forgot.onclick=()=>{
-    const note=document.createElement("p");note.textContent="Request a reset code. Support will verify your account and contact you within 24–48 hours.";
-    const number=document.createElement("p");number.className="support-number";number.textContent="WhatsApp: +92 348 631 4013";
-    const contact=document.createElement("a");contact.className="primary full";contact.href="https://wa.me/"+SUPPORT_WHATSAPP+"?text="+encodeURIComponent("Friends Hospital Pharmacy: Please help me reset my Edit Mode password. Registered email: "+(currentUser?.email||""));contact.target="_blank";contact.rel="noopener noreferrer";contact.textContent="WhatsApp Support";
-    const request=document.createElement("button");request.type="button";request.className="secondary full";request.textContent="Send reset request";
-    const requestStatus=document.createElement("p");requestStatus.className="recovery-success hidden";requestStatus.setAttribute("role","status");requestStatus.setAttribute("aria-live","polite");
-    request.onclick=async()=>{
-     if(!currentUser?.uid||!currentUser.email){requestStatus.textContent="Please sign in again before submitting a request.";return;}
-     request.disabled=true;request.classList.add("is-loading");requestStatus.classList.add("hidden");requestStatus.replaceChildren();requestStatus.textContent="";request.textContent="Sending…";
-     try{
-      await setDoc(doc(db,"editModeRecoveryRequests",currentUser.uid),{email:currentUser.email,requestedAt:serverTimestamp()});
-      const tick=document.createElement("span");tick.className="recovery-success-icon";tick.setAttribute("aria-hidden","true");tick.textContent="✓";const successCopy=document.createElement("span");successCopy.textContent="Request sent successfully. We’ll contact you within 24–48 hours.";requestStatus.append(tick,successCopy);requestStatus.classList.remove("hidden");request.hidden=true;
-     }catch(err){requestStatus.textContent="Could not send request. Please try again.";requestStatus.classList.remove("hidden");request.disabled=false;request.textContent="Send reset request";}
-     finally{request.classList.remove("is-loading");if(!request.hidden){request.disabled=false;request.textContent="Send reset request";}}
-    };
-    const code=document.createElement("input");code.type="text";code.autocomplete="one-time-code";code.placeholder="Recovery code from support";
-    const newPass=document.createElement("input");newPass.type="password";newPass.autocomplete="new-password";newPass.placeholder="New Edit Mode password (6+ characters)";
-    const confirm=document.createElement("input");confirm.type="password";confirm.autocomplete="new-password";confirm.placeholder="Confirm new password";
-    const msg=document.createElement("p");msg.className="message";
-    const actions2=document.createElement("div");actions2.className="modal-actions";
-    const back=document.createElement("button"),reset=document.createElement("button");back.type=reset.type="button";back.className="secondary";reset.className="primary";back.textContent="Back";reset.textContent="Verify & Reset";
-    back.onclick=()=>{closeAppModal();resolve(false);};
-    reset.onclick=async()=>{
-     msg.textContent="";
-     if(!code.value.trim()||newPass.value.length<6||newPass.value!==confirm.value){msg.textContent="Enter your recovery code and matching new passwords (at least 6 characters).";return;}
-     reset.disabled=true;
-     try{
-      const approval=await getDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));
-      if(!approval.exists())throw new Error("No approved recovery found. Please contact support.");
-      const data=approval.data(),expiry=data.expiresAt;
-      if(data.approved!==true||typeof data.codeHash!=="string"||!expiry?.toMillis||expiry.toMillis()<=Date.now())throw new Error("Recovery code is invalid or expired. Please contact support.");
-      const parts=String(data.codeHash||"").split(":");if(parts.length!==2)throw new Error("Recovery approval is not configured correctly. Please contact support.");
-      const salt=Uint8Array.from(parts[0].match(/.{1,2}/g)||[],x=>parseInt(x,16));
-      const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(code.value.trim()),"PBKDF2",false,["deriveBits"]);
-      const derived=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:250000,hash:"SHA-256"},material,256);
-      const digest=Array.from(new Uint8Array(derived),x=>x.toString(16).padStart(2,"0")).join("");
-      if(digest!==parts[1])throw new Error("Incorrect recovery code. Please check and try again.");
-      await saveEditModePassword(newPass.value);
-      await deleteDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));
-      closeAppModal();resolve(true);
-     }catch(err){msg.textContent=err?.message||"Recovery failed.";reset.disabled=false;}
-    };
-    actions2.append(back,reset);box.replaceChildren(intro,note,number,request,requestStatus,contact,code,newPass,confirm,msg,actions2);code.focus();
-   };
-   box.append(forgot);
+   const forgot=document.createElement("button");forgot.type="button";forgot.className="text-button edit-mode-forgot";forgot.textContent="Forgot password?";
+   forgot.onclick=async()=>{
+    const recovery=document.createElement("div");recovery.className="edit-mode-password";
+    const status=document.createElement("p");status.className="message";status.setAttribute("role","status");
+    const request=document.createElement("button");request.type="button";request.className="secondary full";
+    const support=document.createElement("a");support.href="https://wa.me/"+SUPPORT_WHATSAPP+"?text="+encodeURIComponent("Please help me reset my Edit Mode password. Registered email: "+(currentUser?.email||""));support.target="_blank";support.rel="noopener noreferrer";support.className="text-button";support.textContent="Contact support";
+    const code=document.createElement("input");code.type="text";code.inputMode="numeric";code.autocomplete="one-time-code";code.placeholder="8-digit recovery code";
+    const verify=document.createElement("button");verify.type="button";verify.className="primary full";verify.textContent="Verify code";
+    const newPass=document.createElement("input");newPass.type="password";newPass.autocomplete="new-password";newPass.placeholder="New password (6+ characters)";
+    const confirm=document.createElement("input");confirm.type="password";confirm.autocomplete="new-password";confirm.placeholder="Confirm password";
+    const save=document.createElement("button");save.type="button";save.className="primary full";save.textContent="Save password";
+    const fields=document.createElement("div");fields.className="hidden";fields.append(newPass,confirm,save);let verified=null;
+    const showRequest=exists=>{request.textContent=exists?"Request already submitted":"Request recovery code";request.disabled=exists;status.textContent=exists?"Your request is pending. Please wait for admin approval.":"";};
+    try{const existing=await getDoc(doc(db,"editModeRecoveryRequests",currentUser.uid));showRequest(existing.exists());}catch(err){status.textContent="Could not check request status. Check connection.";}
+    request.onclick=async()=>{if(!currentUser?.uid||!currentUser.email)return;request.disabled=true;request.textContent="Sending…";status.textContent="";try{const existing=await getDoc(doc(db,"editModeRecoveryRequests",currentUser.uid));if(!existing.exists())await setDoc(doc(db,"editModeRecoveryRequests",currentUser.uid),{email:currentUser.email,requestedAt:serverTimestamp()});showRequest(true);}catch(err){status.textContent="Request failed. Try again.";request.disabled=false;request.textContent="Request recovery code";}};
+    verify.onclick=async()=>{status.textContent="";verify.disabled=true;try{const snap=await getDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));if(!snap.exists())throw new Error("Code not approved yet.");const data=snap.data(),expiry=data.expiresAt;if(data.approved!==true||typeof data.codeHash!=="string"||!expiry?.toMillis||expiry.toMillis()<=Date.now())throw new Error("Code is invalid or expired.");const parts=data.codeHash.split(":");if(parts.length!==2)throw new Error("Invalid approval.");const salt=Uint8Array.from(parts[0].match(/.{1,2}/g)||[],x=>parseInt(x,16));const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(code.value.trim()),"PBKDF2",false,["deriveBits"]);const derived=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:250000,hash:"SHA-256"},material,256);const digest=Array.from(new Uint8Array(derived),x=>x.toString(16).padStart(2,"0")).join("");if(digest!==parts[1])throw new Error("Incorrect recovery code.");verified=data;code.disabled=true;verify.classList.add("hidden");fields.classList.remove("hidden");status.textContent="Code verified. Set your new password.";}catch(err){status.textContent=err?.message||"Verification failed.";verify.disabled=false;}};
+    save.onclick=async()=>{status.textContent="";if(newPass.value.length<6||newPass.value!==confirm.value){status.textContent="Enter matching passwords (6+ characters).";return;}save.disabled=true;try{const latest=await getDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));if(!verified||!latest.exists()||latest.data().codeHash!==verified.codeHash)throw new Error("Approval changed. Verify the code again.");await saveEditModePassword(newPass.value);await deleteDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));closeAppModal();resolve(true);}catch(err){status.textContent=err?.message||"Could not save password.";save.disabled=false;}};
+    const back=document.createElement("button");back.type="button";back.className="text-button";back.textContent="Back";back.onclick=()=>openAppModal(box,"Unlock Edit Mode","","edit-password");
+    recovery.append(request,status,support,code,verify,fields,back);openAppModal(recovery,"Recover password","","recovery");
+   };box.append(forgot);
   }
-  openAppModal(box,setup?"Set Edit Mode Password":"Unlock Edit Mode",setup?"Create your medicine-edit security password.":"Verify your password to continue.","edit-password");
-  first.focus();
+  openAppModal(box,setup?"Set Edit Mode Password":"Unlock Edit Mode","","edit-password");first.focus();
  });
 }
 async function enableMedicineEditMode(){
