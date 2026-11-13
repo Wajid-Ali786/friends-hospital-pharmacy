@@ -420,3 +420,17 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 .edit-mode-password .recovery-success.hidden{display:none!important}
 .edit-mode-password .recovery-success-icon{display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;border-radius:50%;background:#d9f2e2;color:#187044;font-size:17px;font-weight:800}
 .edit-mode-password button.is-loading{opacity:.75;pointer-events:none}
+
+
+/* Polished Edit Mode recovery states */
+.recovery-flow{gap:12px}
+.recovery-status-card{display:grid;grid-template-columns:38px 1fr;column-gap:11px;align-items:center;padding:14px;border:1px solid #e2eae5;border-radius:14px;background:#f7faf8}
+.recovery-status-card>b{font-size:14px;color:var(--ink)}
+.recovery-status-card>p{grid-column:2;margin:3px 0 0!important;color:var(--muted);font-size:12px!important;line-height:1.5}
+.recovery-status-icon{grid-row:1/3;width:36px;height:36px;display:grid;place-items:center;border-radius:50%;background:#e7eee9;color:#74867b;font-size:20px;font-weight:800}
+.recovery-status-card.is-success{border-color:#bfe2cb;background:#f0faf3}
+.recovery-status-card.is-success .recovery-status-icon{background:#d6f1df;color:#187447}
+.recovery-inline-status{padding:9px 11px;border-radius:9px;background:#f4f6f4;color:#53675b;font-size:12px!important}
+.recovery-contact{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 13px;border:1px solid #e2eae5;border-radius:10px;color:var(--green);text-decoration:none;font-size:12px}
+.recovery-contact b{font-size:13px;white-space:nowrap}
+.recovery-password-fields{display:grid;gap:10px}
