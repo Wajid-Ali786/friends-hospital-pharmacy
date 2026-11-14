@@ -8,7 +8,7 @@ const firebaseConfig={apiKey:"AIzaSyDu3T1shPJoooMNwhpPijfJsPaNc2JWWhM",authDomai
 const app=initializeApp(firebaseConfig),auth=initializeAuth(app,{persistence:[indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence]}),db=getFirestore(app),storage=getStorage(app);
 const SUPPORT_WHATSAPP="923486314013";
 let localDB=null;async function openUserDB(uid){if(localDB)localDB.close();localDB=await openDB("friends-pharmacy-"+uid,3,{upgrade(d){if(!d.objectStoreNames.contains("medicines"))d.createObjectStore("medicines",{keyPath:"id"});if(!d.objectStoreNames.contains("pending"))d.createObjectStore("pending",{keyPath:"id"});if(!d.objectStoreNames.contains("meta"))d.createObjectStore("meta");if(!d.objectStoreNames.contains("bills"))d.createObjectStore("bills",{keyPath:"id"});}});}
-let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncNotice="",medicineModeEnabled=true,medicineImageDraft="",medicineImageRotation=0,medicineImageCrop=false;
+let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncNotice="",medicineModeEnabled=true,medicineImageDraft="",medicineImageRotation=0,medicineImageCrop=false,medicineVisibleCount=9;
 const asArray=value=>Array.isArray(value)?value:[];
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2),wholeMoney=n=>"Rs. "+Math.round(Number(n)||0).toLocaleString("en-PK"),medicinePriceText=n=>{const v=Number(n)||0;return "Rs. "+(Number.isInteger(v)?v.toLocaleString("en-PK"):String(v));};
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
@@ -79,7 +79,7 @@ function status(){ $("connection").textContent=navigator.onLine?"● Online / Fi
 window.addEventListener("online",status);window.addEventListener("offline",status);status();
 async function cacheAll(){const tx=localDB.transaction("medicines","readwrite");await tx.store.clear();for(const m of medicines)await tx.store.put(m);await tx.done;}
 async function queueChange(id,type,data=null,collectionName="medicines"){const key=collectionName+":"+id;await localDB.put("pending",{id:key,targetId:id,collectionName,type,data,queuedAt:Date.now()});}
-async function flushQueue(){if(syncPromise)return syncPromise;if(!currentUser||!navigator.onLine||!localDB)return;const ownerUid=currentUser.uid,dbRef=localDB;syncPromise=(async()=>{const jobs=(await dbRef.getAll("pending")).sort((a,b)=>a.queuedAt-b.queuedAt);for(const job of jobs){if(!navigator.onLine||!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)break;const group=job.collectionName||"medicines",targetId=job.targetId||job.id;try{const target=doc(db,"users",ownerUid,group,targetId);if(group==="bills"){const existing=await getDoc(target);if(job.type==="delete"){if(existing.exists())await deleteDoc(target);}else if(existing.exists()){await setDoc(target,{...job.data,createdAt:existing.data().createdAt||serverTimestamp()});}else{await setDoc(target,{...job.data,createdAt:serverTimestamp()});}}else{if(job.type==="delete")await deleteDoc(target);else await setDoc(target,job.data);}if(localDB===dbRef&&currentUser?.uid===ownerUid)await dbRef.delete("pending",job.id);}catch(err){console.warn("Sync will retry:",err);if(err?.code==="permission-denied"){
+async function flushQueue(){if(syncPromise)return syncPromise;if(!currentUser||!navigator.onLine||!localDB)return;const ownerUid=currentUser.uid,dbRef=localDB;syncPromise=(async()=>{const jobs=(await dbRef.getAll("pending")).sort((a,b)=>a.queuedAt-b.queuedAt);for(const job of jobs){if(!navigator.onLine||!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)break;const group=job.collectionName||"medicines",targetId=job.targetId||job.id;try{const target=doc(db,"users",ownerUid,group,targetId);if(group==="bills"){const existing=await getDoc(target);if(job.type==="delete"){if(existing.exists())await deleteDoc(target);}else if(existing.exists()){await setDoc(target,{...job.data,createdAt:existing.data().createdAt||serverTimestamp()});}else{await setDoc(target,{...job.data,createdAt:serverTimestamp()});}}else if(group==="medicines"){if(job.type==="delete")await deleteDoc(target);else{let cloudMedicine={...job.data};if(typeof cloudMedicine.image==="string"&&cloudMedicine.image.startsWith("data:")){const imageRef=ref(storage,"users/"+ownerUid+"/medicines/"+targetId+".png");await uploadString(imageRef,cloudMedicine.image,"data_url");cloudMedicine.image=await getDownloadURL(imageRef);if(localDB===dbRef){const localMedicine=await dbRef.get("medicines",targetId);if(localMedicine){localMedicine.image=cloudMedicine.image;await dbRef.put("medicines",localMedicine);}}}await setDoc(target,cloudMedicine);}}else{if(job.type==="delete")await deleteDoc(target);else await setDoc(target,job.data);}if(localDB===dbRef&&currentUser?.uid===ownerUid)await dbRef.delete("pending",job.id);}catch(err){console.warn("Sync will retry:",err);if(err?.code==="permission-denied"){
  if(group==="bills"&&job.type==="delete"){
   try{
    let rejectedBill=job.data;if(!rejectedBill){const cloudBill=await getDoc(doc(db,"users",ownerUid,"bills",targetId));rejectedBill=cloudBill.exists()?cloudBill.data():null;}
@@ -156,7 +156,8 @@ function emptyAction(message,label,prefill=""){
 function renderMedicines(filter=""){
  const list=$("medicineList");if(!list)return;list.innerHTML="";medicines=asArray(medicines).map(normalizeMedicine).filter(Boolean);$("addMedicineBtn").disabled=!medicineModeEnabled;$("addMedicineBtn").classList.toggle("hidden",!medicineModeEnabled);
  const filtered=medicines.filter(m=>medicineMatches(m,filter));
- filtered.forEach(m=>{
+ const visible=filtered.slice(0,medicineVisibleCount);
+ visible.forEach(m=>{
   const el=document.createElement("article");el.className="medicine-card";
   el.innerHTML=(m.image?'<img alt="">':'<div class="medicine-placeholder">✚</div>')+'<div class="medicine-info"><b></b><small></small></div>'+(medicineModeEnabled?'<div class="card-actions"><button class="tiny edit">Edit</button><button class="tiny danger del">×</button></div>':'');
   if(m.image)el.querySelector("img").src=m.image;
@@ -166,16 +167,21 @@ function renderMedicines(filter=""){
   list.append(el);
  });
  if(!filtered.length){if(medicineModeEnabled)list.append(emptyAction(filter?"Medicine not found":"No medicines added yet",filter?"＋ Add new medicine":"＋ Add medicine",filter.trim()));else{const empty=document.createElement("div");empty.className="empty-state";const title=document.createElement("b");title.textContent=filter?"Medicine not found":"No medicines available";empty.append(title);list.append(empty);}}
+ const more=$("loadMoreMedicines");if(more){const remaining=filtered.length-visible.length;more.classList.toggle("hidden",remaining<=0);more.textContent=remaining>0?"Load More · "+Math.min(9,remaining)+" more":"Load More";}
 }
 function askBillQuantity(m){
  if(!m||typeof m!=="object")return;bill=asArray(bill).filter(x=>x&&typeof x==="object");
  const box=document.createElement("div");box.className="quantity-prompt";
  const label=document.createElement("label");label.textContent="Quantity";
+ const controls=document.createElement("div");controls.className="quantity-stepper";
+ const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.textContent="−";minus.setAttribute("aria-label","Decrease quantity");
  const input=document.createElement("input");input.type="number";input.min="1";input.step="1";input.value="1";input.inputMode="numeric";input.className="quantity-prompt-input";
+ const plus=document.createElement("button");plus.type="button";plus.className="qty-btn";plus.textContent="+";plus.setAttribute("aria-label","Increase quantity");
+ minus.onclick=()=>input.value=String(Math.max(1,(Number(input.value)||1)-1));plus.onclick=()=>input.value=String(Math.max(1,(Number(input.value)||1)+1));controls.append(minus,input,plus);
  const actions=document.createElement("div");actions.className="modal-actions";
  const cancel=document.createElement("button");cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";
  const add=document.createElement("button");add.type="button";add.className="primary";add.textContent="Add medicine";
- actions.append(cancel,add);box.append(label,input,actions);
+ actions.append(cancel,add);box.append(label,controls,actions);
  openAppModal(box,"Add Medicine",m.name+" · "+medicinePriceText(m.price??m.tabletPrice),"quantity");
  const finish=()=>closeAppModal();
  cancel.onclick=finish;
@@ -265,13 +271,14 @@ function renderPendingBills(){
  });
 }
 async function holdCurrentBill(){
- if(!draftHasContent()){notify("There is no bill to hold yet","warning");return;}
- if(editingBillId){notify("Finish or cancel the saved bill edit before holding another bill","warning");return;}
- pendingBills.unshift({id:crypto.randomUUID(),...makeActiveDraft()});await persistPendingBills();bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";setDiscountEditor(false);roundingApplied=0;roundingBase=null;await localDB.delete("meta","activeBillDraft");renderBill();$("billMessage").textContent="";$("billMessage").classList.remove("validation-alert");notify("Bill moved to Pending Bills","success");
+ if(!draftHasContent()){notify("There is no bill to hold yet","warning");return false;}
+ if(editingBillId){notify("Finish or cancel the saved bill edit before holding another bill","warning");return false;}
+ if(!$("patientName").value.trim()){showBillValidation([{field:"patient",text:"Patient name is required before holding this bill"}]);notify("Enter patient name before holding this bill","warning");return false;}
+ pendingBills.unshift({id:crypto.randomUUID(),...makeActiveDraft()});await persistPendingBills();bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";setDiscountEditor(false);roundingApplied=0;roundingBase=null;await localDB.delete("meta","activeBillDraft");renderBill();$("billMessage").textContent="";$("billMessage").classList.remove("validation-alert");notify("Bill moved to Pending Bills","success");return true;
 }
 async function resumePendingBill(id){
  const d=pendingBills.find(x=>x.id===id);if(!d)return;
- if(draftHasContent()){const ok=await confirmAction("Hold current bill?","Your current bill has unsaved details. Hold it before opening this patient?","Hold & switch");if(!ok)return;await holdCurrentBill();}
+ if(draftHasContent()){const ok=await confirmAction("Hold current bill?","Your current bill has unsaved details. Hold it before opening this patient?","Hold & switch");if(!ok)return;const held=await holdCurrentBill();if(!held)return;}
  pendingBills=pendingBills.filter(x=>x.id!==id);await persistPendingBills();bill=asArray(d.items).filter(x=>x&&typeof x==="object").map(x=>({...x}));$("patientName").value=d.patientName||"";$("tokenNumber").value=d.tokenNumber||"";$("discount").value=String(d.discount||0);roundingApplied=Number(d.roundingApplied)||0;roundingBase=d.roundingBase??null;setDiscountEditor(Number(d.discount)>0);await localDB.delete("meta","activeBillDraft");$("billMessage").textContent="";$("billMessage").classList.remove("validation-alert");renderBill();notify("Pending bill opened","info");$("patientName").focus();
 }
 
@@ -398,7 +405,8 @@ onAuthStateChanged(auth,async user=>{currentUser=user;if(user){setupRecoveryAdmi
 $("logoutBtn").onclick=()=>signOut(auth);
 $("addMedicineBtn").onclick=()=>openAddMedicine();
 $("cancelMedicine").onclick=closeMedicineModal;$("medicineForm").onsubmit=saveMedicine;
-$("medicineSearch").oninput=e=>renderMedicines(e.target.value);
+$("medicineSearch").oninput=e=>{medicineVisibleCount=9;renderMedicines(e.target.value);};
+$("loadMoreMedicines").onclick=()=>{medicineVisibleCount+=9;renderMedicines($("medicineSearch").value);};
 $("billSearch").oninput=e=>renderBillSearch(e.target.value);
 document.addEventListener("keydown",e=>{
  const billing=$("billingPage"),search=$("billSearch");
