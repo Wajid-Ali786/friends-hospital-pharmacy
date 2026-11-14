@@ -586,3 +586,23 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 .bill-secondary-actions{display:flex;justify-content:flex-start}
 #billActions .hold-action{min-height:34px;padding:5px 12px}
 .bill-primary-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+
+
+/* Billing UI corrections: fixed action order, centered quantities and compact discount */
+#billActions.bill-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:8px;margin-top:16px}
+#billActions.bill-actions>button{min-width:0;width:100%;min-height:42px;display:flex;align-items:center;justify-content:center;padding:8px 7px;border-radius:10px;font-size:12px;font-weight:750;line-height:1.15;text-align:center;white-space:nowrap}
+#billActions .hold-action{grid-column:auto;border:1px solid #dce8e0;background:#f5faf6;color:#315c46}
+#billActions .save-action{background:#174d43;color:#fff}
+#billActions .print-action{background:#f4f8f5;color:#315d48;border:1px solid #dce8e0}
+#billActions .bill-action-icon{display:none!important}
+#billActions #cancelBillEdit{grid-column:1/-1;min-height:36px}
+@media(max-width:560px){#billActions.bill-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}#billActions.bill-actions>button{min-height:40px;padding:7px 4px;font-size:10px}}
+.bill-row{grid-template-columns:20px minmax(0,1fr) 104px 84px 25px!important;gap:7px!important;align-items:center}
+.qty-controls-centered{width:100%;justify-content:center;justify-self:stretch}
+.bill-line-total{min-width:84px;text-align:right;white-space:nowrap;justify-self:end}
+@media(max-width:480px){.bill-row{grid-template-columns:17px minmax(0,1fr) 88px 76px 22px!important;gap:4px!important}.qty-controls-centered{width:100%;justify-content:center}.qty-controls input{width:34px}.bill-line-total{min-width:76px;font-size:10px}}
+.discount-tools{display:flex;align-items:center;gap:10px;min-height:42px;margin:4px 0 8px}
+.discount-toggle{flex:0 0 auto;justify-self:auto}
+.discount-field{flex:1 1 220px;width:min(100%,240px);max-width:240px;min-width:0;margin:0!important;padding:7px 10px;border:1px solid #dce8e0;border-radius:9px;background:#fbfdfb}
+.discount-field input{height:36px;margin-top:3px;padding:7px 9px}
+.discount-toggle.hidden,.discount-field.hidden{display:none!important}
