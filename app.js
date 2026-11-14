@@ -8,7 +8,7 @@ const firebaseConfig={apiKey:"AIzaSyDu3T1shPJoooMNwhpPijfJsPaNc2JWWhM",authDomai
 const app=initializeApp(firebaseConfig),auth=initializeAuth(app,{persistence:[indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence]}),db=getFirestore(app),storage=getStorage(app);
 const SUPPORT_WHATSAPP="923486314013";
 let localDB=null;async function openUserDB(uid){if(localDB)localDB.close();localDB=await openDB("friends-pharmacy-"+uid,3,{upgrade(d){if(!d.objectStoreNames.contains("medicines"))d.createObjectStore("medicines",{keyPath:"id"});if(!d.objectStoreNames.contains("pending"))d.createObjectStore("pending",{keyPath:"id"});if(!d.objectStoreNames.contains("meta"))d.createObjectStore("meta");if(!d.objectStoreNames.contains("bills"))d.createObjectStore("bills",{keyPath:"id"});}});}
-let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncNotice="",medicineModeEnabled=true,medicineImageDraft="",medicineImageRotation=0,medicineImageCrop=false,medicineVisibleCount=9;
+let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncNotice="",medicineModeEnabled=true,medicineImageDraft="",medicineImageRotation=0,medicineImageCrop=false,medicineVisibleCount=9,historyVisibleCount=9,historyObserver=null;
 const asArray=value=>Array.isArray(value)?value:[];
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2),wholeMoney=n=>"Rs. "+Math.round(Number(n)||0).toLocaleString("en-PK"),medicinePriceText=n=>{const v=Number(n)||0;return "Rs. "+(Number.isInteger(v)?v.toLocaleString("en-PK"):String(v));};
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
@@ -173,15 +173,11 @@ function askBillQuantity(m){
  if(!m||typeof m!=="object")return;bill=asArray(bill).filter(x=>x&&typeof x==="object");
  const box=document.createElement("div");box.className="quantity-prompt";
  const label=document.createElement("label");label.textContent="Quantity";
- const controls=document.createElement("div");controls.className="quantity-stepper";
- const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.textContent="−";minus.setAttribute("aria-label","Decrease quantity");
  const input=document.createElement("input");input.type="number";input.min="1";input.step="1";input.value="1";input.inputMode="numeric";input.className="quantity-prompt-input";
- const plus=document.createElement("button");plus.type="button";plus.className="qty-btn";plus.textContent="+";plus.setAttribute("aria-label","Increase quantity");
- minus.onclick=()=>input.value=String(Math.max(1,(Number(input.value)||1)-1));plus.onclick=()=>input.value=String(Math.max(1,(Number(input.value)||1)+1));controls.append(minus,input,plus);
  const actions=document.createElement("div");actions.className="modal-actions";
  const cancel=document.createElement("button");cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";
  const add=document.createElement("button");add.type="button";add.className="primary";add.textContent="Add medicine";
- actions.append(cancel,add);box.append(label,controls,actions);
+ actions.append(cancel,add);box.append(label,input,actions);
  openAppModal(box,"Add Medicine",m.name+" · "+medicinePriceText(m.price??m.tabletPrice),"quantity");
  const finish=()=>closeAppModal();
  cancel.onclick=finish;
@@ -494,7 +490,7 @@ async function saveCurrentBill({printAfter=false}={}){
 $("saveBill").onclick=()=>saveCurrentBill();
 $("printBill").onclick=()=>saveCurrentBill({printAfter:true});
 function startBillingHistory(){
- if(!currentUser)return;
+ if(!currentUser)return;historyVisibleCount=9;if(historyObserver){historyObserver.disconnect();historyObserver=null;}
  if(historyUnsubscribe)historyUnsubscribe();
  localDB.getAll("bills").then(items=>{savedBills=items.sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();}).catch(console.warn);
  if(!navigator.onLine){$("billingHistoryList").innerHTML='<p class="muted">Offline — showing locally saved bills.</p>';return;}
@@ -511,13 +507,14 @@ function billDate(item){const raw=Number(item?.createdAtMillis)||Date.parse(item
 function localDateKey(date){return [date.getFullYear(),String(date.getMonth()+1).padStart(2,"0"),String(date.getDate()).padStart(2,"0")].join("-");}
 function dateHeading(date){const today=new Date(),yesterday=new Date();yesterday.setDate(today.getDate()-1);if(localDateKey(date)===localDateKey(today))return "Today";if(localDateKey(date)===localDateKey(yesterday))return "Yesterday";return date.toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"});}
 function renderBillingHistory(){
- savedBills=asArray(savedBills).filter(item=>item&&typeof item==="object");const root=$("billingHistoryList");if(!root)return;
+ savedBills=asArray(savedBills).filter(item=>item&&typeof item==="object");const root=$("billingHistoryList");if(!root)return;if(historyObserver){historyObserver.disconnect();historyObserver=null;}
  const q=($("historySearch")?.value||"").trim().toLowerCase();
- const rows=asArray(savedBills).filter(x=>x&&typeof x==="object"&&((x.receiptNumber||"").toLowerCase().includes(q)||(x.patientName||"").toLowerCase().includes(q)));
+ const rows=asArray(savedBills).filter(x=>x&&typeof x==="object"&&((x.receiptNumber||"").toLowerCase().includes(q)||(x.patientName||"").toLowerCase().includes(q))).sort((a,b)=>billDate(b)-billDate(a));
+ const visibleRows=rows.slice(0,historyVisibleCount);
  root.innerHTML="";
  if(syncNotice){const notice=document.createElement("p");notice.className="sync-status-note";notice.textContent=syncNotice;const dismiss=document.createElement("button");dismiss.type="button";dismiss.className="tiny";dismiss.textContent="Dismiss";dismiss.onclick=()=>{syncNotice="";notice.remove();};notice.append(" ",dismiss);root.append(notice);}
  if(!rows.length){root.innerHTML+='<p class="muted">No saved bills found.</p>';return;}
- const groups=new Map();rows.sort((a,b)=>billDate(b)-billDate(a)).forEach(item=>{const date=billDate(item),key=localDateKey(date);if(!groups.has(key))groups.set(key,{date,items:[]});groups.get(key).items.push(item);});
+ const groups=new Map();visibleRows.forEach(item=>{const date=billDate(item),key=localDateKey(date);if(!groups.has(key))groups.set(key,{date,items:[]});groups.get(key).items.push(item);});
  for(const group of groups.values()){
   const section=document.createElement("section");section.className="history-date-group";
   const heading=document.createElement("div");heading.className="history-date-heading";const label=document.createElement("b");label.textContent=dateHeading(group.date);const count=document.createElement("small");count.textContent=group.items.length+" "+(group.items.length===1?"bill":"bills");heading.append(label,count);section.append(heading);
@@ -527,6 +524,7 @@ function renderBillingHistory(){
    if(billEditAllowed(item)){const actions=document.createElement("span");actions.className="history-actions";const edit=document.createElement("button");edit.type="button";edit.className="tiny";edit.textContent="Edit";edit.onclick=e=>{e.stopPropagation();beginBillEdit(item);};const del=document.createElement("button");del.type="button";del.className="tiny danger";del.textContent="Delete";del.onclick=e=>{e.stopPropagation();deleteSavedBill(item);};actions.append(edit,del);row.append(actions);}section.append(row);
   });root.append(section);
  }
+ if(visibleRows.length<rows.length){const sentinel=document.createElement("div");sentinel.className="history-load-sentinel";sentinel.setAttribute("aria-live","polite");sentinel.textContent="Loading more transactions…";root.append(sentinel);if("IntersectionObserver" in window){historyObserver=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){historyObserver.disconnect();historyObserver=null;historyVisibleCount=Math.min(historyVisibleCount+9,rows.length);renderBillingHistory();}},{root:null,rootMargin:"240px 0px",threshold:0});historyObserver.observe(sentinel);}}
 }
 function billEditAllowed(item){const created=Number(item?.createdAtMillis)||0;return created>0&&Date.now()-created<3600000;}
 function beginBillEdit(item){
@@ -603,7 +601,7 @@ function showReceipt(item){
  const print=document.createElement("button");print.type="button";print.className="secondary print-hide";print.textContent="Print receipt";print.onclick=printReceipt;receiptActions.append(print);root.append(receiptActions);
  openAppModal(root,"Bill "+item.receiptNumber,"Receipt details, edit and print options.","view");
 }
-$("historySearch").oninput=renderBillingHistory;
+$("historySearch").oninput=()=>{historyVisibleCount=9;renderBillingHistory();};
 function setStatementDates(){const now=new Date(),mode=$("statementPeriod").value;let from=new Date(now),to=new Date(now);if(mode==="week"){const day=(now.getDay()+6)%7;from.setDate(now.getDate()-day);from.setHours(0,0,0,0);to.setHours(23,59,59,999);}else if(mode==="month"){from=new Date(now.getFullYear(),now.getMonth(),1);to=new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59,999);}else if(mode==="lastMonth"){from=new Date(now.getFullYear(),now.getMonth()-1,1);to=new Date(now.getFullYear(),now.getMonth(),0,23,59,59,999);}else if(mode==="today"){from=new Date(now);from.setHours(0,0,0,0);to=new Date(now);to.setHours(23,59,59,999);} $("statementFrom").value=localDateKey(from);$("statementTo").value=localDateKey(to);$("statementCustomDates").classList.toggle("hidden",mode!=="custom");}
 function openStatement(){show("statementModal",true);$("statementPreview").innerHTML='<p class="muted">Choose a period and select Generate statement.</p>';setStatementDates();}
 function closeStatement(){show("statementModal",false);$("statementPrintArea").innerHTML="";}
