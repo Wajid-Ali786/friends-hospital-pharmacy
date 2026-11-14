@@ -476,7 +476,7 @@ async function saveCurrentBill({printAfter=false}={}){
   $("billMessage").textContent="";
   if(navigator.onLine)flushQueue().then(()=>notify("Bill synced successfully · "+snapshot.receiptNumber,"success",2600)).catch(err=>{console.warn("Bill sync pending:",err);notify("Bill saved on this device; sync will retry when online","warning",4200);});
   else notify("Bill saved on this device; waiting for internet to sync","info",3600);
-  bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";$("discountField").classList.add("hidden");$("discountToggle").setAttribute("aria-expanded","false");$("discountToggle").innerHTML='<span aria-hidden="true">％</span> Add discount';roundingApplied=0;roundingBase=null;await localDB.delete("meta","activeBillDraft");renderBill();notify((wasEditing?"Bill updated: ":"Bill saved: ")+snapshot.receiptNumber,"success");
+  bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";setDiscountEditor(false);roundingApplied=0;roundingBase=null;await localDB.delete("meta","activeBillDraft");renderBill();notify((wasEditing?"Bill updated: ":"Bill saved: ")+snapshot.receiptNumber,"success");
   if(printAfter){showReceipt(snapshot);printReceipt();notify("Receipt ready to print: "+snapshot.receiptNumber,"success");}
  }catch(err){console.error("Save bill failed:",err);$("billMessage").classList.remove("validation-alert");$("billMessage").textContent="Bill could not be saved: "+(err?.message||"Unknown error");notify("Bill could not be saved: "+(err?.message||"Please try again"),"error",5200);}
  finally{$("saveBill").disabled=false;$("printBill").disabled=false;}
@@ -531,7 +531,7 @@ function beginBillEdit(item){
  openAppModal(document.querySelector(".bill-panel"),"Edit Bill", "Update the patient, items or discount.","edit");
 }
 function cancelBillEdit(){
- editingBillId=null;editingBillCreatedAt=0;bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";$("discountField").classList.add("hidden");$("discountToggle").setAttribute("aria-expanded","false");$("discountToggle").innerHTML='<span aria-hidden="true">％</span> Add discount';
+ editingBillId=null;editingBillCreatedAt=0;bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";setDiscountEditor(false);
  $("saveBill").textContent="Save";$("printBill").textContent="Save & Print";$("billMessage").textContent="";
  renderBill();$("cancelBillEdit")?.remove();closeAppModal();
 }
