@@ -181,7 +181,7 @@ function askBillQuantity(m){
   const existing=bill.find(x=>x.id===m.id);
   if(existing)existing.qty+=qty;
   else bill.push({id:m.id,name:m.name,unit:m.unit||"Tablet",qty,price:Number(m.price??m.tabletPrice)||0,roundingAllowed:m.roundingAllowed===true,adjustment:0});
-  renderBill();$("billSearch").value="";renderBillSearch("");finish();
+  renderBill();notify(m.name+" added to bill","success",2400);$("billSearch").value="";renderBillSearch("");finish();
   setTimeout(()=>{if($("billingPage")&&!$("billingPage").classList.contains("hidden")&&$("appModal").classList.contains("hidden")){$("billSearch").focus();$("billSearch").select();}},80);
  };
  input.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();add.click();}});
@@ -200,7 +200,7 @@ function renderBillSearch(q=""){
   info.querySelector("b").textContent=m.name;
   info.querySelector("small").textContent=(m.unit||"Tablet")+" · "+money(m.price??m.tabletPrice);
   const btn=document.createElement("button");btn.type="button";btn.className="tiny add-bill";btn.textContent="＋ Add";
-  btn.onclick=()=>askBillQuantity(m);
+  btn.onclick=()=>{notify(m.name+" selected","info",2200);askBillQuantity(m);};
   row.append(image,info,btn);list.append(row);
  });
  if(!matches.length){
@@ -339,7 +339,7 @@ async function removeMedicine(id){
  if(!await confirmAction("Delete medicine","Are you sure you want to delete this medicine?","Delete medicine"))return;
  medicines=medicines.filter(m=>m.id!==id);await localDB.delete("medicines",id);
  await queueChange(id,"delete");renderMedicines($("medicineSearch").value);
- if(navigator.onLine)syncOnline();
+ notify("Medicine deleted successfully","success");if(navigator.onLine)syncOnline();
 }
 function startCloudSync(user){
  if(unsubscribe)unsubscribe();
@@ -479,7 +479,7 @@ function renderBillingHistory(){
   const heading=document.createElement("div");heading.className="history-date-heading";const label=document.createElement("b");label.textContent=dateHeading(group.date);const count=document.createElement("small");count.textContent=group.items.length+" "+(group.items.length===1?"bill":"bills");heading.append(label,count);section.append(heading);
   group.items.forEach(item=>{
    const row=document.createElement("div");row.className="history-row";row.tabIndex=0;row.setAttribute("role","button");row.setAttribute("aria-label","Open receipt "+(item.receiptNumber||""));const info=document.createElement("span");info.className="history-info";info.innerHTML="<b></b><small></small>";info.querySelector("b").textContent=item.patientName||"Patient";info.querySelector("small").textContent=(item.receiptNumber||"Receipt")+" · "+billDate(item).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-   const total=document.createElement("strong");total.textContent=money(item.finalTotal);row.append(info,total);row.onclick=()=>showReceipt(item);row.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();showReceipt(item);}};
+   const total=document.createElement("strong");total.textContent=money(item.finalTotal);row.append(info,total);row.onclick=()=>{notify("Opening receipt "+item.receiptNumber,"info",2200);showReceipt(item);};row.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();notify("Opening receipt "+item.receiptNumber,"info",2200);showReceipt(item);}};
    if(billEditAllowed(item)){const actions=document.createElement("span");actions.className="history-actions";const edit=document.createElement("button");edit.type="button";edit.className="tiny";edit.textContent="Edit";edit.onclick=e=>{e.stopPropagation();beginBillEdit(item);};const del=document.createElement("button");del.type="button";del.className="tiny danger";del.textContent="Delete";del.onclick=e=>{e.stopPropagation();deleteSavedBill(item);};actions.append(edit,del);row.append(actions);}section.append(row);
   });root.append(section);
  }
@@ -504,11 +504,13 @@ function cancelBillEdit(){
 async function deleteSavedBill(item){
  if(!billEditAllowed(item)){alert("This bill is locked after 1 hour.");return;}
  if(!await confirmAction("Delete bill","Delete receipt "+item.receiptNumber+"? This cannot be undone.","Delete bill"))return;
+ notify("Deleting receipt "+item.receiptNumber,"info",2200);
  try{await localDB.delete("bills",item.id);await queueChange(item.id,"delete",item,"bills");savedBills=savedBills.filter(x=>x.id!==item.id);renderBillingHistory();notify("Bill deleted","success");if(navigator.onLine)flushQueue().catch(console.warn);}
  catch(err){notify("Delete failed: "+err.message,"error",5200);}
 }
 function printReceipt(){
  const root=$("receiptDetail");if(!root)return;
+ notify("Preparing receipt for printing","info",2400);
  root.classList.add("printing-receipt");
  const history=$("historyPage");history.classList.remove("hidden");
  let cleaned=false;
@@ -696,8 +698,8 @@ $("medicineEditMode").onchange=async()=>{
 };
 $("changeMedicineImage").onclick=()=>{if(!medicineModeEnabled)return;$("medicineImage").click();};
 $("medicineImage").onchange=()=>{const file=$("medicineImage").files?.[0];if(!file){const existing=medicines.find(m=>m.id===$("medicineId").value);if(existing?.image)showMedicineImagePreview(existing.image);else resetMedicineImagePreview();return;}if(!file.type.startsWith("image/")){alert("Please select a valid image.");$("medicineImage").value="";return;}if(file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");$("medicineImage").value="";return;}const reader=new FileReader();reader.onload=()=>{medicineImageRotation=0;medicineImageCrop=false;showMedicineImagePreview(reader.result);openMedicineImageEditor();};reader.readAsDataURL(file);};
-$("saveName").onclick=async()=>{if(!currentUser)return;await updateProfile(currentUser,{displayName:$("displayName").value.trim()});$("userLabel").textContent=$("displayName").value.trim()||currentUser.email;};
-$("exportData").onclick=async()=>{try{const [allMedicines,allBills]=await Promise.all([localDB.getAll("medicines"),localDB.getAll("bills")]);const blob=new Blob([JSON.stringify({version:2,exportedAt:new Date().toISOString(),medicines:allMedicines,bills:allBills},null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="friends-pharmacy-backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(err){alert("Backup export failed: "+err.message);}};
+$("saveName").onclick=async()=>{if(!currentUser)return;try{await updateProfile(currentUser,{displayName:$("displayName").value.trim()});$("userLabel").textContent=$("displayName").value.trim()||currentUser.email;notify("Display name updated","success");}catch(err){notify("Could not update display name: "+err.message,"error",5200);}};
+$("exportData").onclick=async()=>{try{const [allMedicines,allBills]=await Promise.all([localDB.getAll("medicines"),localDB.getAll("bills")]);const blob=new Blob([JSON.stringify({version:2,exportedAt:new Date().toISOString(),medicines:allMedicines,bills:allBills},null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="friends-pharmacy-backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);notify("Backup exported successfully","success");}catch(err){notify("Backup export failed: "+err.message,"error",5200);}};
 
 let installPrompt=null;function updateInstallButton(){const installed=window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;show("installAppWrap",!!installPrompt&&!installed);}window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;updateInstallButton();});window.addEventListener("appinstalled",()=>{installPrompt=null;updateInstallButton();});$("installAppBtn").onclick=async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;updateInstallButton();};window.matchMedia("(display-mode: standalone)").addEventListener?.("change",updateInstallButton);if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(err=>console.warn("Service worker:",err)));updateInstallButton();
 $("importData").onchange=async e=>{
@@ -732,10 +734,10 @@ $("importData").onchange=async e=>{
   renderMedicines($("medicineSearch")?.value||"");
   if(navigator.onLine)await flushQueue();
   const pending=(await localDB.getAll("pending")).length;
-  alert("Import complete: "+importedMedicines+" medicines and "+importedBills+" bills imported."+(pending?" "+pending+" item(s) are waiting to sync; check internet/Firebase permissions.":" Data synced."));
+  notify("Import complete: "+importedMedicines+" medicines and "+importedBills+" bills imported"+(pending?". "+pending+" item(s) waiting to sync.":". Data synced."),"success",5200);
  }catch(err){
   console.error("Backup import failed:",err);
-  alert("Import failed: "+(err?.message||"Unknown error"));
+  notify("Import failed: "+(err?.message||"Unknown error"),"error",5200);
  }finally{
   button.disabled=false;e.target.value="";
  }
