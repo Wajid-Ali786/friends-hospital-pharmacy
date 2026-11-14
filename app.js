@@ -246,13 +246,18 @@ function renderPendingBills(){
  const root=$("pendingBillsList"),count=$("pendingBillsCount");if(!root||!count)return;count.textContent=String(pendingBills.length);root.replaceChildren();
  if(!pendingBills.length){const p=document.createElement("p");p.className="pending-empty";p.textContent="No pending bills. Use Hold / Pending to keep a bill for later.";root.append(p);return;}
  pendingBills.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).forEach(d=>{
-  const card=document.createElement("article");card.className="pending-bill-card";const info=document.createElement("div");info.className="pending-bill-info";
+  const card=document.createElement("article");card.className="pending-bill-card";card.tabIndex=0;card.setAttribute("role","button");card.setAttribute("aria-label","Open pending bill for "+(d.patientName||"unnamed patient"));card.title="Tap to open this pending bill";
+  const info=document.createElement("div");info.className="pending-bill-info";
   const name=document.createElement("b");name.textContent=d.patientName||"Unnamed patient";const meta=document.createElement("small");meta.textContent=(d.items?.length||0)+" medicines · "+new Date(d.updatedAt||Date.now()).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-  const total=(d.items||[]).reduce((s,x)=>s+(Number(x.price)||0)*(Number(x.qty)||0)+(Number(x.adjustment)||0),0)-Math.max(0,Number(d.discount)||0);const amount=document.createElement("strong");amount.textContent=money(Math.max(0,total));
-  info.append(name,meta);const actions=document.createElement("div");actions.className="pending-bill-actions";
-  const open=document.createElement("button");open.type="button";open.className="tiny";open.textContent="Open";open.onclick=()=>resumePendingBill(d.id);
-  const del=document.createElement("button");del.type="button";del.className="tiny danger";del.textContent="×";del.title="Delete pending bill";del.onclick=async()=>{if(!await confirmAction("Remove pending bill","Delete this temporarily held bill?","Delete"))return;pendingBills=pendingBills.filter(x=>x.id!==d.id);await persistPendingBills();notify("Pending bill removed","info");};
-  actions.append(open,del);card.append(info,amount,actions);root.append(card);
+  const total=(d.items||[]).reduce((s,x)=>s+(Number(x.price)||0)*(Number(x.qty)||0)+(Number(x.adjustment)||0),0)-Math.max(0,Number(d.discount)||0);
+  const amountWrap=document.createElement("div");amountWrap.className="pending-bill-amount";
+  const amount=document.createElement("strong");amount.textContent=money(Math.max(0,total));
+  const del=document.createElement("button");del.type="button";del.className="pending-delete";del.textContent="×";del.title="Remove pending bill";del.setAttribute("aria-label","Remove pending bill for "+(d.patientName||"unnamed patient"));
+  del.onclick=async e=>{e.stopPropagation();if(!await confirmAction("Remove pending bill","Delete this temporarily held bill?","Delete"))return;pendingBills=pendingBills.filter(x=>x.id!==d.id);await persistPendingBills();notify("Pending bill removed","info");};
+  amountWrap.append(amount,del);info.append(name,meta);card.append(info,amountWrap);
+  card.onclick=()=>resumePendingBill(d.id);
+  card.onkeydown=e=>{if(e.target===card&&(e.key==="Enter"||e.key===" ")){e.preventDefault();resumePendingBill(d.id);}};
+  root.append(card);
  });
 }
 async function holdCurrentBill(){
