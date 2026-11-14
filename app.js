@@ -168,6 +168,7 @@ function renderMedicines(filter=""){
  if(!filtered.length){if(medicineModeEnabled)list.append(emptyAction(filter?"Medicine not found":"No medicines added yet",filter?"＋ Add new medicine":"＋ Add medicine",filter.trim()));else{const empty=document.createElement("div");empty.className="empty-state";const title=document.createElement("b");title.textContent=filter?"Medicine not found":"No medicines available";empty.append(title);list.append(empty);}}
 }
 function askBillQuantity(m){
+ if(!m||typeof m!=="object")return;bill=asArray(bill).filter(x=>x&&typeof x==="object");
  const box=document.createElement("div");box.className="quantity-prompt";
  const label=document.createElement("label");label.textContent="Quantity";
  const input=document.createElement("input");input.type="number";input.min="1";input.step="1";input.value="1";input.inputMode="numeric";input.className="quantity-prompt-input";
@@ -231,7 +232,7 @@ function roundingSuggestion(total){
  return Math.max(0,Number((target-amount).toFixed(2)));
 }
 function applyMedicineRounding(extra){
- let remaining=Math.round(extra*100),adjusted=bill.map(x=>({...x,adjustment:0}));
+ bill=asArray(bill).filter(x=>x&&typeof x==="object");let remaining=Math.round(extra*100),adjusted=bill.map(x=>({...x,adjustment:0}));
  const eligible=adjusted.filter(x=>x.roundingAllowed);
  if(!eligible.length||remaining<=0)return null;
  const base=Math.floor(remaining/eligible.length),remainder=remaining%eligible.length;
@@ -241,7 +242,7 @@ function applyMedicineRounding(extra){
 
 let pendingBills=[];
 function draftHasContent(){return bill.length>0||$("patientName").value.trim()||$("tokenNumber").value.trim()||Number($("discount").value)>0;}
-function makeActiveDraft(){return {patientName:$("patientName").value.trim(),tokenNumber:$("tokenNumber").value.trim(),discount:Number($("discount").value)||0,items:bill.map(x=>({...x})),roundingApplied,roundingBase,updatedAt:Date.now()};}
+function makeActiveDraft(){bill=asArray(bill).filter(x=>x&&typeof x==="object");return {patientName:$("patientName").value.trim(),tokenNumber:$("tokenNumber").value.trim(),discount:Number($("discount").value)||0,items:bill.map(x=>({...x})),roundingApplied,roundingBase,updatedAt:Date.now()};}
 async function persistActiveDraft(){if(!localDB||editingBillId)return;const d=makeActiveDraft();if(draftHasContent())await localDB.put("meta",d,"activeBillDraft");else await localDB.delete("meta","activeBillDraft");}
 async function loadPendingBills(){if(!localDB)return;pendingBills=asArray(await localDB.get("meta","pendingBills")).filter(item=>item&&typeof item==="object");renderPendingBills();}
 async function persistPendingBills(){pendingBills=asArray(pendingBills).filter(item=>item&&typeof item==="object");if(localDB)await localDB.put("meta",pendingBills,"pendingBills");renderPendingBills();}
@@ -504,7 +505,7 @@ function dateHeading(date){const today=new Date(),yesterday=new Date();yesterday
 function renderBillingHistory(){
  savedBills=asArray(savedBills).filter(item=>item&&typeof item==="object");const root=$("billingHistoryList");if(!root)return;
  const q=($("historySearch")?.value||"").trim().toLowerCase();
- const rows=savedBills.filter(x=>(x.receiptNumber||"").toLowerCase().includes(q)||(x.patientName||"").toLowerCase().includes(q));
+ const rows=asArray(savedBills).filter(x=>x&&typeof x==="object"&&((x.receiptNumber||"").toLowerCase().includes(q)||(x.patientName||"").toLowerCase().includes(q)));
  root.innerHTML="";
  if(syncNotice){const notice=document.createElement("p");notice.className="sync-status-note";notice.textContent=syncNotice;const dismiss=document.createElement("button");dismiss.type="button";dismiss.className="tiny";dismiss.textContent="Dismiss";dismiss.onclick=()=>{syncNotice="";notice.remove();};notice.append(" ",dismiss);root.append(notice);}
  if(!rows.length){root.innerHTML+='<p class="muted">No saved bills found.</p>';return;}
@@ -524,7 +525,7 @@ function beginBillEdit(item){
  if(!billEditAllowed(item)){alert("This bill is locked after 1 hour.");renderBillingHistory();return;}
  editingBillId=item.id;editingBillCreatedAt=Number(item.createdAtMillis)||Date.now();
  $("patientName").value=item.patientName||"";$("tokenNumber").value=item.tokenNumber||"";$("discount").value=Number(item.discount)||0;setDiscountEditor(Number(item.discount)>0);
- bill=(item.items||[]).map(line=>({id:line.medicineId||crypto.randomUUID(),name:line.name,unit:line.unit||"Piece",qty:Number(line.quantity)||1,price:Number(line.originalUnitPrice??line.unitPrice)||0,roundingAllowed:line.roundingAllowed===true,adjustment:Number(line.lineAdjustment)||0}));
+ bill=asArray(item.items).filter(line=>line&&typeof line==="object").map(line=>({id:line.medicineId||crypto.randomUUID(),name:line.name,unit:line.unit||"Piece",qty:Number(line.quantity)||1,price:Number(line.originalUnitPrice??line.unitPrice)||0,roundingAllowed:line.roundingAllowed===true,adjustment:Number(line.lineAdjustment)||0}));
  $("saveBill").textContent="Update";$("printBill").textContent="Update & Print";$("billMessage").textContent="";
  let cancel=$("cancelBillEdit");if(!cancel){cancel=document.createElement("button");cancel.id="cancelBillEdit";cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";$("billActions")?.append(cancel);if(!$("billActions"))$("saveBill").parentNode.append(cancel);}
  cancel.onclick=cancelBillEdit;
@@ -574,7 +575,7 @@ function showReceipt(item){
  const head=document.createElement("div");head.className="receipt-line receipt-head";
  ["#","Medicine","Qty","Amount"].forEach(label=>{const cell=document.createElement("span");cell.textContent=label;head.append(cell);});
  table.append(head);
- (item.items||[]).forEach((line,index)=>{
+ asArray(item.items).filter(line=>line&&typeof line==="object").forEach((line,index)=>{
   const row=document.createElement("div");row.className="receipt-line";
   const serial=document.createElement("span");serial.className="receipt-serial";serial.textContent=String(index+1);
   const number=document.createElement("span");number.className="receipt-number";number.textContent=String(line.itemNumber||table.children.length)+".";
