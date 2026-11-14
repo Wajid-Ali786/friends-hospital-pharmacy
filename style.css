@@ -461,3 +461,28 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 @keyframes toast-drain{from{transform:scaleX(1)}to{transform:scaleX(0)}}@keyframes toast-enter{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}@keyframes toast-exit{to{opacity:0;transform:translateY(-6px)}}
 @media(max-width:480px){.toast-host{right:10px;top:calc(10px + env(safe-area-inset-top));width:min(300px,calc(100vw - 20px))}}
 @media(prefers-reduced-motion:reduce){.app-toast,.toast-leaving{animation:none}.toast-progress i{animation:none}}
+
+
+/* Billing actions: compact, icon-led and balanced */
+#billActions.bill-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:17px;align-items:stretch}
+#billActions .hold-action{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:10px;min-height:43px;padding:8px 12px;border:1px dashed #bfd2c5;border-radius:11px;background:#f5faf6;color:#315c46}
+#billActions .save-action,#billActions .print-action{display:flex;align-items:center;justify-content:center;gap:9px;min-width:0;min-height:58px;padding:9px 10px;border-radius:12px}
+#billActions .save-action{box-shadow:0 5px 13px rgba(35,105,72,.16)}
+#billActions .bill-action-icon{width:29px;height:29px;flex:0 0 29px;display:grid;place-items:center;border-radius:9px;background:rgba(255,255,255,.2);font-size:18px;font-weight:800;line-height:1}
+#billActions .hold-action .bill-action-icon{background:#e6f1e9}
+#billActions button>span:last-child{display:grid;gap:2px;text-align:left;min-width:0}
+#billActions button b{font-size:11px;line-height:1.2;white-space:nowrap}
+#billActions button small{font-size:9px;font-weight:500;line-height:1.2;opacity:.78;white-space:nowrap}
+@media(max-width:560px){#billActions.bill-actions{gap:8px;margin-top:14px}#billActions .save-action,#billActions .print-action{min-height:55px;padding:8px 7px;gap:7px}#billActions .bill-action-icon{width:26px;height:26px;flex-basis:26px;font-size:16px}#billActions button b{font-size:10px}#billActions button small{font-size:8px}}
+/* Pending bill: whole row opens; remove control appears on hover/focus */
+.pending-bill-card{cursor:pointer;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;position:relative;outline:none}
+.pending-bill-card:focus-visible{border-color:#77a88a;box-shadow:0 0 0 3px rgba(64,132,91,.13)}
+.pending-bill-info{pointer-events:none}
+.pending-bill-amount{display:flex;align-items:center;justify-content:flex-end;gap:7px;min-width:0}
+.pending-bill-card> .pending-bill-amount>strong{font-size:11px;white-space:nowrap;color:var(--green);grid-column:auto;grid-row:auto}
+.pending-delete{width:25px;height:25px;min-height:25px;flex:0 0 25px;display:grid;place-items:center;padding:0;border:1px solid #f0d8d5;border-radius:8px;background:#fff7f6;color:#b84a43;font-size:18px;line-height:1;opacity:0;transform:scale(.88);pointer-events:none;transition:opacity .16s,transform .16s,background .16s,border-color .16s}
+.pending-delete:hover{background:#ffebe9;border-color:#e8b9b4;color:#a92e28;box-shadow:0 2px 7px rgba(170,55,48,.12)}
+.pending-bill-card:hover .pending-delete,.pending-bill-card:focus-within .pending-delete,.pending-bill-card:focus-visible .pending-delete{opacity:1;transform:scale(1);pointer-events:auto}
+.pending-bill-actions{display:none!important}
+@media(hover:none){.pending-delete{opacity:.78;transform:none;pointer-events:auto}}
+@media(max-width:420px){.pending-bill-card{grid-template-columns:minmax(0,1fr) auto}.pending-bill-amount{gap:5px}}
