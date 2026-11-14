@@ -271,6 +271,32 @@ async function resumePendingBill(id){
  pendingBills=pendingBills.filter(x=>x.id!==id);await persistPendingBills();bill=(d.items||[]).map(x=>({...x}));$("patientName").value=d.patientName||"";$("tokenNumber").value=d.tokenNumber||"";$("discount").value=String(d.discount||0);roundingApplied=Number(d.roundingApplied)||0;roundingBase=d.roundingBase??null;await localDB.delete("meta","activeBillDraft");renderBill();notify("Pending bill opened","info");$("patientName").focus();
 }
 
+let quantityHoldTimer=null,quantityRepeatTimer=null,quantityHoldItem=null,quantityHoldDelta=0,quantitySuppressClick=false;
+function stopQuantityHold(){
+ if(quantityHoldTimer){clearTimeout(quantityHoldTimer);quantityHoldTimer=null;}
+ if(quantityRepeatTimer){clearInterval(quantityRepeatTimer);quantityRepeatTimer=null;}
+ quantityHoldItem=null;quantityHoldDelta=0;
+}
+function changeBillQuantity(item,delta){
+ if(!bill.includes(item))return;
+ item.qty=Math.max(1,Math.floor(Number(item.qty)||1)+delta);
+ renderBill();
+}
+function startQuantityHold(event,item,delta){
+ if(event.button!==undefined&&event.button!==0)return;
+ event.preventDefault();
+ stopQuantityHold();quantitySuppressClick=true;quantityHoldItem=item;quantityHoldDelta=delta;
+ changeBillQuantity(item,delta);
+ quantityHoldTimer=setTimeout(()=>{
+  if(!quantityHoldItem)return;
+  quantityRepeatTimer=setInterval(()=>changeBillQuantity(quantityHoldItem,quantityHoldDelta),90);
+ },380);
+}
+window.addEventListener("pointerup",stopQuantityHold);
+window.addEventListener("pointercancel",stopQuantityHold);
+window.addEventListener("blur",stopQuantityHold);
+document.addEventListener("visibilitychange",()=>{if(document.hidden)stopQuantityHold();});
+
 function renderBill(){
  const root=$("billItems");root.innerHTML="";
  if(bill.length){root.classList.remove("bill-items-error");if($("patientName").value.trim())$("billMessage").classList.remove("validation-alert");}
@@ -280,9 +306,9 @@ function renderBill(){
   const serial=document.createElement("span");serial.className="bill-item-serial";serial.textContent=String(i+1)+".";const name=document.createElement("span");name.className="bill-item-name";name.textContent=it.name+" ("+it.unit+")";
   const controls=document.createElement("div");controls.className="qty-controls";
   const unitLabel=document.createElement("small");unitLabel.className="qty-unit-label";unitLabel.textContent=it.unit||"Piece";
-  const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.textContent="−";minus.setAttribute("aria-label","Decrease quantity");minus.onclick=()=>{it.qty=Math.max(1,it.qty-1);renderBill();};
+  const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.textContent="−";minus.setAttribute("aria-label","Decrease quantity");minus.title="Hold to decrease continuously";minus.addEventListener("pointerdown",e=>startQuantityHold(e,it,-1));minus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}if(e.detail===0)changeBillQuantity(it,-1);};
   const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value=it.qty;qty.setAttribute("aria-label","Quantity");qty.onchange=()=>{it.qty=Math.max(1,Math.floor(Number(qty.value)||1));renderBill();};
-  const plus=document.createElement("button");plus.type="button";plus.className="qty-btn";plus.textContent="+";plus.setAttribute("aria-label","Increase quantity");plus.onclick=()=>{it.qty+=1;renderBill();};
+  const plus=document.createElement("button");plus.type="button";plus.className="qty-btn";plus.textContent="+";plus.setAttribute("aria-label","Increase quantity");plus.title="Hold to increase continuously";plus.addEventListener("pointerdown",e=>startQuantityHold(e,it,1));plus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}if(e.detail===0)changeBillQuantity(it,1);};
   controls.append(minus,qty,plus,unitLabel);
   const lineTotal=it.price*it.qty+(it.adjustment||0),price=document.createElement("b");price.className="bill-line-total";price.textContent=money(lineTotal);
   const del=document.createElement("button");del.type="button";del.className="remove-item";del.textContent="×";del.title="Remove item";del.setAttribute("aria-label","Remove "+it.name);del.onclick=()=>{bill.splice(i,1);renderBill();};
