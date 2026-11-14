@@ -11,6 +11,9 @@ let localDB=null;async function openUserDB(uid){if(localDB)localDB.close();local
 let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncNotice="",medicineModeEnabled=true,medicineImageDraft="",medicineImageRotation=0,medicineImageCrop=false;
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2),wholeMoney=n=>"Rs. "+Math.round(Number(n)||0).toLocaleString("en-PK"),medicinePriceText=n=>{const v=Number(n)||0;return "Rs. "+(Number.isInteger(v)?v.toLocaleString("en-PK"):String(v));};
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
+function setDiscountEditor(open){const toggle=$("discountToggle"),field=$("discountField");if(!toggle||!field)return;toggle.classList.toggle("hidden",open);field.classList.toggle("hidden",!open);toggle.setAttribute("aria-expanded",String(open));}
+function resetDiscountEditor(){const input=$("discount");if(!input)return;input.value="0";setDiscountEditor(false);if(localDB&&!editingBillId)persistActiveDraft().catch(console.warn);setTimeout(()=>renderBill(),0);}
+document.addEventListener("pointerdown",event=>{const field=$("discountField");if(!field||field.classList.contains("hidden"))return;if(event.target.closest(".discount-tools")||event.target.closest("#billActions"))return;resetDiscountEditor();});
 
 let toastTimer=null,toastRemaining=0,toastStarted=0;
 function notify(message,type="success",duration=3600){
@@ -251,7 +254,7 @@ function renderPendingBills(){
   const name=document.createElement("b");name.textContent=d.patientName||"Unnamed patient";const meta=document.createElement("small");meta.textContent=(d.items?.length||0)+" medicines · "+new Date(d.updatedAt||Date.now()).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
   const total=(d.items||[]).reduce((s,x)=>s+(Number(x.price)||0)*(Number(x.qty)||0)+(Number(x.adjustment)||0),0)-Math.max(0,Number(d.discount)||0);
   const amountWrap=document.createElement("div");amountWrap.className="pending-bill-amount";
-  const amount=document.createElement("strong");amount.textContent=money(Math.max(0,total));
+  const amount=document.createElement("strong");amount.textContent=wholeMoney(Math.max(0,total));
   const del=document.createElement("button");del.type="button";del.className="pending-delete";del.textContent="×";del.title="Remove pending bill";del.setAttribute("aria-label","Remove pending bill for "+(d.patientName||"unnamed patient"));
   del.onclick=async e=>{e.stopPropagation();if(!await confirmAction("Remove pending bill","Delete this temporarily held bill?","Delete"))return;pendingBills=pendingBills.filter(x=>x.id!==d.id);await persistPendingBills();notify("Pending bill removed","info");};
   amountWrap.append(amount,del);info.append(name,meta);card.append(info,amountWrap);
@@ -263,12 +266,12 @@ function renderPendingBills(){
 async function holdCurrentBill(){
  if(!draftHasContent()){notify("There is no bill to hold yet","warning");return;}
  if(editingBillId){notify("Finish or cancel the saved bill edit before holding another bill","warning");return;}
- pendingBills.unshift({id:crypto.randomUUID(),...makeActiveDraft()});await persistPendingBills();bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";$("discountField").classList.add("hidden");$("discountToggle").setAttribute("aria-expanded","false");$("discountToggle").innerHTML='<span aria-hidden="true">％</span> Add discount';roundingApplied=0;roundingBase=null;await localDB.delete("meta","activeBillDraft");renderBill();notify("Bill moved to Pending Bills","success");
+ pendingBills.unshift({id:crypto.randomUUID(),...makeActiveDraft()});await persistPendingBills();bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";setDiscountEditor(false);roundingApplied=0;roundingBase=null;await localDB.delete("meta","activeBillDraft");renderBill();$("billMessage").textContent="";$("billMessage").classList.remove("validation-alert");notify("Bill moved to Pending Bills","success");
 }
 async function resumePendingBill(id){
  const d=pendingBills.find(x=>x.id===id);if(!d)return;
  if(draftHasContent()){const ok=await confirmAction("Hold current bill?","Your current bill has unsaved details. Hold it before opening this patient?","Hold & switch");if(!ok)return;await holdCurrentBill();}
- pendingBills=pendingBills.filter(x=>x.id!==id);await persistPendingBills();bill=(d.items||[]).map(x=>({...x}));$("patientName").value=d.patientName||"";$("tokenNumber").value=d.tokenNumber||"";$("discount").value=String(d.discount||0);roundingApplied=Number(d.roundingApplied)||0;roundingBase=d.roundingBase??null;if(Number(d.discount)>0){$("discountField").classList.remove("hidden");$("discountToggle").setAttribute("aria-expanded","true");$("discountToggle").innerHTML='<span aria-hidden="true">％</span> Hide discount';}await localDB.delete("meta","activeBillDraft");renderBill();notify("Pending bill opened","info");$("patientName").focus();
+ pendingBills=pendingBills.filter(x=>x.id!==id);await persistPendingBills();bill=(d.items||[]).map(x=>({...x}));$("patientName").value=d.patientName||"";$("tokenNumber").value=d.tokenNumber||"";$("discount").value=String(d.discount||0);roundingApplied=Number(d.roundingApplied)||0;roundingBase=d.roundingBase??null;setDiscountEditor(Number(d.discount)>0);await localDB.delete("meta","activeBillDraft");$("billMessage").textContent="";$("billMessage").classList.remove("validation-alert");renderBill();notify("Pending bill opened","info");$("patientName").focus();
 }
 
 let quantityHoldTimer=null,quantityRepeatTimer=null,quantityHoldItem=null,quantityHoldDelta=0,quantitySuppressClick=false;
@@ -390,7 +393,7 @@ $("showRegister").onclick=()=>{show("loginForm",false);show("registerForm",true)
 $("showLogin").onclick=()=>{show("registerForm",false);show("loginForm",true);$("authHeading").textContent="Friends Hospital Pharmacy";$("authSubtitle").textContent="Sign in to continue";$("loginMessage").textContent="";$("registerMessage").textContent="";};
 $("registerForm").onsubmit=async e=>{e.preventDefault();const name=$("registerName").value.trim(),email=$("registerEmail").value.trim(),password=$("registerPassword").value,confirm=$("confirmPassword").value;if(password.length<6){$("registerMessage").textContent="Password must be at least 6 characters.";return;}if(password!==confirm){$("registerMessage").textContent="Passwords do not match.";return;}$("registerMessage").textContent="";setAuthLoading("registerSubmit",true,"Creating account…");try{const credential=await createUserWithEmailAndPassword(auth,email,password);if(name)await updateProfile(credential.user,{displayName:name});$("registerMessage").textContent="Account created successfully.";}catch(err){$("registerMessage").textContent=authError(err);}finally{setAuthLoading("registerSubmit",false);}};
 $("forgotPassword").onclick=async()=>{const email=$("email").value.trim();if(!email){$("loginMessage").textContent="Enter your email address first, then select Forgot password.";return;}try{await sendPasswordResetEmail(auth,email);$("loginMessage").textContent="Password reset email sent. Check your inbox.";}catch(err){$("loginMessage").textContent=authError(err);}};
-onAuthStateChanged(auth,async user=>{currentUser=user;if(user){setupRecoveryAdmin(user);await openUserDB(user.uid);const savedEditPassword=await localDB.get("meta","medicineEditPassword");medicineModeEnabled=!!savedEditPassword&&(await localDB.get("meta","medicineModeEnabled"))!==false;const editToggle=$("medicineEditMode");if(editToggle)editToggle.checked=medicineModeEnabled;show("loginView",false);show("appView",true);$("userLabel").textContent=user.displayName||user.email;$("settingsEmail").textContent=user.email;try{await loadLocal();savedBills=await localDB.getAll("bills");await loadPendingBills();const activeDraft=await localDB.get("meta","activeBillDraft");if(activeDraft){bill=(activeDraft.items||[]).map(x=>({...x}));$("patientName").value=activeDraft.patientName||"";$("tokenNumber").value=activeDraft.tokenNumber||"";$("discount").value=String(activeDraft.discount||0);roundingApplied=Number(activeDraft.roundingApplied)||0;roundingBase=activeDraft.roundingBase??null;if(Number(activeDraft.discount)>0){$("discountField").classList.remove("hidden");$("discountToggle").setAttribute("aria-expanded","true");$("discountToggle").innerHTML='<span aria-hidden="true">％</span> Hide discount';}renderBill();}}catch(err){console.warn("Local cache unavailable:",err);renderMedicines();}if(unsubscribe)unsubscribe();if(navigator.onLine){startCloudSync(user);flushQueue().catch(err=>console.warn("Pending sync will retry:",err));}status();}else{setupRecoveryAdmin(null);show("loginView",true);show("appView",false);if(unsubscribe){unsubscribe();unsubscribe=null;}if(historyUnsubscribe){historyUnsubscribe();historyUnsubscribe=null;}if(localDB){localDB.close();localDB=null;}medicines=[];savedBills=[];}});
+onAuthStateChanged(auth,async user=>{currentUser=user;if(user){setupRecoveryAdmin(user);await openUserDB(user.uid);const savedEditPassword=await localDB.get("meta","medicineEditPassword");medicineModeEnabled=!!savedEditPassword&&(await localDB.get("meta","medicineModeEnabled"))!==false;const editToggle=$("medicineEditMode");if(editToggle)editToggle.checked=medicineModeEnabled;show("loginView",false);show("appView",true);$("userLabel").textContent=user.displayName||user.email;$("settingsEmail").textContent=user.email;try{await loadLocal();savedBills=await localDB.getAll("bills");await loadPendingBills();const activeDraft=await localDB.get("meta","activeBillDraft");if(activeDraft){bill=(activeDraft.items||[]).map(x=>({...x}));$("patientName").value=activeDraft.patientName||"";$("tokenNumber").value=activeDraft.tokenNumber||"";$("discount").value=String(activeDraft.discount||0);roundingApplied=Number(activeDraft.roundingApplied)||0;roundingBase=activeDraft.roundingBase??null;setDiscountEditor(Number(activeDraft.discount)>0);renderBill();}}catch(err){console.warn("Local cache unavailable:",err);renderMedicines();}if(unsubscribe)unsubscribe();if(navigator.onLine){startCloudSync(user);flushQueue().catch(err=>console.warn("Pending sync will retry:",err));}status();}else{setupRecoveryAdmin(null);show("loginView",true);show("appView",false);if(unsubscribe){unsubscribe();unsubscribe=null;}if(historyUnsubscribe){historyUnsubscribe();historyUnsubscribe=null;}if(localDB){localDB.close();localDB=null;}medicines=[];savedBills=[];}});
 $("logoutBtn").onclick=()=>signOut(auth);
 $("addMedicineBtn").onclick=()=>openAddMedicine();
 $("cancelMedicine").onclick=closeMedicineModal;$("medicineForm").onsubmit=saveMedicine;
@@ -426,7 +429,7 @@ $("billSearch").addEventListener("keydown",e=>{
   if(add)add.click();
  }
 });
-$("discount").oninput=renderBill;$("discountToggle").onclick=()=>{const field=$("discountField"),opening=field.classList.contains("hidden");field.classList.toggle("hidden",!opening);$("discountToggle").setAttribute("aria-expanded",String(opening));$("discountToggle").innerHTML=opening?'<span aria-hidden="true">％</span> Hide discount':'<span aria-hidden="true">％</span> Add discount';if(opening)$("discount").focus();};$("patientName").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("tokenNumber").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("holdBill").onclick=holdCurrentBill;
+$("discount").oninput=()=>{renderBill();persistActiveDraft().catch(console.warn);};$("discountToggle").onclick=()=>{setDiscountEditor(true);$("discount").focus();};$("patientName").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("tokenNumber").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("holdBill").onclick=holdCurrentBill;
 document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-page]").forEach(x=>x.classList.toggle("active",x===b));["medicines","billing","history","settings"].forEach(p=>show(p+"Page",p===b.dataset.page));$("pageTitle").textContent=b.textContent.trim().replace(/^\S+\s*/,"");if(b.dataset.page==="billing")renderBillSearch();if(b.dataset.page==="history")startBillingHistory();});
 function showBillValidation(errors){
  const patient=$("patientName"),items=$("billItems"),message=$("billMessage");
@@ -469,7 +472,7 @@ async function saveCurrentBill({printAfter=false}={}){
   if(editingBillId&&!billEditAllowed({createdAtMillis:editingBillCreatedAt}))throw new Error("The 1-hour edit period has expired.");
   await localDB.put("bills",snapshot);await queueChange(snapshot.id,"set",snapshot,"bills");
   savedBills=[snapshot,...savedBills.filter(x=>x.id!==snapshot.id)].sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();
-  const wasEditing=!!editingBillId;editingBillId=null;editingBillCreatedAt=0;$("saveBill").textContent="Save Bill";$("printBill").textContent="Save & Print";if(wasEditing){$("cancelBillEdit")?.remove();closeAppModal();}
+  const wasEditing=!!editingBillId;editingBillId=null;editingBillCreatedAt=0;$("saveBill").textContent="Save";$("printBill").textContent="Save & Print";if(wasEditing){$("cancelBillEdit")?.remove();closeAppModal();}
   $("billMessage").textContent="";
   if(navigator.onLine)flushQueue().then(()=>notify("Bill synced successfully · "+snapshot.receiptNumber,"success",2600)).catch(err=>{console.warn("Bill sync pending:",err);notify("Bill saved on this device; sync will retry when online","warning",4200);});
   else notify("Bill saved on this device; waiting for internet to sync","info",3600);
@@ -519,9 +522,9 @@ function billEditAllowed(item){const created=Number(item?.createdAtMillis)||0;re
 function beginBillEdit(item){
  if(!billEditAllowed(item)){alert("This bill is locked after 1 hour.");renderBillingHistory();return;}
  editingBillId=item.id;editingBillCreatedAt=Number(item.createdAtMillis)||Date.now();
- $("patientName").value=item.patientName||"";$("tokenNumber").value=item.tokenNumber||"";$("discount").value=Number(item.discount)||0;if(Number(item.discount)>0){$("discountField").classList.remove("hidden");$("discountToggle").setAttribute("aria-expanded","true");$("discountToggle").innerHTML='<span aria-hidden="true">％</span> Hide discount';}
+ $("patientName").value=item.patientName||"";$("tokenNumber").value=item.tokenNumber||"";$("discount").value=Number(item.discount)||0;setDiscountEditor(Number(item.discount)>0);
  bill=(item.items||[]).map(line=>({id:line.medicineId||crypto.randomUUID(),name:line.name,unit:line.unit||"Piece",qty:Number(line.quantity)||1,price:Number(line.originalUnitPrice??line.unitPrice)||0,roundingAllowed:line.roundingAllowed===true,adjustment:Number(line.lineAdjustment)||0}));
- $("saveBill").textContent="Update Bill";$("printBill").textContent="Update & Print";$("billMessage").textContent="";
+ $("saveBill").textContent="Update";$("printBill").textContent="Update & Print";$("billMessage").textContent="";
  let cancel=$("cancelBillEdit");if(!cancel){cancel=document.createElement("button");cancel.id="cancelBillEdit";cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";$("billActions")?.append(cancel);if(!$("billActions"))$("saveBill").parentNode.append(cancel);}
  cancel.onclick=cancelBillEdit;
  renderBill();$("billMessage").textContent="Editing "+item.receiptNumber+" — only available during the first hour.";notify("Editing receipt "+item.receiptNumber,"info");
@@ -529,7 +532,7 @@ function beginBillEdit(item){
 }
 function cancelBillEdit(){
  editingBillId=null;editingBillCreatedAt=0;bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";$("discountField").classList.add("hidden");$("discountToggle").setAttribute("aria-expanded","false");$("discountToggle").innerHTML='<span aria-hidden="true">％</span> Add discount';
- $("saveBill").textContent="Save Bill";$("printBill").textContent="Save & Print";$("billMessage").textContent="";
+ $("saveBill").textContent="Save";$("printBill").textContent="Save & Print";$("billMessage").textContent="";
  renderBill();$("cancelBillEdit")?.remove();closeAppModal();
 }
 async function deleteSavedBill(item){
