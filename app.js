@@ -22,10 +22,10 @@ function notify(message,type="success",duration=3600){
  const close=document.createElement("button");close.type="button";close.className="toast-close";close.setAttribute("aria-label","Dismiss notification");close.textContent="×";
  const track=document.createElement("span");track.className="toast-progress";const bar=document.createElement("i");track.append(bar);node.append(icon,textNode,close,track);host.replaceChildren(node);
  toastRemaining=duration;let started=0;
- const dismiss=()=>{clearTimeout(toastTimer);node.classList.add("toast-leaving");setTimeout(()=>node.remove(),220);};
+ const dismiss=()=>{if(!node.isConnected)return;clearTimeout(toastTimer);toastTimer=null;node.classList.add("toast-leaving");setTimeout(()=>node.remove(),220);};
  const pause=()=>{if(!toastTimer)return;clearTimeout(toastTimer);toastTimer=null;toastRemaining=Math.max(0,toastRemaining-(performance.now()-started));bar.style.animationPlayState="paused";};
- const resume=()=>{if(!node.isConnected||toastTimer)return;started=performance.now();bar.style.animationDuration=toastRemaining+"ms";bar.style.animationPlayState="running";bar.style.animationName="toast-drain";bar.style.animationTimingFunction="linear";toastTimer=setTimeout(dismiss,toastRemaining);};
- node.addEventListener("mouseenter",pause);node.addEventListener("mouseleave",resume);node.addEventListener("focusin",pause);node.addEventListener("focusout",resume);close.onclick=dismiss;resume();
+ const resume=()=>{if(!node.isConnected||toastTimer||toastRemaining<=0)return;started=performance.now();bar.style.animationDuration=toastRemaining+"ms";bar.style.animationPlayState="running";bar.style.animationName="toast-drain";bar.style.animationTimingFunction="linear";toastTimer=setTimeout(dismiss,toastRemaining);};
+ bar.addEventListener("animationend",dismiss);node.addEventListener("mouseenter",pause);node.addEventListener("mouseleave",resume);node.addEventListener("focusin",pause);node.addEventListener("focusout",resume);close.onclick=dismiss;resume();
 }
 
 let modalNode=null,modalPlaceholder=null,modalKind="",billSearchActiveIndex=-1;
