@@ -376,33 +376,12 @@ async function removeMedicine(id){
 function startCloudSync(user){
  if(unsubscribe)unsubscribe();
  unsubscribe=onSnapshot(collection(db,"users",user.uid,"medicines"),async snap=>{
-  try{
-   if(!localDB||currentUser?.uid!==user.uid)return;
-   const pending=await localDB.getAll("pending");
-   const pendingIds=new Set(pending.filter(x=>(x.collectionName||"medicines")==="medicines").map(x=>x.targetId||x.id));
-   const local=await localDB.getAll("medicines");
-   // Preserve local/offline medicines; cloud records with the same ID take precedence unless a local change is pending.
-   const merged=new Map(local.filter(m=>m&&m.id).map(m=>[m.id,normalizeMedicine(m)]));
-   const cloud=snap.docs.map(d=>normalizeMedicine({...d.data(),id:d.id})).filter(m=>m&&m.id&&!pendingIds.has(m.id));
-   for(const m of cloud)merged.set(m.id,m);
-   medicines=[...merged.values()];
-   await cacheAll();
-   renderMedicines($("medicineSearch").value);
-   await flushQueue();
-  }catch(err){
-   console.warn("Firestore medicine sync failed:",err);
-   if(currentUser?.uid===user.uid){
-    renderMedicines($("medicineSearch").value);
-    notify("Cloud sync issue — showing medicines saved on this device","warning",6000);
-   }
-  }
- },err=>{
-  console.warn("Firestore medicine listener failed:",err);
-  if(currentUser?.uid===user.uid){
-   renderMedicines($("medicineSearch").value);
-   notify("Could not load medicines from Firebase. Saved local medicines are still available.","warning",6500);
-  }
- });
+  const pending=await localDB.getAll("pending"),pendingIds=new Set(pending.filter(x=>(x.collectionName||"medicines")==="medicines").map(x=>x.targetId||x.id));
+  const cloud=snap.docs.map(d=>normalizeMedicine(d.data())).filter(m=>!pendingIds.has(m.id));
+  const local=await localDB.getAll("medicines"),merged=new Map(cloud.map(m=>[m.id,m]));
+  for(const m of local)if(pendingIds.has(m.id))merged.set(m.id,m);
+  medicines=[...merged.values()];await cacheAll();renderMedicines($("medicineSearch").value);await flushQueue();
+ },err=>console.warn("Firestore sync",err));
 }
 document.querySelectorAll(".password-toggle").forEach(button=>{button.onclick=()=>{const input=$(button.dataset.passwordTarget);if(!input)return;const reveal=input.type==="password";input.type=reveal?"text":"password";button.setAttribute("aria-label",reveal?"Hide password":"Show password");button.title=reveal?"Hide password":"Show password";button.classList.toggle("is-visible",reveal);};});
 function setAuthLoading(buttonId,loading,label){const button=$(buttonId);if(!button)return;button.disabled=loading;button.classList.toggle("is-loading",loading);button.querySelector(".button-label").textContent=loading?label:button.dataset.defaultLabel;button.querySelector(".button-spinner").classList.toggle("hidden",!loading);}
