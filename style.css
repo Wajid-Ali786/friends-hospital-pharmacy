@@ -555,3 +555,34 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 #billActions #cancelBillEdit{min-height:34px;padding:5px 12px;border-radius:9px;font-size:10px}
 .sync-status-note{margin:8px 0;padding:8px 10px;border:1px solid #dce8e0;border-radius:9px;background:#f5faf6;color:#526b5c;font-size:11px;line-height:1.4}
 @media(max-width:560px){.bill-primary-actions{gap:7px}#billActions .save-action,#billActions .print-action{min-height:42px;padding:7px 8px}#billActions button b{font-size:10px}}
+
+/* Cleaner billing workspace layout */
+.bill-search-panel h3,.bill-panel>h3{display:none}
+.bill-search-panel{padding-top:15px}
+.bill-search-panel #billSearch{max-width:none;width:100%;height:45px;background:#fbfdfb;border-color:#dce8e1}
+.patient-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,.34fr);gap:10px;align-items:end;margin:0 0 14px}
+.patient-fields label{display:grid;gap:6px;margin:0;font-size:12px}
+.patient-fields input{height:43px}
+.patient-name-field{color:#214d3a;font-weight:750!important}
+.patient-name-field input{border:1.5px solid #b9d7c4;background:#f8fcf9;font-size:14px;font-weight:600;box-shadow:0 2px 7px rgba(30,91,59,.05)}
+.patient-name-field input:focus{border-color:#559775;box-shadow:0 0 0 3px rgba(83,151,112,.13)}
+.token-number-field{color:#85918a;font-size:10px!important;font-weight:550!important}
+.token-number-field input{height:37px;padding:8px 9px;background:#fafbfa;border-color:#e9eeea;font-size:11px}
+.token-number-field input::placeholder{color:#b1bbb5}
+.qty-controls-centered{justify-content:center;justify-self:center}
+.bill-row{grid-template-columns:20px minmax(0,1fr) minmax(94px,auto) auto 25px;gap:7px}
+.qty-controls .qty-btn{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .14s,visibility .14s}
+.bill-row:hover .qty-controls .qty-btn,.bill-row:focus-within .qty-controls .qty-btn{opacity:1;visibility:visible;pointer-events:auto}
+.qty-controls input{width:42px;text-align:center;font-weight:700}
+@media(hover:none){.qty-controls .qty-btn{opacity:1;visibility:visible;pointer-events:auto}}
+@media(max-width:480px){.bill-row{grid-template-columns:17px minmax(0,1fr) minmax(84px,auto) auto 22px;gap:4px}.qty-controls input{width:34px}.patient-fields{grid-template-columns:minmax(0,1fr) 104px;gap:7px}.patient-name-field input{font-size:13px}.token-number-field input{font-size:10px}}
+.discount-tools{display:grid;gap:8px;margin:2px 0 8px}
+.discount-toggle{justify-self:start;display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #e1eae4;border-radius:9px;background:#f8fbf9;color:#52705e;font-size:11px;font-weight:650}
+.discount-toggle>span{font-size:14px;color:#397654}
+.discount-toggle:hover{background:#eff6f1;border-color:#cbded1}
+.discount-field{max-width:240px;margin:0!important;padding:10px 11px;border:1px solid #e5ece7;border-radius:10px;background:#fbfdfb;font-size:11px!important;color:#66766d}
+.discount-field input{height:38px;margin-top:4px;padding:8px 10px;font-size:12px}
+#billActions.bill-actions{display:grid;grid-template-columns:1fr;gap:8px}
+.bill-secondary-actions{display:flex;justify-content:flex-start}
+#billActions .hold-action{min-height:34px;padding:5px 12px}
+.bill-primary-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
