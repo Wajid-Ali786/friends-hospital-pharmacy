@@ -486,3 +486,36 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 .pending-bill-actions{display:none!important}
 @media(hover:none){.pending-delete{opacity:.78;transform:none;pointer-events:auto}}
 @media(max-width:420px){.pending-bill-card{grid-template-columns:minmax(0,1fr) auto}.pending-bill-amount{gap:5px}}
+
+
+/* Notification alignment and reliable progress-driven dismissal */
+.app-toast{align-items:center;grid-template-columns:28px minmax(0,1fr) 26px;gap:10px;padding:11px 12px 13px}
+.toast-icon{width:28px;height:28px;align-self:center;display:grid;place-items:center;line-height:1}
+.toast-copy{align-self:center;display:block;margin:0;line-height:1.4;text-align:left}
+.toast-close{align-self:center;display:grid;place-items:center;width:26px;height:26px;min-height:26px;margin:0;padding:0;line-height:1;font-family:Arial,sans-serif;font-size:20px}
+.toast-progress{height:2px}
+
+/* Refined billing actions: clear primary action, quieter secondary actions */
+#billActions.bill-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+#billActions .save-action,#billActions .print-action{min-height:62px;display:flex;align-items:center;justify-content:flex-start;gap:11px;padding:10px 13px;border:1px solid transparent;border-radius:14px;text-align:left;transition:transform .16s,box-shadow .16s,border-color .16s,background .16s}
+#billActions .save-action{background:linear-gradient(135deg,#174d43,#28745f);color:#fff;box-shadow:0 7px 16px rgba(23,77,67,.17)}
+#billActions .save-action:hover{background:linear-gradient(135deg,#123e36,#236b5b);box-shadow:0 9px 20px rgba(23,77,67,.22);transform:translateY(-1px)}
+#billActions .print-action{background:#f7faf8;color:#244b3c;border-color:#dce8e0}
+#billActions .print-action:hover{background:#edf5f0;border-color:#bfd4c6;transform:translateY(-1px)}
+#billActions .bill-action-icon{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border-radius:11px;background:rgba(255,255,255,.17);font-size:18px;line-height:1}
+#billActions .print-action .bill-action-icon{background:#e3eee7;color:#28634c}
+#billActions button>span:last-child{display:grid;gap:3px;text-align:left;min-width:0}
+#billActions button b{font-size:12px;line-height:1.2;white-space:nowrap}
+#billActions button small{font-size:9px;font-weight:500;line-height:1.25;opacity:.78;white-space:nowrap}
+#billActions .hold-action{grid-column:1/-1;min-height:40px;display:flex;align-items:center;justify-content:center;gap:9px;padding:7px 12px;border:1px solid #dce8e0;border-radius:11px;background:#f8faf8;color:#496455}
+#billActions .hold-action .bill-action-icon{width:25px;height:25px;flex:0 0 25px;border-radius:8px;background:#e8f0ea;color:#456c54;font-size:15px}
+#billActions .hold-action b{font-size:11px}
+#billActions .hold-action small{font-size:9px}
+@media(max-width:560px){
+ #billActions.bill-actions{grid-template-columns:1fr 1fr;gap:8px}
+ #billActions .save-action,#billActions .print-action{min-height:58px;padding:8px 9px;gap:8px}
+ #billActions .bill-action-icon{width:29px;height:29px;flex-basis:29px;font-size:16px}
+ #billActions button b{font-size:10px}
+ #billActions button small{font-size:8px}
+ #billActions .hold-action{min-height:39px}
+}
