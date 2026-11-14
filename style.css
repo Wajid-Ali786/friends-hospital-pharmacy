@@ -524,3 +524,34 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 /* Hold-to-repeat quantity controls */
 .qty-btn{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:pointer}
 .qty-btn:active{background:#dcebe2;transform:scale(.94)}
+
+
+/* Billing line: compact medicine identity, quantity controls and hover-only remove */
+.bill-row{grid-template-columns:20px minmax(0,1fr) auto auto 25px;gap:7px;align-items:center}
+.bill-item-description{display:grid;min-width:0;gap:2px}
+.bill-item-name{font-size:12px;font-weight:700;line-height:1.25;overflow-wrap:anywhere}
+.bill-item-unit{font-size:10px;color:var(--muted);line-height:1.2}
+.qty-controls{display:flex;align-items:center;gap:4px}
+.qty-controls .qty-unit-label{display:none!important}
+.remove-item{opacity:0;pointer-events:none;transform:scale(.88);transition:opacity .16s,transform .16s,background .16s,color .16s}
+.bill-row:hover .remove-item,.bill-row:focus-within .remove-item{opacity:1;pointer-events:auto;transform:scale(1)}
+@media(hover:none){.remove-item{opacity:.78;pointer-events:auto;transform:none}}
+@media(max-width:480px){.bill-row{grid-template-columns:17px minmax(0,1fr) auto auto 22px;gap:4px}.bill-item-name{font-size:11px}.bill-item-unit{font-size:9px}.remove-item{width:22px;height:22px}}
+
+/* Billing actions: two clear primary buttons, one quiet hold action below */
+#billActions.bill-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:15px}
+.bill-primary-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.bill-secondary-actions{display:flex;justify-content:center}
+#billActions .save-action,#billActions .print-action{min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 11px;border-radius:11px;text-align:center}
+#billActions .save-action{background:#174d43;color:#fff;box-shadow:0 3px 9px rgba(23,77,67,.13)}
+#billActions .print-action{background:#f4f8f5;color:#315d48;border:1px solid #dce8e0}
+#billActions .bill-action-icon{width:23px;height:23px;flex:0 0 23px;display:grid;place-items:center;border-radius:7px;background:rgba(255,255,255,.17);font-size:14px;line-height:1}
+#billActions .print-action .bill-action-icon{background:#e4efe8;color:#28634c}
+#billActions button>span:last-child{display:flex;align-items:center;min-width:0}
+#billActions button b{font-size:11px;line-height:1.2;white-space:nowrap}
+#billActions .hold-action{min-height:34px;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:5px 12px;border:1px solid #e1eae3;border-radius:9px;background:#fafcfa;color:#62756a}
+#billActions .hold-action .bill-action-icon{width:19px;height:19px;flex-basis:19px;background:#edf3ef;color:#567363;font-size:12px}
+#billActions .hold-action b{font-size:10px;font-weight:600}
+#billActions #cancelBillEdit{min-height:34px;padding:5px 12px;border-radius:9px;font-size:10px}
+.sync-status-note{margin:8px 0;padding:8px 10px;border:1px solid #dce8e0;border-radius:9px;background:#f5faf6;color:#526b5c;font-size:11px;line-height:1.4}
+@media(max-width:560px){.bill-primary-actions{gap:7px}#billActions .save-action,#billActions .print-action{min-height:42px;padding:7px 8px}#billActions button b{font-size:10px}}
