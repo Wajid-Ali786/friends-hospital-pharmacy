@@ -519,3 +519,8 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
  #billActions button small{font-size:8px}
  #billActions .hold-action{min-height:39px}
 }
+
+
+/* Hold-to-repeat quantity controls */
+.qty-btn{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:pointer}
+.qty-btn:active{background:#dcebe2;transform:scale(.94)}
