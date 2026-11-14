@@ -12,8 +12,7 @@ let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=nu
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2),wholeMoney=n=>"Rs. "+Math.round(Number(n)||0).toLocaleString("en-PK"),medicinePriceText=n=>{const v=Number(n)||0;return "Rs. "+(Number.isInteger(v)?v.toLocaleString("en-PK"):String(v));};
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
 function setDiscountEditor(open){const toggle=$("discountToggle"),field=$("discountField");if(!toggle||!field)return;toggle.classList.toggle("hidden",open);field.classList.toggle("hidden",!open);toggle.setAttribute("aria-expanded",String(open));}
-function resetDiscountEditor(){const input=$("discount");if(!input)return;input.value="0";setDiscountEditor(false);if(localDB&&!editingBillId)persistActiveDraft().catch(console.warn);setTimeout(()=>renderBill(),0);}
-document.addEventListener("pointerdown",event=>{const field=$("discountField");if(!field||field.classList.contains("hidden"))return;if(event.target.closest(".discount-tools")||event.target.closest("#billActions"))return;resetDiscountEditor();});
+// Keep the discount editor open while a discount is entered; outside clicks must not erase it.
 
 let toastTimer=null,toastRemaining=0,toastStarted=0;
 function notify(message,type="success",duration=3600){
@@ -429,7 +428,7 @@ $("billSearch").addEventListener("keydown",e=>{
   if(add)add.click();
  }
 });
-$("discount").oninput=()=>{renderBill();persistActiveDraft().catch(console.warn);};$("discountToggle").onclick=()=>{setDiscountEditor(true);$("discount").focus();};$("patientName").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("tokenNumber").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("holdBill").onclick=holdCurrentBill;
+$("discount").oninput=()=>{if(Number($("discount").value)>0)setDiscountEditor(true);renderBill();persistActiveDraft().catch(console.warn);};$("discountToggle").onclick=()=>{setDiscountEditor(true);$("discount").focus();};$("patientName").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("tokenNumber").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("holdBill").onclick=holdCurrentBill;
 document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-page]").forEach(x=>x.classList.toggle("active",x===b));["medicines","billing","history","settings"].forEach(p=>show(p+"Page",p===b.dataset.page));$("pageTitle").textContent=b.textContent.trim().replace(/^\S+\s*/,"");if(b.dataset.page==="billing")renderBillSearch();if(b.dataset.page==="history")startBillingHistory();});
 function showBillValidation(errors){
  const patient=$("patientName"),items=$("billItems"),message=$("billMessage");
