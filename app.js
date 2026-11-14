@@ -253,7 +253,7 @@ function renderPendingBills(){
   const card=document.createElement("article");card.className="pending-bill-card";card.tabIndex=0;card.setAttribute("role","button");card.setAttribute("aria-label","Open pending bill for "+(d.patientName||"unnamed patient"));card.title="Tap to open this pending bill";
   const info=document.createElement("div");info.className="pending-bill-info";
   const name=document.createElement("b");name.textContent=d.patientName||"Unnamed patient";const meta=document.createElement("small");meta.textContent=(d.items?.length||0)+" medicines · "+new Date(d.updatedAt||Date.now()).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-  const total=(d.items||[]).reduce((s,x)=>s+(Number(x.price)||0)*(Number(x.qty)||0)+(Number(x.adjustment)||0),0)-Math.max(0,Number(d.discount)||0);
+  const total=asArray(d.items).filter(x=>x&&typeof x==="object").reduce((s,x)=>s+(Number(x.price)||0)*(Number(x.qty)||0)+(Number(x.adjustment)||0),0)-Math.max(0,Number(d.discount)||0);
   const amountWrap=document.createElement("div");amountWrap.className="pending-bill-amount";
   const amount=document.createElement("strong");amount.textContent=wholeMoney(Math.max(0,total));
   const del=document.createElement("button");del.type="button";del.className="pending-delete";del.textContent="×";del.title="Remove pending bill";del.setAttribute("aria-label","Remove pending bill for "+(d.patientName||"unnamed patient"));
