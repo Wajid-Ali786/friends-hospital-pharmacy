@@ -606,3 +606,35 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 .discount-field{flex:1 1 220px;width:min(100%,240px);max-width:240px;min-width:0;margin:0!important;padding:7px 10px;border:1px solid #dce8e0;border-radius:9px;background:#fbfdfb}
 .discount-field input{height:36px;margin-top:3px;padding:7px 9px}
 .discount-toggle.hidden,.discount-field.hidden{display:none!important}
+
+/* Discount editor: remove the nested card and use the full billing-panel width */
+.discount-tools{display:block;width:100%;min-height:0;margin:4px 0 8px}
+.discount-field{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr);
+  gap:6px!important;
+  width:100%!important;
+  max-width:none!important;
+  min-width:0;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:#66766d;
+  font-size:11px!important;
+}
+.discount-field input{
+  display:block;
+  width:100%!important;
+  max-width:none!important;
+  min-width:0;
+  height:40px;
+  margin:0!important;
+  padding:8px 11px;
+  border:1px solid #dce8e0;
+  border-radius:9px;
+  background:#fff;
+  font-size:13px;
+}
