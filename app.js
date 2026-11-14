@@ -324,7 +324,7 @@ async function saveMedicine(e){
  renderMedicines($("medicineSearch").value);
  $("medicineForm").reset();$("medicineId").value="";resetMedicineImagePreview();
  $("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";
- closeAppModal();show("medicineForm",false);if(navigator.onLine)syncOnline();
+ closeAppModal();show("medicineForm",false);notify(old?"Medicine updated successfully":"Medicine saved successfully","success");if(navigator.onLine)syncOnline();
 }
 function editMedicine(m){
  if(!medicineModeEnabled)return;
@@ -493,7 +493,7 @@ function beginBillEdit(item){
  $("saveBill").textContent="Update Bill";$("printBill").textContent="Update & Print";$("billMessage").textContent="";
  let cancel=$("cancelBillEdit");if(!cancel){cancel=document.createElement("button");cancel.id="cancelBillEdit";cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";$("billActions")?.append(cancel);if(!$("billActions"))$("saveBill").parentNode.append(cancel);}
  cancel.onclick=cancelBillEdit;
- renderBill();$("billMessage").textContent="Editing "+item.receiptNumber+" — only available during the first hour.";
+ renderBill();$("billMessage").textContent="Editing "+item.receiptNumber+" — only available during the first hour.";notify("Editing receipt "+item.receiptNumber,"info");
  openAppModal(document.querySelector(".bill-panel"),"Edit Bill", "Update the patient, items or discount.","edit");
 }
 function cancelBillEdit(){
@@ -504,8 +504,8 @@ function cancelBillEdit(){
 async function deleteSavedBill(item){
  if(!billEditAllowed(item)){alert("This bill is locked after 1 hour.");return;}
  if(!await confirmAction("Delete bill","Delete receipt "+item.receiptNumber+"? This cannot be undone.","Delete bill"))return;
- try{await localDB.delete("bills",item.id);await queueChange(item.id,"delete",item,"bills");savedBills=savedBills.filter(x=>x.id!==item.id);renderBillingHistory();if(navigator.onLine)flushQueue().catch(console.warn);}
- catch(err){alert("Delete failed: "+err.message);}
+ try{await localDB.delete("bills",item.id);await queueChange(item.id,"delete",item,"bills");savedBills=savedBills.filter(x=>x.id!==item.id);renderBillingHistory();notify("Bill deleted","success");if(navigator.onLine)flushQueue().catch(console.warn);}
+ catch(err){notify("Delete failed: "+err.message,"error",5200);}
 }
 function printReceipt(){
  const root=$("receiptDetail");if(!root)return;
