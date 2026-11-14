@@ -638,3 +638,16 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
   background:#fff;
   font-size:13px;
 }
+
+/* Compact billing quantity popup and 3-column medicine catalogue */
+.app-modal-dialog:has(.quantity-prompt){width:min(360px,calc(100% - 24px));padding:16px}
+.quantity-prompt{max-width:100%;gap:10px}
+.quantity-stepper{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;gap:9px;align-items:center}
+.quantity-stepper .qty-btn{width:42px;height:42px;font-size:21px;border-radius:10px}
+.quantity-prompt-input{height:42px;max-width:100%;}
+.medicine-list{grid-template-columns:repeat(3,minmax(0,1fr));}
+.load-more-wrap{display:flex;justify-content:center;padding:22px 0 8px}
+.load-more-button{min-width:170px;padding:12px 22px;border-radius:12px;background:linear-gradient(135deg,#174d43,#287b65);color:#fff;font-weight:800;box-shadow:0 8px 20px rgba(23,77,67,.18);transition:transform .18s,box-shadow .18s}
+.load-more-button:hover{transform:translateY(-2px);box-shadow:0 12px 24px rgba(23,77,67,.24)}
+@media(max-width:900px){.medicine-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.medicine-list{grid-template-columns:1fr}}
