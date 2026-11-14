@@ -656,3 +656,14 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 .app-modal-dialog:has(.quantity-prompt){width:min(360px,calc(100% - 24px));}
 .quantity-prompt .quantity-prompt-input{width:100%;}
 .history-load-sentinel{padding:22px 12px;text-align:center;color:var(--muted,#748078);font-size:13px;font-weight:600;}
+
+
+/* Flexible billing rows: keep quantity controls and totals visible without rigid column widths */
+.bill-row{grid-template-columns:20px minmax(0,1fr) auto auto 25px!important;gap:clamp(4px,1vw,8px)!important;align-items:center;min-width:0}
+.bill-item-description{min-width:0;overflow:hidden}
+.bill-item-name{min-width:0;overflow-wrap:anywhere;word-break:normal}
+.qty-controls-centered{width:auto;min-width:0;justify-self:center;gap:3px}
+.qty-controls .qty-btn{width:25px;height:27px;flex:0 0 25px}
+.qty-controls input{width:38px;min-width:0;padding:6px 1px}
+.bill-line-total{min-width:0!important;white-space:nowrap;justify-self:end;font-size:clamp(10px,1vw,12px)}
+@media(max-width:480px){.bill-row{grid-template-columns:17px minmax(0,1fr) auto auto 22px!important;gap:3px!important}.qty-controls-centered{gap:2px}.qty-controls .qty-btn{width:22px;height:25px;flex-basis:22px}.qty-controls input{width:30px;font-size:11px}.bill-line-total{font-size:9px!important}}
