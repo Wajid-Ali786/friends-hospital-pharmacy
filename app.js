@@ -267,7 +267,7 @@ function renderPendingBills(){
  });
 }
 async function holdCurrentBill(){
- if(!draftHasContent()){notify("There is no bill to hold yet","warning");return false;}
+ if(!draftHasContent())return false;
  if(editingBillId){notify("Finish or cancel the saved bill edit before holding another bill","warning");return false;}
  if(!$("patientName").value.trim()){showBillValidation([{field:"patient",text:"Patient name is required before holding this bill"}]);notify("Enter patient name before holding this bill","warning");return false;}
  pendingBills.unshift({id:crypto.randomUUID(),...makeActiveDraft()});await persistPendingBills();bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";setDiscountEditor(false);roundingApplied=0;roundingBase=null;await localDB.delete("meta","activeBillDraft");renderBill();$("billMessage").textContent="";$("billMessage").classList.remove("validation-alert");notify("Bill moved to Pending Bills","success");return true;
@@ -437,17 +437,14 @@ $("billSearch").addEventListener("keydown",e=>{
 $("discount").oninput=()=>{if(Number($("discount").value)>0)setDiscountEditor(true);renderBill();persistActiveDraft().catch(console.warn);};$("discountToggle").onclick=()=>{setDiscountEditor(true);$("discount").focus();};$("patientName").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("tokenNumber").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("holdBill").onclick=holdCurrentBill;
 document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-page]").forEach(x=>x.classList.toggle("active",x===b));["medicines","billing","history","settings"].forEach(p=>show(p+"Page",p===b.dataset.page));$("pageTitle").textContent=b.textContent.trim().replace(/^\S+\s*/,"");if(b.dataset.page==="billing")renderBillSearch();if(b.dataset.page==="history")startBillingHistory();});
 function showBillValidation(errors){
- const patient=$("patientName"),items=$("billItems"),message=$("billMessage");
- patient.classList.toggle("field-error",errors.some(x=>x.field==="patient"));
- items.classList.toggle("bill-items-error",errors.some(x=>x.field==="items"));
- message.classList.toggle("validation-alert",errors.length>0);
- message.textContent=errors.length?errors.map(x=>x.text).join(" · "):"";
- if(errors.length){
-  const first=errors[0].field==="patient"?patient:items;
-  first.scrollIntoView({behavior:"smooth",block:"center"});
-  if(errors[0].field==="patient")patient.focus({preventScroll:true});
+  const patient=$("patientName"),items=$("billItems"),message=$("billMessage");
+  const needsPatient=errors.some(x=>x.field==="patient");
+  patient.classList.toggle("field-error",needsPatient);
+  items.classList.remove("bill-items-error");
+  message.classList.remove("validation-alert");
+  message.textContent="";
+  if(needsPatient){patient.scrollIntoView({behavior:"smooth",block:"center"});patient.focus({preventScroll:true});}
  }
-}
 $("patientName").addEventListener("input",()=>{
  if($("patientName").value.trim())$("patientName").classList.remove("field-error");
  if(!$("patientName").classList.contains("field-error")&&!$("billItems").classList.contains("bill-items-error"))$("billMessage").classList.remove("validation-alert");
