@@ -651,3 +651,8 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 .load-more-button:hover{transform:translateY(-2px);box-shadow:0 12px 24px rgba(23,77,67,.24)}
 @media(max-width:900px){.medicine-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.medicine-list{grid-template-columns:1fr}}
+
+/* Compact quantity popup: numeric field only, no plus/minus controls */
+.app-modal-dialog:has(.quantity-prompt){width:min(360px,calc(100% - 24px));}
+.quantity-prompt .quantity-prompt-input{width:100%;}
+.history-load-sentinel{padding:22px 12px;text-align:center;color:var(--muted,#748078);font-size:13px;font-weight:600;}
