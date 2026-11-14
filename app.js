@@ -9,6 +9,7 @@ const app=initializeApp(firebaseConfig),auth=initializeAuth(app,{persistence:[in
 const SUPPORT_WHATSAPP="923486314013";
 let localDB=null;async function openUserDB(uid){if(localDB)localDB.close();localDB=await openDB("friends-pharmacy-"+uid,3,{upgrade(d){if(!d.objectStoreNames.contains("medicines"))d.createObjectStore("medicines",{keyPath:"id"});if(!d.objectStoreNames.contains("pending"))d.createObjectStore("pending",{keyPath:"id"});if(!d.objectStoreNames.contains("meta"))d.createObjectStore("meta");if(!d.objectStoreNames.contains("bills"))d.createObjectStore("bills",{keyPath:"id"});}});}
 let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncNotice="",medicineModeEnabled=true,medicineImageDraft="",medicineImageRotation=0,medicineImageCrop=false;
+const asArray=value=>Array.isArray(value)?value:[];
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2),wholeMoney=n=>"Rs. "+Math.round(Number(n)||0).toLocaleString("en-PK"),medicinePriceText=n=>{const v=Number(n)||0;return "Rs. "+(Number.isInteger(v)?v.toLocaleString("en-PK"):String(v));};
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
 function setDiscountEditor(open){const toggle=$("discountToggle"),field=$("discountField");if(!toggle||!field)return;toggle.classList.toggle("hidden",open);field.classList.toggle("hidden",!open);toggle.setAttribute("aria-expanded",String(open));}
@@ -101,8 +102,8 @@ async function nextBillNumber(){
 }
 async function loadLocal(){medicines=await localDB.getAll("medicines");renderMedicines();}
 const UNIT_OPTIONS=["Tablet","Strip","Capsule","Injection","Bottle","Packet","Box","Piece","Pack"];
-function normalizeMedicine(m){if(!m.unit||!Number.isFinite(Number(m.price))){const unit=Number(m.stripPrice)>0&&!Number(m.tabletPrice)?"Strip":"Tablet";m={...m,unit:m.unit||unit,price:Number(m.price??(unit==="Strip"?m.stripPrice:m.tabletPrice))||0};}return {...m,tags:Array.isArray(m.tags)?m.tags:[],roundingAllowed:m.roundingAllowed===true};}
-function medicineMatches(m,q){const term=q.trim().toLowerCase();return !term||[m.name,...(m.tags||[])].some(v=>String(v).toLowerCase().includes(term));}
+function normalizeMedicine(m){if(!m||typeof m!=="object")return null;if(!m.unit||!Number.isFinite(Number(m.price))){const unit=Number(m.stripPrice)>0&&!Number(m.tabletPrice)?"Strip":"Tablet";m={...m,unit:m.unit||unit,price:Number(m.price??(unit==="Strip"?m.stripPrice:m.tabletPrice))||0};}return {...m,tags:Array.isArray(m.tags)?m.tags:[],roundingAllowed:m.roundingAllowed===true};}
+function medicineMatches(m,q){if(!m||typeof m!=="object")return false;const term=String(q||"").trim().toLowerCase();return !term||[m.name,...asArray(m.tags)].some(v=>String(v||"").toLowerCase().includes(term));}
 function resetMedicineImagePreview(){medicineImageDraft="";medicineImageRotation=0;medicineImageCrop=false;const preview=$("medicineImagePreview");if(preview){preview.innerHTML="";preview.classList.add("hidden");}const picker=$("medicineImagePicker");if(picker)picker.classList.remove("has-image");const change=$("changeMedicineImage");if(change)change.textContent="＋ Upload image";}
 function showMedicineImagePreview(src){medicineImageDraft=src;const preview=$("medicineImagePreview");if(!preview)return;preview.innerHTML="";const img=document.createElement("img");img.src=src;img.alt="Selected medicine image";const edit=document.createElement("button");edit.type="button";edit.className="image-edit-open";edit.textContent="Edit image";edit.onclick=openMedicineImageEditor;preview.append(img,edit);preview.classList.remove("hidden");$("medicineImagePicker")?.classList.add("has-image");const change=$("changeMedicineImage");if(change)change.textContent="Change image";}
 function openMedicineImageEditor(){
@@ -153,7 +154,7 @@ function emptyAction(message,label,prefill=""){
  if(medicineModeEnabled){const action=document.createElement("button");action.type="button";action.className="primary";action.textContent=label;action.onclick=()=>openAddMedicine(prefill);box.append(action);}return box;
 }
 function renderMedicines(filter=""){
- const list=$("medicineList");list.innerHTML="";medicines=medicines.map(normalizeMedicine);$("addMedicineBtn").disabled=!medicineModeEnabled;$("addMedicineBtn").classList.toggle("hidden",!medicineModeEnabled);
+ const list=$("medicineList");if(!list)return;list.innerHTML="";medicines=asArray(medicines).map(normalizeMedicine).filter(Boolean);$("addMedicineBtn").disabled=!medicineModeEnabled;$("addMedicineBtn").classList.toggle("hidden",!medicineModeEnabled);
  const filtered=medicines.filter(m=>medicineMatches(m,filter));
  filtered.forEach(m=>{
   const el=document.createElement("article");el.className="medicine-card";
@@ -190,7 +191,7 @@ function askBillQuantity(m){
  setTimeout(()=>{input.focus();input.select();},0);
 }
 function renderBillSearch(q=""){
- const list=$("billMedicineList");list.innerHTML="";billSearchActiveIndex=-1;
+ const list=$("billMedicineList");if(!list)return;list.innerHTML="";billSearchActiveIndex=-1;medicines=asArray(medicines).filter(m=>m&&typeof m==="object");
  const matches=medicines.filter(m=>medicineMatches(m,q));
  matches.forEach(m=>{
   const row=document.createElement("div");row.className="bill-option";row.setAttribute("role","option");row.setAttribute("aria-selected","false");
@@ -242,10 +243,10 @@ let pendingBills=[];
 function draftHasContent(){return bill.length>0||$("patientName").value.trim()||$("tokenNumber").value.trim()||Number($("discount").value)>0;}
 function makeActiveDraft(){return {patientName:$("patientName").value.trim(),tokenNumber:$("tokenNumber").value.trim(),discount:Number($("discount").value)||0,items:bill.map(x=>({...x})),roundingApplied,roundingBase,updatedAt:Date.now()};}
 async function persistActiveDraft(){if(!localDB||editingBillId)return;const d=makeActiveDraft();if(draftHasContent())await localDB.put("meta",d,"activeBillDraft");else await localDB.delete("meta","activeBillDraft");}
-async function loadPendingBills(){if(!localDB)return;pendingBills=await localDB.get("meta","pendingBills")||[];renderPendingBills();}
-async function persistPendingBills(){if(localDB)await localDB.put("meta",pendingBills,"pendingBills");renderPendingBills();}
+async function loadPendingBills(){if(!localDB)return;pendingBills=asArray(await localDB.get("meta","pendingBills")).filter(item=>item&&typeof item==="object");renderPendingBills();}
+async function persistPendingBills(){pendingBills=asArray(pendingBills).filter(item=>item&&typeof item==="object");if(localDB)await localDB.put("meta",pendingBills,"pendingBills");renderPendingBills();}
 function renderPendingBills(){
- const root=$("pendingBillsList"),count=$("pendingBillsCount");if(!root||!count)return;count.textContent=String(pendingBills.length);root.replaceChildren();
+ pendingBills=asArray(pendingBills).filter(item=>item&&typeof item==="object");const root=$("pendingBillsList"),count=$("pendingBillsCount");if(!root||!count)return;count.textContent=String(pendingBills.length);root.replaceChildren();
  if(!pendingBills.length){const p=document.createElement("p");p.className="pending-empty";p.textContent="No pending bills. Use Hold / Pending to keep a bill for later.";root.append(p);return;}
  pendingBills.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).forEach(d=>{
   const card=document.createElement("article");card.className="pending-bill-card";card.tabIndex=0;card.setAttribute("role","button");card.setAttribute("aria-label","Open pending bill for "+(d.patientName||"unnamed patient"));card.title="Tap to open this pending bill";
@@ -300,7 +301,7 @@ window.addEventListener("blur",stopQuantityHold);
 document.addEventListener("visibilitychange",()=>{if(document.hidden)stopQuantityHold();});
 
 function renderBill(){
- const root=$("billItems");root.innerHTML="";
+ const root=$("billItems");if(!root)return;bill=asArray(bill).filter(item=>item&&typeof item==="object");root.innerHTML="";
  if(bill.length){root.classList.remove("bill-items-error");if($("patientName").value.trim())$("billMessage").classList.remove("validation-alert");}
  if(!bill.length)root.innerHTML='<p class="muted">No items added yet.</p>';
  bill.forEach((it,i)=>{
@@ -447,6 +448,7 @@ $("patientName").addEventListener("input",()=>{
  if(!$("patientName").classList.contains("field-error")&&!$("billItems").classList.contains("bill-items-error"))$("billMessage").classList.remove("validation-alert");
 });
 async function buildBillSnapshot(){
+ bill=asArray(bill).filter(item=>item&&typeof item==="object");savedBills=asArray(savedBills).filter(item=>item&&typeof item==="object");
  const patientName=$("patientName").value.trim();
  const errors=[];
  if(!patientName)errors.push({field:"patient",text:"Add patient name"});
@@ -500,7 +502,7 @@ function billDate(item){const raw=Number(item?.createdAtMillis)||Date.parse(item
 function localDateKey(date){return [date.getFullYear(),String(date.getMonth()+1).padStart(2,"0"),String(date.getDate()).padStart(2,"0")].join("-");}
 function dateHeading(date){const today=new Date(),yesterday=new Date();yesterday.setDate(today.getDate()-1);if(localDateKey(date)===localDateKey(today))return "Today";if(localDateKey(date)===localDateKey(yesterday))return "Yesterday";return date.toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"});}
 function renderBillingHistory(){
- const root=$("billingHistoryList");if(!root)return;
+ savedBills=asArray(savedBills).filter(item=>item&&typeof item==="object");const root=$("billingHistoryList");if(!root)return;
  const q=($("historySearch")?.value||"").trim().toLowerCase();
  const rows=savedBills.filter(x=>(x.receiptNumber||"").toLowerCase().includes(q)||(x.patientName||"").toLowerCase().includes(q));
  root.innerHTML="";
