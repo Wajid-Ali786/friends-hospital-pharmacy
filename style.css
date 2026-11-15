@@ -686,3 +686,6 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
   border-right-color: transparent; border-radius: 50%; animation: history-spin .75s linear infinite;
 }
 @keyframes history-spin { to { transform: rotate(360deg); } }
+
+/* Total medicine count in the medicines toolbar */
+.medicine-count{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;min-height:42px;padding:0 14px;border:1px solid #dce9e2;border-radius:11px;background:#edf5f0;color:var(--green);font-size:12px;white-space:nowrap}.medicine-count b{font:800 15px Manrope}.medicine-count span{font-weight:600}@media(max-width:480px){.medicine-count{min-height:40px;padding:0 10px;font-size:11px}.medicine-count b{font-size:14px}.toolbar{flex-wrap:wrap}.toolbar .search{flex:1 1 100%;max-width:none}.toolbar .medicine-count{margin-right:auto}}
