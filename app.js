@@ -526,12 +526,17 @@ function renderBillingHistory(){
   group.items.forEach(item=>{
    const row=document.createElement("div");row.className="history-row";row.tabIndex=0;row.setAttribute("role","button");row.setAttribute("aria-label","Open receipt "+(item.receiptNumber||""));const info=document.createElement("span");info.className="history-info";info.innerHTML="<b></b><small></small>";info.querySelector("b").textContent=item.patientName||"Patient";info.querySelector("small").textContent=(item.receiptNumber||"Receipt")+" · "+billDate(item).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
    const total=document.createElement("strong");total.textContent=wholeMoney(item.finalTotal);row.append(info,total);row.onclick=()=>{notify("Opening receipt "+item.receiptNumber,"info",2200);showReceipt(item);};row.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();notify("Opening receipt "+item.receiptNumber,"info",2200);showReceipt(item);}};
-   if(billEditAllowed(item)){const actions=document.createElement("span");actions.className="history-actions";const edit=document.createElement("button");edit.type="button";edit.className="tiny";edit.textContent="Edit";edit.onclick=e=>{e.stopPropagation();beginBillEdit(item);};const del=document.createElement("button");del.type="button";del.className="tiny danger";del.textContent="Delete";del.onclick=e=>{e.stopPropagation();deleteSavedBill(item);};actions.append(edit,del);row.append(actions);}section.append(row);
+   const actions=document.createElement("span");actions.className="history-actions";const edit=document.createElement("button");edit.type="button";edit.className="tiny bill-edit-action";edit.textContent="Edit";edit.onclick=e=>{e.stopPropagation();beginBillEdit(item);};const del=document.createElement("button");del.type="button";del.className="tiny danger bill-delete-action";del.textContent="Delete";del.onclick=e=>{e.stopPropagation();deleteSavedBill(item);};const countdown=document.createElement("small");countdown.className="bill-edit-countdown";countdown.dataset.expiry=String((Number(item.createdAtMillis)||Date.parse(item.createdAt)||0)+3600000);actions.append(edit,del,countdown);row.append(actions);section.append(row);
   });root.append(section);
  }
  if(visibleRows.length<rows.length){const sentinel=document.createElement("div");sentinel.className="history-load-sentinel";sentinel.setAttribute("aria-live","polite");sentinel.textContent="Loading more transactions…";root.append(sentinel);if("IntersectionObserver" in window){historyObserver=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){historyObserver.disconnect();historyObserver=null;historyVisibleCount=Math.min(historyVisibleCount+9,rows.length);renderBillingHistory();}},{root:null,rootMargin:"240px 0px",threshold:0});historyObserver.observe(sentinel);}}
 }
-function billEditAllowed(item){const created=Number(item?.createdAtMillis)||0;return created>0&&Date.now()-created<3600000;}
+// The one-hour edit window is a client-side convenience rule, based on this device's clock.
+// Firestore rules intentionally do not enforce an expiry, so queued offline changes can sync later.
+function billEditExpiry(item){const created=Number(item?.createdAtMillis)||Date.parse(item?.createdAt)||0;return created>0?created+3600000:0;}
+function billEditAllowed(item){const expiry=billEditExpiry(item);return expiry>0&&Date.now()<expiry;}
+function updateBillEditCountdowns(){document.querySelectorAll(".bill-edit-countdown").forEach(node=>{const expiry=Number(node.dataset.expiry)||0,remaining=expiry-Date.now(),actions=node.closest(".history-actions");if(remaining<=0){node.textContent="Editing locked";if(actions){actions.querySelectorAll("button").forEach(button=>button.hidden=true);}return;}const minutes=Math.floor(remaining/60000),seconds=Math.floor((remaining%60000)/1000);node.textContent="Edit time: "+minutes+":"+String(seconds).padStart(2,"0");if(actions)actions.querySelectorAll("button").forEach(button=>button.hidden=false);});}
+setInterval(updateBillEditCountdowns,1000);
 function beginBillEdit(item){
  if(!billEditAllowed(item)){alert("This bill is locked after 1 hour.");renderBillingHistory();return;}
  editingBillId=item.id;editingBillCreatedAt=Number(item.createdAtMillis)||Date.now();
@@ -540,7 +545,7 @@ function beginBillEdit(item){
  $("saveBill").textContent="Update";$("printBill").textContent="Update & Print";$("billMessage").textContent="";
  let cancel=$("cancelBillEdit");if(!cancel){cancel=document.createElement("button");cancel.id="cancelBillEdit";cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";$("billActions")?.append(cancel);if(!$("billActions"))$("saveBill").parentNode.append(cancel);}
  cancel.onclick=cancelBillEdit;
- renderBill();$("billMessage").textContent="Editing "+item.receiptNumber+" — only available during the first hour.";notify("Editing receipt "+item.receiptNumber,"info");
+ renderBill();$("billMessage").textContent="Editing "+item.receiptNumber+" — local 1-hour edit window.";notify("Editing receipt "+item.receiptNumber,"info");
  openAppModal(document.querySelector(".bill-panel"),"Edit Bill", "Update the patient, items or discount.","edit");
 }
 function cancelBillEdit(){
