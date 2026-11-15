@@ -168,7 +168,7 @@ function renderMedicines(filter=""){
   if(m.image)el.querySelector("img").src=m.image;
   appendSearchHighlight(el.querySelector(".medicine-info b"),m.name,filter);
   el.querySelector(".medicine-meta").textContent=m.unit+" · "+medicinePriceText(m.price);
-  const tagWrap=el.querySelector(".medicine-tags");asArray(m.tags).forEach(tag=>{const chip=document.createElement("span");chip.className="medicine-tag";appendSearchHighlight(chip,tag,filter);tagWrap.append(chip);});
+  const tagWrap=el.querySelector(".medicine-tags"),tagQuery=String(filter||"").trim().toLowerCase();if(tagQuery){asArray(m.tags).filter(tag=>String(tag||"").toLowerCase().includes(tagQuery)).forEach(tag=>{const chip=document.createElement("span");chip.className="medicine-tag";appendSearchHighlight(chip,tag,filter);tagWrap.append(chip);});}if(!tagWrap.childElementCount)tagWrap.remove();
   if(medicineModeEnabled){const edit=el.querySelector(".edit"),del=el.querySelector(".del");edit.type="button";del.type="button";edit.onclick=()=>editMedicine(m);del.onclick=()=>removeMedicine(m.id);}
   list.append(el);
  });
@@ -211,7 +211,7 @@ function renderBillSearch(q=""){
   const info=document.createElement("div");info.className="bill-medicine-info";info.innerHTML="<b></b><small></small>";
   appendSearchHighlight(info.querySelector("b"),m.name,q);
   const meta=info.querySelector("small");meta.textContent=(m.unit||"Tablet")+" · "+medicinePriceText(m.price??m.tabletPrice);
-  asArray(m.tags).forEach(tag=>{const chip=document.createElement("span");chip.className="medicine-tag";appendSearchHighlight(chip,tag,q);info.append(chip);});
+  const tagQuery=String(q||"").trim().toLowerCase();if(tagQuery){asArray(m.tags).filter(tag=>String(tag||"").toLowerCase().includes(tagQuery)).forEach(tag=>{const chip=document.createElement("span");chip.className="medicine-tag";appendSearchHighlight(chip,tag,q);info.append(chip);});}
   const btn=document.createElement("button");btn.type="button";btn.className="tiny add-bill";btn.textContent="＋ Add";
   btn.onclick=()=>{notify(m.name+" selected","info",2200);askBillQuantity(m);};
   row.append(image,info,btn);list.append(row);
