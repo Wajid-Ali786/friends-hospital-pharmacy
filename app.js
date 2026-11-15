@@ -769,7 +769,7 @@ $("medicineEditMode").onchange=async()=>{
  if($("medicineEditMode").checked){$("medicineEditMode").checked=false;await enableMedicineEditMode();return;}
  medicineModeEnabled=false;await localDB.put("meta",false,"medicineModeEnabled");if(modalKind==="medicine")closeMedicineModal();renderMedicines($("medicineSearch").value);
 };
-function showNewPackingFields(){const mode=$("medicineImageMode"),fields=$("newPackingFields");if(mode&&fields)fields.classList.toggle("hidden",mode.value!=="new");}
+function showNewPackingFields(){const mode=$("medicineImageMode"),fields=$("newPackingFields"),hint=$("packingModeHint");if(mode&&fields){const isNew=mode.value==="new";fields.classList.toggle("hidden",!isNew);if(hint)hint.textContent=isNew?"Adds a separate packing with its own name, unit, price and image. Your current packing stays saved.":"Replaces only the current packing image. Its unit and price stay the same.";}}
 $("medicineImageMode").onchange=showNewPackingFields;
 $("changeMedicineImage").onclick=()=>{if(!medicineModeEnabled)return;$("medicineImage").click();};
 $("medicineImage").onchange=()=>{const file=$("medicineImage").files?.[0];if(!file){const existing=medicines.find(m=>m.id===$("medicineId").value);if(existing?.image)showMedicineImagePreview(existing.image);else resetMedicineImagePreview();return;}if(!file.type.startsWith("image/")){alert("Please select a valid image.");$("medicineImage").value="";return;}if(file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");$("medicineImage").value="";return;}const reader=new FileReader();reader.onload=()=>{medicineImageRotation=0;medicineImageCrop=false;showMedicineImagePreview(reader.result);openMedicineImageEditor();};reader.readAsDataURL(file);};
