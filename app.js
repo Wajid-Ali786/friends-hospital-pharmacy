@@ -104,9 +104,10 @@ async function nextBillNumber(){
  return "B-"+String(next).padStart(6,"0");
 }
 async function loadLocal(){medicines=await localDB.getAll("medicines");renderMedicines();}
-const UNIT_OPTIONS=["Tablet","Strip","Capsule","Injection","Bottle","Packet","Box","Piece","Pack"];
+const UNIT_OPTIONS=["Tablet","Strip","Capsule","Injection","Bottle","Syrup","Packet","Box","Piece","Pack"];
 function normalizeMedicine(m){if(!m||typeof m!=="object")return null;if(!m.unit||!Number.isFinite(Number(m.price))){const unit=Number(m.stripPrice)>0&&!Number(m.tabletPrice)?"Strip":"Tablet";m={...m,unit:m.unit||unit,price:Number(m.price??(unit==="Strip"?m.stripPrice:m.tabletPrice))||0};}return {...m,tags:Array.isArray(m.tags)?m.tags:[],roundingAllowed:m.roundingAllowed===true};}
 function medicineMatches(m,q){if(!m||typeof m!=="object")return false;const term=String(q||"").trim().toLowerCase();return !term||[m.name,...asArray(m.tags)].some(v=>String(v||"").toLowerCase().includes(term));}
+function appendSearchHighlight(target,value,query){target.textContent="";const text=String(value??""),term=String(query||"").trim();if(!term){target.textContent=text;return;}const escaped=term.replace(/[.*+?^${}()|[\]\\]/g,"\\function medicineMatches(m,q){if(!m||typeof m!=="object")return false;const term=String(q||"").trim().toLowerCase();return !term||[m.name,...asArray(m.tags)].some(v=>String(v||"").toLowerCase().includes(term));}");const re=new RegExp("("+escaped+")","ig");let last=0,match;while((match=re.exec(text))){target.append(document.createTextNode(text.slice(last,match.index)));const mark=document.createElement("mark");mark.className="search-match";mark.textContent=match[0];target.append(mark);last=match.index+match[0].length;}target.append(document.createTextNode(text.slice(last)));}
 function resetMedicineImagePreview(){medicineImageDraft="";medicineImageRotation=0;medicineImageCrop=false;const preview=$("medicineImagePreview");if(preview){preview.innerHTML="";preview.classList.add("hidden");}const picker=$("medicineImagePicker");if(picker)picker.classList.remove("has-image");const change=$("changeMedicineImage");if(change)change.textContent="＋ Upload image";}
 function showMedicineImagePreview(src){medicineImageDraft=src;const preview=$("medicineImagePreview");if(!preview)return;preview.innerHTML="";const img=document.createElement("img");img.src=src;img.alt="Selected medicine image";const edit=document.createElement("button");edit.type="button";edit.className="image-edit-open";edit.textContent="Edit image";edit.onclick=openMedicineImageEditor;preview.append(img,edit);preview.classList.remove("hidden");$("medicineImagePicker")?.classList.add("has-image");const change=$("changeMedicineImage");if(change)change.textContent="Change image";}
 function openMedicineImageEditor(){
@@ -163,10 +164,11 @@ function renderMedicines(filter=""){
  const visible=filtered.slice(0,medicineVisibleCount);
  visible.forEach(m=>{
   const el=document.createElement("article");el.className="medicine-card";
-  el.innerHTML=(m.image?'<img alt="">':'<div class="medicine-placeholder">✚</div>')+'<div class="medicine-info"><b></b><small></small></div>'+(medicineModeEnabled?'<div class="card-actions"><button class="tiny edit">Edit</button><button class="tiny danger del">×</button></div>':'');
+  el.innerHTML=(m.image?'<img alt="">':'<div class="medicine-placeholder">✚</div>')+'<div class="medicine-info"><b></b><small class="medicine-meta"></small><span class="medicine-tags"></span></div>'+(medicineModeEnabled?'<div class="card-actions"><button class="tiny edit">Edit</button><button class="tiny danger del">×</button></div>':'');
   if(m.image)el.querySelector("img").src=m.image;
-  el.querySelector(".medicine-info b").textContent=m.name;
-  el.querySelector(".medicine-info small").textContent=m.unit+" · "+medicinePriceText(m.price);
+  appendSearchHighlight(el.querySelector(".medicine-info b"),m.name,filter);
+  el.querySelector(".medicine-meta").textContent=m.unit+" · "+medicinePriceText(m.price);
+  const tagWrap=el.querySelector(".medicine-tags");asArray(m.tags).forEach(tag=>{const chip=document.createElement("span");chip.className="medicine-tag";appendSearchHighlight(chip,tag,filter);tagWrap.append(chip);});
   if(medicineModeEnabled){const edit=el.querySelector(".edit"),del=el.querySelector(".del");edit.type="button";del.type="button";edit.onclick=()=>editMedicine(m);del.onclick=()=>removeMedicine(m.id);}
   list.append(el);
  });
@@ -207,8 +209,9 @@ function renderBillSearch(q=""){
   if(m.image){image.src=m.image;image.alt=m.name;image.loading="lazy";}
   else image.textContent="✚";
   const info=document.createElement("div");info.className="bill-medicine-info";info.innerHTML="<b></b><small></small>";
-  info.querySelector("b").textContent=m.name;
-  info.querySelector("small").textContent=(m.unit||"Tablet")+" · "+medicinePriceText(m.price??m.tabletPrice);
+  appendSearchHighlight(info.querySelector("b"),m.name,q);
+  const meta=info.querySelector("small");meta.textContent=(m.unit||"Tablet")+" · "+medicinePriceText(m.price??m.tabletPrice);
+  asArray(m.tags).forEach(tag=>{const chip=document.createElement("span");chip.className="medicine-tag";appendSearchHighlight(chip,tag,q);info.append(chip);});
   const btn=document.createElement("button");btn.type="button";btn.className="tiny add-bill";btn.textContent="＋ Add";
   btn.onclick=()=>{notify(m.name+" selected","info",2200);askBillQuantity(m);};
   row.append(image,info,btn);list.append(row);
