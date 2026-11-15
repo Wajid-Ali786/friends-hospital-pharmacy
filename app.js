@@ -143,13 +143,13 @@ function openMedicineImageEditor(){
 }
 function openAddMedicine(prefill=""){
  if(!medicineModeEnabled||!currentUser||!localDB)return;
- $("medicineForm").reset();$("medicineId").value="";$("medicineName").value=prefill;resetMedicineImagePreview();
+ $("medicineForm").reset();$("medicineId").value="";$("medicineName").value=prefill;resetMedicineImagePreview();$("medicinePackagings")?.classList.add("hidden");$("medicineImageMode").value="replace";showNewPackingFields();
  $("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";
  show("medicineForm",true);openAppModal($("medicineForm"),"Add Medicine","Enter medicine details and optionally upload an image.","medicine");
  $("medicineName").focus();
 }
 function closeMedicineModal(){
- $("medicineForm").reset();$("medicineId").value="";resetMedicineImagePreview();
+ $("medicineForm").reset();$("medicineId").value="";resetMedicineImagePreview();$("medicinePackagings")?.classList.add("hidden");showNewPackingFields();
  $("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";
  closeAppModal();show("medicineForm",false);
 }
@@ -352,30 +352,48 @@ function renderBill(){
 
 async function saveMedicine(e){
  e.preventDefault();if(!medicineModeEnabled||!currentUser||!localDB)return;
- const id=$("medicineId").value||crypto.randomUUID(),old=medicines.find(m=>m.id===id);
- let image=old?.image||"";
- const file=$("medicineImage").files[0];
- if(file||medicineImageDraft){
-  if(file&&file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");return;}
-  image=await new Promise((resolve,reject)=>{
-   const source=medicineImageDraft||"";const img=new Image();img.onload=()=>{const scale=Math.min(1,1200/Math.max(img.width,img.height)),w=Math.round(img.width*scale),h=Math.round(img.height*scale);const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;const ctx=canvas.getContext("2d");ctx.drawImage(img,0,0,w,h);resolve(canvas.toDataURL("image/png"));};img.onerror=reject;img.src=source;});
- }
- const tags=[...new Set($("medicineTags").value.split(",").map(x=>x.trim()).filter(Boolean))];
- const m={id,name:$("medicineName").value.trim(),tags,roundingAllowed:$("roundingAllowed").checked,unit:$("medicineUnit").value,price:Math.max(0,Number($("medicinePrice").value)||0),image,updatedAt:Date.now()};
- if(!m.name)return;
- medicines=medicines.filter(x=>x.id!==id).concat(m);
- await localDB.put("medicines",m);await queueChange(id,"set",m);
- renderMedicines($("medicineSearch").value);
- $("medicineForm").reset();$("medicineId").value="";resetMedicineImagePreview();
- $("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";
- closeAppModal();show("medicineForm",false);notify(old?"Medicine updated successfully":"Medicine saved successfully","success");if(navigator.onLine)syncOnline();
+ const id=$("medicineId").value||crypto.randomUUID(),old=medicines.find(m=>m.id===id),mode=old?$("medicineImageMode").value:"replace";
+ let imageDraft=medicineImageDraft||"",file=$("medicineImage").files?.[0];
+ if(file&&file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");return;}
+ if(file&&!imageDraft)imageDraft=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});
+ const unit=$("medicineUnit").value,price=Math.max(0,Number($("medicinePrice").value)||0);let packs=old?normalizeMedicine(old).packagings.slice():[];
+ if(!old){if(imageDraft)packs=[{id:crypto.randomUUID(),name:"Current Packing",unit,price,image:imageDraft,createdAt:Date.now(),isCurrent:true}];}
+ else if(imageDraft&&mode==="new"){
+  const label=$("newPackingName").value.trim(),newUnit=$("newPackingUnit").value,newPrice=Number($("newPackingPrice").value);
+  if(!label){notify("Enter a name for the new packing.","warning");$("newPackingName").focus();return;}
+  if(!Number.isFinite(newPrice)||newPrice<0){notify("Enter a valid new packing price.","warning");$("newPackingPrice").focus();return;}
+  const current=packs.find(p=>p.isCurrent);if(current)current.isCurrent=false;
+  if(!current&&old.image)packs.unshift({id:crypto.randomUUID(),name:"Previous Packing",unit:old.unit,price:old.price,image:old.image,createdAt:Date.now(),isCurrent:false});
+  packs.push({id:crypto.randomUUID(),name:label,unit:newUnit,price:newPrice,image:imageDraft,createdAt:Date.now(),isCurrent:true});
+ }else if(imageDraft){let current=packs.find(p=>p.isCurrent);if(!current){current={id:crypto.randomUUID(),name:"Current Packing",unit,price,image:"",createdAt:Date.now(),isCurrent:true};packs.push(current);}current.image=imageDraft;}
+ const current=packs.find(p=>p.isCurrent);
+ const m={id,name:$("medicineName").value.trim(),tags:[...new Set($("medicineTags").value.split(",").map(x=>x.trim()).filter(Boolean))],roundingAllowed:$("roundingAllowed").checked,unit:current?.unit||unit,price:current?Number(current.price)||0:price,image:current?.image||old?.image||"",packagings:packs,updatedAt:Date.now()};
+ if(!m.name)return;medicines=medicines.filter(x=>x.id!==id).concat(m);await localDB.put("medicines",m);await queueChange(id,"set",m);
+ renderMedicines($("medicineSearch").value);$("medicineForm").reset();$("medicineId").value="";resetMedicineImagePreview();$("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";closeAppModal();show("medicineForm",false);
+ notify(old?"Medicine updated successfully":"Medicine saved successfully","success");if(navigator.onLine)syncOnline();
 }
+function renderMedicinePackagings(m){
+ const root=$("medicinePackagings");if(!root)return;root.replaceChildren();const packs=asArray(m?.packagings).filter(p=>p&&!p.isCurrent);
+ if(!m||!packs.length){root.classList.add("hidden");return;}root.classList.remove("hidden");const heading=document.createElement("h4");heading.textContent="Saved previous packings";root.append(heading);
+ packs.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).forEach(pack=>{
+  const card=document.createElement("article");card.className="packing-history-card";const img=pack.image?document.createElement("img"):document.createElement("div");img.className="packing-history-image";
+  if(pack.image){img.src=pack.image;img.alt=pack.name;img.loading="lazy";}else img.textContent="✚";
+  const info=document.createElement("div");info.className="packing-history-info";const name=document.createElement("b");name.textContent=pack.name||"Previous Packing";const meta=document.createElement("small");meta.textContent=(pack.unit||"Unit")+" · "+medicinePriceText(pack.price);
+  const actions=document.createElement("div");actions.className="packing-history-actions";const use=document.createElement("button");use.type="button";use.className="secondary";use.textContent="Use this packing";
+  use.onclick=async()=>{const live=medicines.find(x=>x.id===m.id);if(!live)return;const next=normalizeMedicine(live),selected=next.packagings.find(p=>p.id===pack.id),current=next.packagings.find(p=>p.isCurrent);if(!selected)return;if(current)current.isCurrent=false;selected.isCurrent=true;next.unit=selected.unit;next.price=selected.price;next.image=selected.image||"";await persistMedicinePackingChange(next,"Packing switched. Billing will use its saved price.");};
+  const del=document.createElement("button");del.type="button";del.className="tiny danger";del.textContent="Delete";
+  del.onclick=async()=>{if(!await confirmAction("Delete saved packing","Delete this saved packing image and its saved price? This cannot be undone.","Delete packing"))return;const live=medicines.find(x=>x.id===m.id);if(!live)return;const next=normalizeMedicine(live);next.packagings=next.packagings.filter(p=>p.id!==pack.id);await persistMedicinePackingChange(next,"Saved packing deleted.");};
+  actions.append(use,del);info.append(name,meta,actions);card.append(img,info);root.append(card);
+ });
+}
+async function persistMedicinePackingChange(m,message){m.updatedAt=Date.now();medicines=medicines.map(x=>x.id===m.id?m:x);await localDB.put("medicines",m);await queueChange(m.id,"set",m);$("medicineUnit").value=m.unit;$("medicinePrice").value=m.price;if(m.image)showMedicineImagePreview(m.image);else resetMedicineImagePreview();renderMedicinePackagings(m);renderMedicines($("medicineSearch").value);notify(message,"success");if(navigator.onLine)syncOnline();}
+
 function editMedicine(m){
  if(!medicineModeEnabled)return;
- m=normalizeMedicine(m);resetMedicineImagePreview();if(m.image)showMedicineImagePreview(m.image);$("medicineId").value=m.id;$("medicineName").value=m.name;
+ m=normalizeMedicine(m);resetMedicineImagePreview();if(m.image)showMedicineImagePreview(m.image);$("medicineId").value=m.id;renderMedicinePackagings(m);$("medicineName").value=m.name;
  $("medicineUnit").value=m.unit;$("medicinePrice").value=m.price;
  $("medicineTags").value=(m.tags||[]).join(", ");$("roundingAllowed").checked=m.roundingAllowed===true;
- $("medicineForm").querySelector('button[type="submit"]').textContent="Update medicine";
+ $("medicineForm").querySelector('button[type="submit"]').textContent="Update medicine";$("medicineImageMode").value="replace";$("newPackingName").value="";$("newPackingUnit").value=m.unit;$("newPackingPrice").value=m.price;showNewPackingFields();
  show("medicineForm",true);openAppModal($("medicineForm"),"Edit Medicine","Update medicine details or replace its uploaded image.","medicine");
 }
 async function removeMedicine(id){
@@ -750,6 +768,8 @@ $("medicineEditMode").onchange=async()=>{
  if($("medicineEditMode").checked){$("medicineEditMode").checked=false;await enableMedicineEditMode();return;}
  medicineModeEnabled=false;await localDB.put("meta",false,"medicineModeEnabled");if(modalKind==="medicine")closeMedicineModal();renderMedicines($("medicineSearch").value);
 };
+function showNewPackingFields(){const mode=$("medicineImageMode"),fields=$("newPackingFields");if(mode&&fields)fields.classList.toggle("hidden",mode.value!=="new");}
+$("medicineImageMode").onchange=showNewPackingFields;
 $("changeMedicineImage").onclick=()=>{if(!medicineModeEnabled)return;$("medicineImage").click();};
 $("medicineImage").onchange=()=>{const file=$("medicineImage").files?.[0];if(!file){const existing=medicines.find(m=>m.id===$("medicineId").value);if(existing?.image)showMedicineImagePreview(existing.image);else resetMedicineImagePreview();return;}if(!file.type.startsWith("image/")){alert("Please select a valid image.");$("medicineImage").value="";return;}if(file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");$("medicineImage").value="";return;}const reader=new FileReader();reader.onload=()=>{medicineImageRotation=0;medicineImageCrop=false;showMedicineImagePreview(reader.result);openMedicineImageEditor();};reader.readAsDataURL(file);};
 $("saveName").onclick=async()=>{if(!currentUser)return;try{await updateProfile(currentUser,{displayName:$("displayName").value.trim()});$("userLabel").textContent=$("displayName").value.trim()||currentUser.email;notify("Display name updated","success");}catch(err){notify("Could not update display name: "+err.message,"error",5200);}};
