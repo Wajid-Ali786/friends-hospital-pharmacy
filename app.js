@@ -494,19 +494,20 @@ async function saveCurrentBill({printAfter=false}={}){
 }
 $("saveBill").onclick=()=>saveCurrentBill();
 $("printBill").onclick=()=>saveCurrentBill({printAfter:true});
+function setHistoryLoading(loading){const root=$("billingHistoryList");if(!root)return;root.classList.toggle("history-loading-content",loading);let overlay=$("historyLoadingOverlay");if(loading){if(!overlay){overlay=document.createElement("div");overlay.id="historyLoadingOverlay";overlay.className="history-loading-overlay";overlay.innerHTML='<div class="history-loading-card"><span class="history-spinner"></span><b>Loading billing history…</b></div>';root.parentElement?.append(overlay);}}else if(overlay)overlay.remove();}
 function startBillingHistory(){
  if(!currentUser)return;historyVisibleCount=9;if(historyObserver){historyObserver.disconnect();historyObserver=null;}
  if(historyUnsubscribe)historyUnsubscribe();
- localDB.getAll("bills").then(items=>{savedBills=items.sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();}).catch(console.warn);
- if(!navigator.onLine){$("billingHistoryList").innerHTML='<p class="muted">Offline — showing locally saved bills.</p>';return;}
+ setHistoryLoading(true);
+ if(!navigator.onLine){localDB.getAll("bills").then(items=>{savedBills=items.sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();$("billingHistoryList").insertAdjacentHTML("afterbegin",'<p class="muted">Offline — showing locally saved bills.</p>');setHistoryLoading(false);}).catch(err=>{console.warn(err);setHistoryLoading(false);});return;}
  historyUnsubscribe=onSnapshot(collection(db,"users",currentUser.uid,"bills"),async snap=>{
   const pending=await localDB.getAll("pending"),billJobs=pending.filter(x=>x.collectionName==="bills"),pendingIds=new Set(billJobs.map(x=>x.targetId||x.id)),pendingDeletes=new Set(billJobs.filter(x=>x.type==="delete").map(x=>x.targetId||x.id));
   const cloud=snap.docs.map(d=>d.data()).filter(x=>x&&x.id&&!pendingDeletes.has(x.id));
   for(const item of cloud)if(!pendingIds.has(item.id))await localDB.put("bills",item);
   const local=asArray(await localDB.getAll("bills")).filter(x=>x&&typeof x==="object"),merged=new Map(cloud.filter(x=>x&&x.id).map(x=>[x.id,x]));
   for(const item of local)if(pendingIds.has(item.id))merged.set(item.id,item);
-  savedBills=[...merged.values()].sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();
- },err=>{console.warn("Billing history:",err);$("billingHistoryList").innerHTML='<p class="message">Cloud unavailable — local history remains available.</p>';});
+  savedBills=[...merged.values()].sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();setHistoryLoading(false);
+ },err=>{console.warn("Billing history:",err);localDB.getAll("bills").then(items=>{savedBills=items.sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();$("billingHistoryList").insertAdjacentHTML("afterbegin",'<p class="message">Cloud unavailable — showing locally saved bills.</p>');setHistoryLoading(false);});});
 }
 function billDate(item){const raw=Number(item?.createdAtMillis)||Date.parse(item?.createdAt)||Date.now();const d=new Date(raw);return Number.isNaN(d.getTime())?new Date():d;}
 function localDateKey(date){return [date.getFullYear(),String(date.getMonth()+1).padStart(2,"0"),String(date.getDate()).padStart(2,"0")].join("-");}
@@ -526,17 +527,14 @@ function renderBillingHistory(){
   group.items.forEach(item=>{
    const row=document.createElement("div");row.className="history-row";row.tabIndex=0;row.setAttribute("role","button");row.setAttribute("aria-label","Open receipt "+(item.receiptNumber||""));const info=document.createElement("span");info.className="history-info";info.innerHTML="<b></b><small></small>";info.querySelector("b").textContent=item.patientName||"Patient";info.querySelector("small").textContent=(item.receiptNumber||"Receipt")+" · "+billDate(item).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
    const total=document.createElement("strong");total.textContent=wholeMoney(item.finalTotal);row.append(info,total);row.onclick=()=>{notify("Opening receipt "+item.receiptNumber,"info",2200);showReceipt(item);};row.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();notify("Opening receipt "+item.receiptNumber,"info",2200);showReceipt(item);}};
-   const actions=document.createElement("span");actions.className="history-actions";const edit=document.createElement("button");edit.type="button";edit.className="tiny bill-edit-action";edit.textContent="Edit";edit.onclick=e=>{e.stopPropagation();beginBillEdit(item);};const del=document.createElement("button");del.type="button";del.className="tiny danger bill-delete-action";del.textContent="Delete";del.onclick=e=>{e.stopPropagation();deleteSavedBill(item);};const countdown=document.createElement("small");countdown.className="bill-edit-countdown";countdown.dataset.expiry=String((Number(item.createdAtMillis)||Date.parse(item.createdAt)||0)+3600000);actions.append(edit,del,countdown);row.append(actions);section.append(row);
+   if(billEditAllowed(item)){const actions=document.createElement("span");actions.className="history-actions";const edit=document.createElement("button");edit.type="button";edit.className="tiny bill-edit-action";edit.textContent="Edit";edit.onclick=e=>{e.stopPropagation();beginBillEdit(item);};const del=document.createElement("button");del.type="button";del.className="tiny danger bill-delete-action";del.textContent="Delete";del.onclick=e=>{e.stopPropagation();deleteSavedBill(item);};actions.append(edit,del);row.append(actions);}section.append(row);
   });root.append(section);
  }
  if(visibleRows.length<rows.length){const sentinel=document.createElement("div");sentinel.className="history-load-sentinel";sentinel.setAttribute("aria-live","polite");sentinel.textContent="Loading more transactions…";root.append(sentinel);if("IntersectionObserver" in window){historyObserver=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){historyObserver.disconnect();historyObserver=null;historyVisibleCount=Math.min(historyVisibleCount+9,rows.length);renderBillingHistory();}},{root:null,rootMargin:"240px 0px",threshold:0});historyObserver.observe(sentinel);}}
 }
-// The one-hour edit window is a client-side convenience rule, based on this device's clock.
-// Firestore rules intentionally do not enforce an expiry, so queued offline changes can sync later.
+// Client-side one-hour convenience window. Firestore Rules do not impose an expiry.
 function billEditExpiry(item){const created=Number(item?.createdAtMillis)||Date.parse(item?.createdAt)||0;return created>0?created+3600000:0;}
 function billEditAllowed(item){const expiry=billEditExpiry(item);return expiry>0&&Date.now()<expiry;}
-function updateBillEditCountdowns(){document.querySelectorAll(".bill-edit-countdown").forEach(node=>{const expiry=Number(node.dataset.expiry)||0,remaining=expiry-Date.now(),actions=node.closest(".history-actions");if(remaining<=0){node.textContent="Editing locked";if(actions){actions.querySelectorAll("button").forEach(button=>button.hidden=true);}return;}const minutes=Math.floor(remaining/60000),seconds=Math.floor((remaining%60000)/1000);node.textContent="Edit time: "+minutes+":"+String(seconds).padStart(2,"0");if(actions)actions.querySelectorAll("button").forEach(button=>button.hidden=false);});}
-setInterval(updateBillEditCountdowns,1000);
 function beginBillEdit(item){
  if(!billEditAllowed(item)){alert("This bill is locked after 1 hour.");renderBillingHistory();return;}
  editingBillId=item.id;editingBillCreatedAt=Number(item.createdAtMillis)||Date.now();
@@ -545,7 +543,7 @@ function beginBillEdit(item){
  $("saveBill").textContent="Update";$("printBill").textContent="Update & Print";$("billMessage").textContent="";
  let cancel=$("cancelBillEdit");if(!cancel){cancel=document.createElement("button");cancel.id="cancelBillEdit";cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";$("billActions")?.append(cancel);if(!$("billActions"))$("saveBill").parentNode.append(cancel);}
  cancel.onclick=cancelBillEdit;
- renderBill();$("billMessage").textContent="Editing "+item.receiptNumber+" — local 1-hour edit window.";notify("Editing receipt "+item.receiptNumber,"info");
+ renderBill();$("billMessage").textContent="Editing "+item.receiptNumber+".";notify("Editing receipt "+item.receiptNumber,"info");
  openAppModal(document.querySelector(".bill-panel"),"Edit Bill", "Update the patient, items or discount.","edit");
 }
 function cancelBillEdit(){
