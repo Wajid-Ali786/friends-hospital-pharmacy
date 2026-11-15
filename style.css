@@ -667,3 +667,22 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 .qty-controls input{width:38px;min-width:0;padding:6px 1px}
 .bill-line-total{min-width:0!important;white-space:nowrap;justify-self:end;font-size:clamp(10px,1vw,12px)}
 @media(max-width:480px){.bill-row{grid-template-columns:17px minmax(0,1fr) auto auto 22px!important;gap:3px!important}.qty-controls-centered{gap:2px}.qty-controls .qty-btn{width:22px;height:25px;flex-basis:22px}.qty-controls input{width:30px;font-size:11px}.bill-line-total{font-size:9px!important}}
+
+
+/* Billing history: keep partial rows hidden until the first history load completes. */
+.history-loading-content { visibility: hidden; min-height: 220px; }
+.history-loading-overlay {
+  position: fixed; inset: 0; z-index: 99990; display: grid; place-items: center;
+  padding: 20px; background: rgba(10, 18, 28, .48); backdrop-filter: blur(5px);
+}
+.history-loading-card {
+  display: flex; align-items: center; gap: 12px; padding: 18px 22px;
+  border: 1px solid rgba(255,255,255,.18); border-radius: 16px;
+  background: var(--panel, #fff); color: var(--text, #17212b);
+  box-shadow: 0 18px 55px rgba(0,0,0,.2);
+}
+.history-spinner {
+  width: 22px; height: 22px; flex: 0 0 22px; border: 3px solid currentColor;
+  border-right-color: transparent; border-radius: 50%; animation: history-spin .75s linear infinite;
+}
+@keyframes history-spin { to { transform: rotate(360deg); } }
