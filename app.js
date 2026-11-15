@@ -358,10 +358,11 @@ async function saveMedicine(e){
  if(file&&!imageDraft)imageDraft=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});
  const unit=$("medicineUnit").value,price=Math.max(0,Number($("medicinePrice").value)||0);let packs=old?normalizeMedicine(old).packagings.slice():[];
  if(!old){if(imageDraft)packs=[{id:crypto.randomUUID(),name:"Current Packing",unit,price,image:imageDraft,createdAt:Date.now(),isCurrent:true}];}
- else if(imageDraft&&mode==="new"){
-  const label=$("newPackingName").value.trim(),newUnit=$("newPackingUnit").value,newPrice=Number($("newPackingPrice").value);
+ else if(mode==="new"){
+  if(!imageDraft){notify("Upload an image for the new packing first.","warning");$("medicineImage").click();return;}
+  const label=$("newPackingName").value.trim(),priceText=$("newPackingPrice").value.trim(),newUnit=$("newPackingUnit").value,newPrice=Number(priceText);
   if(!label){notify("Enter a name for the new packing.","warning");$("newPackingName").focus();return;}
-  if(!Number.isFinite(newPrice)||newPrice<0){notify("Enter a valid new packing price.","warning");$("newPackingPrice").focus();return;}
+  if(!priceText||!Number.isFinite(newPrice)||newPrice<0){notify("Enter a valid new packing price.","warning");$("newPackingPrice").focus();return;}
   const current=packs.find(p=>p.isCurrent);if(current)current.isCurrent=false;
   if(!current&&old.image)packs.unshift({id:crypto.randomUUID(),name:"Previous Packing",unit:old.unit,price:old.price,image:old.image,createdAt:Date.now(),isCurrent:false});
   packs.push({id:crypto.randomUUID(),name:label,unit:newUnit,price:newPrice,image:imageDraft,createdAt:Date.now(),isCurrent:true});
