@@ -31,7 +31,6 @@ service cloud.firestore {
         if request.auth != null
         && request.auth.uid == userId
         && resource.data.ownerUid == request.auth.uid
-        && request.time < resource.data.createdAt + duration.value(1, 'h')
         && request.resource.data.ownerUid == resource.data.ownerUid
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.receiptNumber == resource.data.receiptNumber;
@@ -39,8 +38,7 @@ service cloud.firestore {
       allow delete:
         if request.auth != null
         && request.auth.uid == userId
-        && resource.data.ownerUid == request.auth.uid
-        && request.time < resource.data.createdAt + duration.value(1, 'h');
+        && resource.data.ownerUid == request.auth.uid;
     }
 
     // Users can submit only their own recovery request.
