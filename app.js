@@ -158,6 +158,7 @@ function emptyAction(message,label,prefill=""){
 }
 function renderMedicines(filter=""){
  const list=$("medicineList");if(!list)return;list.innerHTML="";medicines=asArray(medicines).map(normalizeMedicine).filter(Boolean);$("addMedicineBtn").disabled=!medicineModeEnabled;$("addMedicineBtn").classList.toggle("hidden",!medicineModeEnabled);
+ const count=$("medicineCount");if(count){count.querySelector("b").textContent=medicines.length.toLocaleString("en-PK");count.querySelector("span").textContent=medicines.length===1?"Medicine":"Medicines";}
  const filtered=medicines.filter(m=>medicineMatches(m,filter));
  const visible=filtered.slice(0,medicineVisibleCount);
  visible.forEach(m=>{
