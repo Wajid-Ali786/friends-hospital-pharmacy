@@ -8,7 +8,7 @@ const firebaseConfig={apiKey:"AIzaSyDu3T1shPJoooMNwhpPijfJsPaNc2JWWhM",authDomai
 const app=initializeApp(firebaseConfig),auth=initializeAuth(app,{persistence:[indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence]}),db=getFirestore(app),storage=getStorage(app);
 const SUPPORT_WHATSAPP="923486314013";
 let localDB=null;async function openUserDB(uid){if(localDB)localDB.close();localDB=await openDB("friends-pharmacy-"+uid,3,{upgrade(d){if(!d.objectStoreNames.contains("medicines"))d.createObjectStore("medicines",{keyPath:"id"});if(!d.objectStoreNames.contains("pending"))d.createObjectStore("pending",{keyPath:"id"});if(!d.objectStoreNames.contains("meta"))d.createObjectStore("meta");if(!d.objectStoreNames.contains("bills"))d.createObjectStore("bills",{keyPath:"id"});}});}
-let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncNotice="",medicineModeEnabled=true,medicineImageDraft="",medicineImageRotation=0,medicineImageCrop=false,medicineVisibleCount=9,historyVisibleCount=9,historyObserver=null;
+let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncRetryTimer=null,syncRetryDelay=5000,syncNotice="",medicineModeEnabled=true,medicineImageDraft="",medicineImageRotation=0,medicineImageCrop=false,medicineVisibleCount=9,historyVisibleCount=9,historyObserver=null;
 const asArray=value=>Array.isArray(value)?value:[];
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2),wholeMoney=n=>"Rs. "+Math.round(Number(n)||0).toLocaleString("en-PK"),medicinePriceText=n=>{const v=Number(n)||0;return "Rs. "+(Number.isInteger(v)?v.toLocaleString("en-PK"):String(v));};
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
@@ -78,8 +78,8 @@ function setupRecoveryAdmin(user){
 function status(){ $("connection").textContent=navigator.onLine?"● Online / Firebase sync":"● Offline / Local mode"; }
 window.addEventListener("online",status);window.addEventListener("offline",status);status();
 async function cacheAll(){const tx=localDB.transaction("medicines","readwrite");await tx.store.clear();for(const m of medicines)await tx.store.put(m);await tx.done;}
-async function queueChange(id,type,data=null,collectionName="medicines"){const key=collectionName+":"+id;await localDB.put("pending",{id:key,targetId:id,collectionName,type,data,queuedAt:Date.now()});}
-async function flushQueue(){if(syncPromise)return syncPromise;if(!currentUser||!navigator.onLine||!localDB)return;const ownerUid=currentUser.uid,dbRef=localDB;syncPromise=(async()=>{const jobs=(await dbRef.getAll("pending")).sort((a,b)=>a.queuedAt-b.queuedAt);for(const job of jobs){if(!navigator.onLine||!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)break;const group=job.collectionName||"medicines",targetId=job.targetId||job.id;try{const target=doc(db,"users",ownerUid,group,targetId);if(group==="bills"){const existing=await getDoc(target);if(job.type==="delete"){if(existing.exists())await deleteDoc(target);}else if(existing.exists()){await setDoc(target,{...job.data,createdAt:existing.data().createdAt||serverTimestamp()});}else{await setDoc(target,{...job.data,createdAt:serverTimestamp()});}}else if(group==="medicines"){if(job.type==="delete")await deleteDoc(target);else{let cloudMedicine={...job.data};if(typeof cloudMedicine.image==="string"&&cloudMedicine.image.startsWith("data:")){const imageRef=ref(storage,"users/"+ownerUid+"/medicines/"+targetId+".png");await uploadString(imageRef,cloudMedicine.image,"data_url");cloudMedicine.image=await getDownloadURL(imageRef);if(localDB===dbRef){const localMedicine=await dbRef.get("medicines",targetId);if(localMedicine){localMedicine.image=cloudMedicine.image;await dbRef.put("medicines",localMedicine);}}}await setDoc(target,cloudMedicine);}}else{if(job.type==="delete")await deleteDoc(target);else await setDoc(target,job.data);}if(localDB===dbRef&&currentUser?.uid===ownerUid)await dbRef.delete("pending",job.id);}catch(err){console.warn("Sync will retry:",err);if(err?.code==="permission-denied"){
+async function queueChange(id,type,data=null,collectionName="medicines"){const key=collectionName+":"+id;await localDB.put("pending",{id:key,targetId:id,collectionName,type,data,queuedAt:Date.now(),revision:crypto.randomUUID()});}
+async function flushQueue(){if(syncPromise)return syncPromise;if(!currentUser||!navigator.onLine||!localDB)return;const ownerUid=currentUser.uid,dbRef=localDB;syncPromise=(async()=>{const jobs=(await dbRef.getAll("pending")).sort((a,b)=>a.queuedAt-b.queuedAt);for(const job of jobs){if(!navigator.onLine||!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)break;const group=job.collectionName||"medicines",targetId=job.targetId||job.id;try{const target=doc(db,"users",ownerUid,group,targetId);if(group==="bills"){const existing=await getDoc(target);if(job.type==="delete"){if(existing.exists())await deleteDoc(target);}else if(existing.exists()){await setDoc(target,{...job.data,createdAt:existing.data().createdAt||serverTimestamp()});}else{await setDoc(target,{...job.data,createdAt:serverTimestamp()});}}else if(group==="medicines"){if(job.type==="delete")await deleteDoc(target);else{let cloudMedicine={...job.data};if(typeof cloudMedicine.image==="string"&&cloudMedicine.image.startsWith("data:")){const imageRef=ref(storage,"users/"+ownerUid+"/medicines/"+targetId+".png");await uploadString(imageRef,cloudMedicine.image,"data_url");cloudMedicine.image=await getDownloadURL(imageRef);if(localDB===dbRef){const localMedicine=await dbRef.get("medicines",targetId);if(localMedicine){localMedicine.image=cloudMedicine.image;await dbRef.put("medicines",localMedicine);}}}await setDoc(target,cloudMedicine);}}else{if(job.type==="delete")await deleteDoc(target);else await setDoc(target,job.data);}if(localDB===dbRef&&currentUser?.uid===ownerUid){const latest=await dbRef.get("pending",job.id);if(latest&&(latest.revision||latest.queuedAt)===(job.revision||job.queuedAt))await dbRef.delete("pending",job.id);}}catch(err){console.warn("Sync will retry:",err);if(err?.code==="permission-denied"){
  if(group==="bills"&&job.type==="delete"){
   try{
    let rejectedBill=job.data;if(!rejectedBill){const cloudBill=await getDoc(doc(db,"users",ownerUid,"bills",targetId));rejectedBill=cloudBill.exists()?cloudBill.data():null;}
@@ -91,9 +91,12 @@ async function flushQueue(){if(syncPromise)return syncPromise;if(!currentUser||!
   continue;
  }
  continue;
-}break;}}})().finally(()=>{syncPromise=null;});return syncPromise;}
+}break;}}})().finally(()=>{syncPromise=null;if(syncRetryTimer){clearTimeout(syncRetryTimer);syncRetryTimer=null;}if(currentUser?.uid===ownerUid&&navigator.onLine&&localDB===dbRef){dbRef.getAll("pending").then(jobs=>{if(jobs.length){const delay=syncRetryDelay;syncRetryDelay=Math.min(syncRetryDelay*2,60000);syncRetryTimer=setTimeout(()=>{if(currentUser?.uid===ownerUid&&navigator.onLine)syncOnline().catch(err=>console.warn("Scheduled sync retry:",err));},delay);}else syncRetryDelay=5000;}).catch(err=>console.warn("Could not inspect pending sync queue:",err));}});return syncPromise;}
 async function syncOnline(){if(!currentUser||!navigator.onLine)return;await flushQueue();if(!unsubscribe)startCloudSync(currentUser);}
-window.addEventListener("online",()=>{status();syncOnline();});
+window.addEventListener("online",()=>{status();syncRetryDelay=5000;syncOnline().catch(err=>console.warn("Online sync:",err));});
+window.addEventListener("pageshow",()=>{if(navigator.onLine)syncOnline().catch(err=>console.warn("Page-show sync:",err));});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&navigator.onLine)syncOnline().catch(err=>console.warn("Visibility sync:",err));});
+setInterval(()=>{if(navigator.onLine&&currentUser&&localDB)syncOnline().catch(err=>console.warn("Background sync check:",err));},30000);
 async function nextBillNumber(){
  const localBills=localDB?await localDB.getAll("bills"):[];const maxLocal=localBills.reduce((n,x)=>Math.max(n,Number(String(x.receiptNumber||"").replace(/^B-/,""))||0),0);const current=Math.max(Number(await localDB.get("meta","billCounter"))||0,maxLocal);
  const next=current+1;
@@ -380,12 +383,17 @@ async function removeMedicine(id){
 }
 function startCloudSync(user){
  if(unsubscribe)unsubscribe();
- unsubscribe=onSnapshot(collection(db,"users",user.uid,"medicines"),async snap=>{
+ unsubscribe=onSnapshot(collection(db,"users",user.uid,"medicines"),{includeMetadataChanges:true},async snap=>{
+  if(!currentUser||currentUser.uid!==user.uid||!localDB)return;
   const pending=await localDB.getAll("pending"),pendingIds=new Set(pending.filter(x=>(x.collectionName||"medicines")==="medicines").map(x=>x.targetId||x.id));
-  const cloud=snap.docs.map(d=>normalizeMedicine({...d.data(),id:d.id})).filter(m=>m&&m.id&&!pendingIds.has(m.id));
-  const local=asArray(await localDB.getAll("medicines")).filter(m=>m&&typeof m==="object"),merged=new Map(cloud.map(m=>[m.id,m]));
-  for(const m of local)if(pendingIds.has(m.id))merged.set(m.id,m);
-  medicines=[...merged.values()];await cacheAll();renderMedicines($("medicineSearch").value);await flushQueue();
+  const local=asArray(await localDB.getAll("medicines")).filter(m=>m&&typeof m==="object"),cloud=snap.docs.map(d=>normalizeMedicine({...d.data(),id:d.id})).filter(m=>m&&m.id&&!pendingIds.has(m.id));
+  const merged=new Map(cloud.map(m=>[m.id,m]));
+  if(snap.metadata.fromCache){for(const m of local)if(!merged.has(m.id))merged.set(m.id,m);}
+  else{for(const m of local)if(pendingIds.has(m.id))merged.set(m.id,m);}
+  medicines=[...merged.values()];
+  if(snap.metadata.fromCache){const tx=localDB.transaction("medicines","readwrite");for(const m of medicines)await tx.store.put(m);await tx.done;}
+  else await cacheAll();
+  renderMedicines($("medicineSearch").value);await flushQueue();
  },err=>console.warn("Firestore sync",err));
 }
 document.querySelectorAll(".password-toggle").forEach(button=>{button.onclick=()=>{const input=$(button.dataset.passwordTarget);if(!input)return;const reveal=input.type==="password";input.type=reveal?"text":"password";button.setAttribute("aria-label",reveal?"Hide password":"Show password");button.title=reveal?"Hide password":"Show password";button.classList.toggle("is-visible",reveal);};});
