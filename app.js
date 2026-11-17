@@ -682,13 +682,13 @@ function editModePasswordDialog(setup=false){
     const statusCard=document.createElement("div");statusCard.className="recovery-status-card";
     const icon=document.createElement("span");icon.className="recovery-status-icon";icon.textContent="✓";
     const title=document.createElement("b");title.textContent="Request a recovery code";
-    const detail=document.createElement("p");detail.textContent="Submit one request. Our admin will verify it and send your 8-digit recovery code on WhatsApp within 24–48 hours.";
+    const detail=document.createElement("p");detail.textContent="Submit one request. Our admin will verify it and send your 12-digit recovery code on WhatsApp within 24–48 hours.";
     statusCard.append(icon,title,detail);
     const status=document.createElement("p");status.className="recovery-inline-status";status.setAttribute("role","status");
     const request=document.createElement("button");request.type="button";request.className="primary full";request.textContent="Send recovery request";
     const contact=document.createElement("a");contact.href="https://wa.me/"+SUPPORT_WHATSAPP+"?text="+encodeURIComponent("I need help with Edit Mode password recovery. Registered email: "+(currentUser?.email||""));contact.target="_blank";contact.rel="noopener noreferrer";contact.className="recovery-contact";
     contact.innerHTML='<span>Contact support</span><b>+92 348 631 4013</b>';
-    const code=document.createElement("input");code.type="text";code.inputMode="numeric";code.autocomplete="one-time-code";code.placeholder="Enter your 8-digit recovery code";code.maxLength=8;
+    const code=document.createElement("input");code.type="text";code.inputMode="numeric";code.autocomplete="one-time-code";code.placeholder="Enter your 12-digit recovery code";code.maxLength=12;code.inputMode="numeric";
     const verify=document.createElement("button");verify.type="button";verify.className="primary full";verify.textContent="Verify recovery code";
     const newPass=document.createElement("input");newPass.type="password";newPass.autocomplete="new-password";newPass.placeholder="New password (6+ characters)";
     const confirm=document.createElement("input");confirm.type="password";confirm.autocomplete="new-password";confirm.placeholder="Confirm new password";
@@ -727,12 +727,12 @@ function editModePasswordDialog(setup=false){
     verify.onclick=async()=>{
       status.textContent="";verify.disabled=true;
       try{
-       const snap=await getDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));if(!snap.exists())throw new Error("Your request is still being reviewed. The code will be sent after approval.");
+       const enteredCode=code.value.trim();if(!/^\d{8,12}$/.test(enteredCode))throw new Error("Enter the recovery code sent by the admin.");const snap=await getDoc(doc(db,"editModeRecoveryApprovals",currentUser.uid));if(!snap.exists())throw new Error("Your request is still being reviewed. The code will be sent after approval.");
        const data=snap.data(),expiry=data.expiresAt;
        if(data.approved!==true||typeof data.codeHash!=="string"||!expiry?.toMillis||expiry.toMillis()<=Date.now())throw new Error("Code is invalid or expired. Contact support.");
        const parts=data.codeHash.split(":");if(parts.length!==2)throw new Error("Invalid approval.");
        const salt=Uint8Array.from(parts[0].match(/.{1,2}/g)||[],x=>parseInt(x,16));
-       const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(code.value.trim()),"PBKDF2",false,["deriveBits"]);
+       const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(enteredCode),"PBKDF2",false,["deriveBits"]);
        const derived=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:250000,hash:"SHA-256"},material,256);
        const digest=Array.from(new Uint8Array(derived),x=>x.toString(16).padStart(2,"0")).join("");
        if(digest!==parts[1])throw new Error("Incorrect recovery code. Please check it.");
