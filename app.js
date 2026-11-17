@@ -158,7 +158,7 @@ function emptyAction(message,label,prefill=""){
  if(medicineModeEnabled){const action=document.createElement("button");action.type="button";action.className="primary";action.textContent=label;action.onclick=()=>openAddMedicine(prefill);box.append(action);}return box;
 }
 let medicineViewMode="list";
-function medicineSortTime(m){const value=m?.updatedAt??m?.createdAt??0;if(typeof value==="number")return value;if(value?.toMillis)return value.toMillis();const parsed=Date.parse(value);return Number.isFinite(parsed)?parsed:0;}
+function medicineSortTime(m){const value=m?.createdAt??m?.updatedAt??0;if(typeof value==="number")return value;if(value?.toMillis)return value.toMillis();const parsed=Date.parse(value);return Number.isFinite(parsed)?parsed:0;}
 function setMedicineView(mode){medicineViewMode=mode==="grid"?"grid":"list";const list=$("medicineList");if(list)list.classList.toggle("grid-view",medicineViewMode==="grid");const listBtn=$("medicineListView"),gridBtn=$("medicineGridView");if(listBtn){listBtn.classList.toggle("active",medicineViewMode==="list");listBtn.setAttribute("aria-pressed",String(medicineViewMode==="list"));}if(gridBtn){gridBtn.classList.toggle("active",medicineViewMode==="grid");gridBtn.setAttribute("aria-pressed",String(medicineViewMode==="grid"));}renderMedicines($("medicineSearch")?.value||"");}
 $("medicineListView")?.addEventListener("click",()=>setMedicineView("list"));$("medicineGridView")?.addEventListener("click",()=>setMedicineView("grid"));
 function renderMedicines(filter=""){
@@ -369,7 +369,7 @@ async function saveMedicine(e){
   packs.push({id:crypto.randomUUID(),name:label,unit:newUnit,price:newPrice,image:imageDraft,createdAt:Date.now(),isCurrent:true});
  }else if(imageDraft){let current=packs.find(p=>p.isCurrent);if(!current){current={id:crypto.randomUUID(),name:"Current Packing",unit,price,image:"",createdAt:Date.now(),isCurrent:true};packs.push(current);}current.image=imageDraft;}
  const current=packs.find(p=>p.isCurrent);
- const m={id,name:$("medicineName").value.trim(),tags:[...new Set($("medicineTags").value.split(",").map(x=>x.trim()).filter(Boolean))],roundingAllowed:$("roundingAllowed").checked,unit:current?.unit||unit,price:current?Number(current.price)||0:price,image:current?.image||old?.image||"",packagings:packs,updatedAt:Date.now()};
+ const m={id,name:$("medicineName").value.trim(),tags:[...new Set($("medicineTags").value.split(",").map(x=>x.trim()).filter(Boolean))],roundingAllowed:$("roundingAllowed").checked,unit:current?.unit||unit,price:current?Number(current.price)||0:price,image:current?.image||old?.image||"",packagings:packs,createdAt:Number(current?.createdAt)||Number(current?.updatedAt)||Date.now(),updatedAt:Date.now()};
  if(!m.name)return;medicines=medicines.filter(x=>x.id!==id).concat(m);await localDB.put("medicines",m);await queueChange(id,"set",m);
  renderMedicines($("medicineSearch").value);$("medicineForm").reset();$("medicineId").value="";resetMedicineImagePreview();$("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";closeAppModal();show("medicineForm",false);
  notify(old?"Medicine updated successfully":"Medicine saved successfully","success");if(navigator.onLine)syncOnline();
