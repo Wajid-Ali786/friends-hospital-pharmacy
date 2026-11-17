@@ -38,7 +38,7 @@
     </aside>
     <main class="main"><header><div><p class="eyebrow">FRIENDS HOSPITAL / PHARMACY</p><h2 id="pageTitle">Medicines</h2></div><span id="userLabel" class="user-pill">User</span></header>
       <section id="medicinesPage" class="page">
-        <div class="toolbar"><input id="medicineSearch" class="search" placeholder="Search medicine…"><div id="medicineCount" class="medicine-count" aria-live="polite"><b>0</b><span>Medicines</span></div><button id="addMedicineBtn" class="primary">＋ Add medicine</button></div>
+        <div class="toolbar"><input id="medicineSearch" class="search" placeholder="Search medicine…"><div id="medicineCount" class="medicine-count" aria-live="polite"><b>0</b><span>Medicines</span></div><div class="medicine-view-toggle" role="group" aria-label="Medicine display"><button id="medicineListView" class="view-toggle active" type="button" aria-pressed="true">List</button><button id="medicineGridView" class="view-toggle" type="button" aria-pressed="false">Grid</button></div><button id="addMedicineBtn" class="primary">＋ Add medicine</button></div>
         <form id="medicineForm" class="panel form-grid hidden">
           <input id="medicineId" type="hidden"><label>Medicine name<input id="medicineName" required placeholder="e.g. Panadol"></label>
           <label>Medicine unit<select id="medicineUnit" required><option>Tablet</option><option>Strip</option><option>Capsule</option><option>Injection</option><option>Bottle</option><option>Syrup</option><option>Packet</option><option>Box</option><option>Piece</option><option>Pack</option></select></label>
