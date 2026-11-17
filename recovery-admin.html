@@ -57,7 +57,7 @@ function restoreVisibleCode(user){
   const raw=sessionStorage.getItem(SESSION_CODE_KEY);
   if(!raw)return;
   const saved=JSON.parse(raw);
-  if(saved.adminUid!==user.uid||!/^\\d{12}$/.test(saved.code||"")||!saved.email||!Number.isFinite(saved.createdAt)||Date.now()-saved.createdAt>CODE_DISPLAY_MS||Date.now()<saved.createdAt){
+  if(saved.adminUid!==user.uid||!/^\d{12}$/.test(saved.code||"")||!saved.email||!Number.isFinite(saved.createdAt)||Date.now()-saved.createdAt>CODE_DISPLAY_MS||Date.now()<saved.createdAt){
    sessionStorage.removeItem(SESSION_CODE_KEY);return;
   }
   activeCode=saved.code;activeEmail=saved.email;
