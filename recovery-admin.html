@@ -45,7 +45,7 @@ const $=id=>document.getElementById(id);
 let activeCode="",activeEmail="";
 function setStatus(message,isError=false){$("status").textContent=message;$("status").classList.toggle("error",isError);}
 function showDashboard(user){$("loginPanel").classList.toggle("hidden",!!user);$("dashboard").classList.toggle("hidden",!user);if(user){$("email").value=user.email||"";loadRequests();}}
-function makeWhatsAppUrl(email,code){return "https://wa.me/923486314013?text="+encodeURIComponent("Friends Hospital Pharmacy Edit Mode recovery code for "+email+": "+code+". This code expires in 24 hours.");}
+function makeWhatsAppUrl(email,code){return "https://wa.me/923486314013?text="+encodeURIComponent("Friends Hospital Pharmacy Edit Mode recovery code for "+email+": "+code+". This 12-digit code expires in 24 hours.");}
 async function makeHash(code){
  const salt=crypto.getRandomValues(new Uint8Array(16));
  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(code),"PBKDF2",false,["deriveBits"]);
@@ -53,7 +53,7 @@ async function makeHash(code){
  const hex=a=>Array.from(a,b=>b.toString(16).padStart(2,"0")).join("");
  return hex(salt)+":"+hex(new Uint8Array(bits));
 }
-function newCode(){const n=crypto.getRandomValues(new Uint32Array(1))[0];return String(n%100000000).padStart(8,"0");}
+function newCode(){const values=crypto.getRandomValues(new Uint32Array(2));const n=(BigInt(values[0])<<32n)|BigInt(values[1]);return String(n%1000000000000n).padStart(12,"0");}
 async function loadRequests(){
  $("requests").innerHTML='<div class="empty">Loading requests…</div>';setStatus("");
  try{
