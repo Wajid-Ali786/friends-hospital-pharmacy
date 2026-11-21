@@ -872,3 +872,211 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
   .medicine-list.grid-view .medicine-card .card-actions .tiny.edit{min-height:34px;font-size:11px}
   .medicine-list.grid-view .medicine-card .card-actions .tiny.danger{width:27px;height:27px;min-width:27px;min-height:27px}
 }
+
+
+/* =========================================================
+   FRIENDS PHARMACY — unified premium interface refinement
+   Presentation-only layer; existing markup and behaviour kept.
+   ========================================================= */
+:root{
+  --green:#1d684f;--green2:#2c805f;--ink:#20352b;--muted:#78877f;
+  --line:#e4ece6;--bg:#f4f8f5;--surface:#fff;
+  --soft-green:#edf6f0;--shadow-soft:0 5px 18px rgba(24,67,47,.065);
+  --shadow-card:0 9px 26px rgba(24,67,47,.085);
+}
+body{background:linear-gradient(180deg,#f7faf8 0%,#f1f6f2 100%);color:var(--ink)}
+button{transition:background .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease,transform .18s ease}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid rgba(57,132,91,.18);outline-offset:2px}
+.main{max-width:1480px;padding-top:30px}
+header{margin-bottom:25px}
+header h2{font-size:clamp(23px,2.4vw,29px);letter-spacing:-.7px;color:#1e392c}
+header .eyebrow{font-size:9px;letter-spacing:1.8px;color:#69917a}
+.user-pill{background:#e9f4ed;border:1px solid #dcebe0;color:#286346;box-shadow:0 2px 8px rgba(35,95,61,.05)}
+.sidebar{background:linear-gradient(180deg,#153e32 0%,#102f27 100%);box-shadow:5px 0 24px rgba(15,48,36,.07)}
+.sidebar .nav{border:1px solid transparent;border-radius:12px;min-height:42px;font-weight:650;transition:background .18s,border-color .18s,transform .18s}
+.sidebar .nav:hover{background:rgba(255,255,255,.09);transform:translateX(2px)}
+.sidebar .nav.active{background:linear-gradient(135deg,#2d654e,#24543f);border-color:rgba(255,255,255,.09);box-shadow:0 4px 13px rgba(0,0,0,.12);color:#fff}
+.main .panel{border:1px solid #e4ece6;border-radius:19px;background:rgba(255,255,255,.96);box-shadow:var(--shadow-soft);padding:20px}
+.panel h3{color:#254333;letter-spacing:-.25px}
+.toolbar{align-items:center;gap:10px;margin-bottom:17px}
+.toolbar .search{height:44px;max-width:430px;border-radius:13px;background:#fff;border-color:#e0e9e2;box-shadow:0 2px 8px rgba(25,65,46,.035)}
+.toolbar .search:focus{border-color:#83b397;box-shadow:0 0 0 4px rgba(90,155,113,.11)}
+.primary,.secondary,.tiny,.load-more-button,.rounding-apply{
+  border-radius:11px;font-weight:750;letter-spacing:.05px
+}
+.primary{background:linear-gradient(135deg,#246b50,#1b5a42);box-shadow:0 4px 11px rgba(28,96,66,.14)}
+.primary:hover{background:linear-gradient(135deg,#2d805e,#21694b);box-shadow:0 7px 16px rgba(28,96,66,.19);transform:translateY(-1px)}
+.secondary{background:#f0f6f1;border:1px solid #dce9df;color:#35664a}
+.secondary:hover{background:#e7f2e9;border-color:#c9ddce;transform:translateY(-1px)}
+input,select{border-color:#e0e9e3;border-radius:12px;background:#fcfefc;transition:border-color .18s,box-shadow .18s,background .18s}
+input:focus,select:focus{border-color:#83b397;background:#fff;box-shadow:0 0 0 4px rgba(90,155,113,.11)}
+input::placeholder{color:#a0ada5}
+
+/* Medicine catalogue — soft premium horizontal cards in List mode */
+.medicine-list:not(.grid-view){grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+.medicine-list:not(.grid-view) .medicine-card{
+  min-height:100px;padding:12px;gap:12px;border:1px solid #e3ece5;border-radius:16px;
+  background:linear-gradient(145deg,#fff 0%,#fbfdfb 100%);box-shadow:0 3px 12px rgba(26,67,47,.055)
+}
+.medicine-list:not(.grid-view) .medicine-card:hover{
+  transform:translateY(-2px);border-color:#c9dfcf;box-shadow:0 9px 22px rgba(26,67,47,.10)
+}
+.medicine-list:not(.grid-view) .medicine-card>img,
+.medicine-list:not(.grid-view) .medicine-card>.medicine-placeholder{
+  flex:0 0 68px;width:68px;height:68px;min-height:68px;max-height:68px;
+  border-radius:13px!important
+}
+.medicine-list:not(.grid-view) .medicine-card .medicine-info b{font-size:13px;line-height:1.4;color:#203d2e}
+.medicine-list:not(.grid-view) .medicine-card .medicine-info .medicine-meta{font-size:11px;color:#43805b;font-weight:750}
+.medicine-list:not(.grid-view) .medicine-card .medicine-tags{margin-top:3px}
+.medicine-list:not(.grid-view) .medicine-card .card-actions{gap:5px}
+.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny{
+  min-width:34px;min-height:33px;border-radius:10px;background:#edf6f0;border-color:#dfebe2;color:#2b6948
+}
+.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny.danger{background:#fff3f1;border-color:#f3dfdc;color:#bd5b50}
+.medicine-list.grid-view .medicine-card{border-radius:17px;overflow:hidden;box-shadow:0 4px 15px rgba(24,67,47,.07)}
+.medicine-list.grid-view .medicine-card:hover{box-shadow:0 10px 25px rgba(24,67,47,.12)}
+.medicine-list.grid-view .medicine-card>img,
+.medicine-list.grid-view .medicine-card>.medicine-placeholder{background:linear-gradient(145deg,#f8fbf8,#edf5ef);border-bottom-color:#e8efe9}
+.medicine-list.grid-view .medicine-card .medicine-info b{color:#203d2e;font-size:13px}
+.medicine-count{border-radius:12px;background:#edf6f0;border-color:#dcebe0;color:#2d6b49}
+
+/* Billing workspace and medicine search result cards */
+.billing-layout{gap:18px;align-items:start}
+.bill-search-panel,.bill-panel{border-radius:20px!important}
+.bill-search-panel{padding:17px!important}
+.bill-search-panel #billSearch{height:48px;padding:0 15px;border-radius:14px;background:#f9fcfa;border-color:#e1ebe3}
+#billMedicineList{display:grid;gap:8px;margin-top:13px}
+.bill-option{
+  min-height:76px;padding:10px 11px;border:1px solid #e7eee8;border-radius:15px;
+  background:linear-gradient(145deg,#fff,#fbfdfb);box-shadow:0 2px 8px rgba(25,67,46,.035);
+  transition:transform .16s,border-color .16s,box-shadow .16s
+}
+.bill-option:hover,.bill-option[aria-selected="true"]{
+  transform:translateY(-1px);border-color:#c6ddcc;background:#fafffb;
+  box-shadow:0 6px 16px rgba(25,67,46,.075)
+}
+.bill-medicine-image,.bill-medicine-placeholder{
+  width:52px;height:52px;flex:0 0 52px;border-radius:12px;
+  border:1px solid #e7eee8;background:linear-gradient(145deg,#f7faf7,#edf4ef)
+}
+.bill-medicine-info b{font-size:12px;color:#244332;line-height:1.35}
+.bill-medicine-info small{font-size:10px;color:#47805d;font-weight:700}
+.bill-option .add-bill{
+  min-height:34px;padding:7px 11px;border-radius:10px;background:#eaf4ed;
+  border:1px solid #d8e9dc;color:#2b6b49;font-size:11px;font-weight:800
+}
+.bill-option .add-bill:hover{background:#dcefe1;border-color:#bfd9c6}
+.bill-panel{padding:20px!important}
+.patient-fields{margin-bottom:17px;gap:11px}
+.patient-name-field input{height:47px;border-radius:13px;background:#f8fcf9}
+.token-number-field input{border-radius:11px}
+#billItems{display:grid;gap:8px;margin:12px 0 14px}
+#billItems>.muted{padding:22px 12px;text-align:center;border:1px dashed #dce8df;border-radius:14px;background:#fafdfa}
+.bill-row{
+  min-height:60px;padding:9px 10px!important;border:1px solid #e7eee8!important;
+  border-radius:13px;background:#fbfdfb;box-shadow:0 2px 7px rgba(25,67,46,.025);
+  grid-template-columns:19px minmax(0,1fr) auto auto 23px!important
+}
+.bill-row:hover{border-color:#d1e3d5!important;background:#fff}
+.bill-item-serial{color:#8a9a8f;font-size:10px;font-weight:700}
+.bill-item-name{color:#244332;font-size:12px;font-weight:750}
+.bill-item-unit{color:#89968e;font-size:10px}
+.qty-controls{gap:3px}
+.qty-controls .qty-btn{width:25px;height:27px;border-radius:8px;background:#eaf3ec;color:#2b6948;font-size:15px}
+.qty-controls .qty-btn:hover{background:#dceee0}
+.qty-controls input{height:29px;border:1px solid #e3ebe5;border-radius:8px;background:#fff}
+.bill-line-total{color:#2c6445;font-size:11px;font-weight:800}
+.remove-item{background:#fff1ef;color:#bd5b50;border:1px solid #f2dfdc}
+.bill-total{padding:13px 2px;border-color:#e8eee9}
+.bill-total.grand{margin-top:5px;padding:15px 12px;border:1px solid #dcebe0;border-radius:14px;background:linear-gradient(135deg,#f0f7f1,#eaf4ec)}
+.bill-total.grand span{color:#315c43;font-weight:750}
+.bill-total.grand b{font-size:20px;font-weight:850;color:#1d6244}
+.discount-toggle{border-radius:10px;background:#f7faf7;border-color:#e1ebe3;color:#547260}
+.discount-field input{border-radius:11px}
+.rounding-row{padding:5px 0}
+.rounding-apply{border-color:#d7e8dc;background:#edf6f0;color:#2b6948}
+
+/* Hold / pending cards and receipt history */
+.pending-bills-wrap{margin-top:20px;padding-top:17px;border-top:1px solid #edf1ed}
+.pending-bills-heading{margin-bottom:10px}
+.pending-bills-heading h4{font:800 13px Manrope;color:#2a4a37}
+.pending-bills-heading p{color:#87948b}
+.pending-bill-card{
+  padding:12px 13px;border:1px solid #e4ece5;border-radius:14px;
+  background:linear-gradient(145deg,#fff,#f9fcfa);box-shadow:0 3px 10px rgba(25,67,46,.045);
+  transition:transform .16s,border-color .16s,box-shadow .16s
+}
+.pending-bill-card:hover{transform:translateY(-1px);border-color:#c9dfcf;box-shadow:0 7px 17px rgba(25,67,46,.08)}
+.pending-bill-info b{color:#294936;font-size:12px}
+.pending-bill-info small{color:#87948b}
+.pending-bill-amount strong{color:#276746;font-size:14px}
+.pending-delete{border-radius:9px;background:#fff1ef;color:#bd5b50}
+.history-date-heading{margin:18px 0 8px}
+.history-date-heading b{color:#31543d;font-size:12px}
+.history-date-heading small{color:#87948b}
+.history-row{
+  min-height:66px;padding:12px 13px;margin:7px 0;border:1px solid #e7eee8;border-radius:14px;
+  background:#fff;box-shadow:0 2px 8px rgba(25,67,46,.035);
+  transition:transform .16s,border-color .16s,box-shadow .16s
+}
+.history-row:hover{transform:translateY(-1px);border-color:#cbded0;box-shadow:0 6px 16px rgba(25,67,46,.075)}
+.history-info b{color:#294936;font-size:12px}
+.history-info small{color:#87948b}
+.history-row>strong{color:#286947;font-size:13px}
+.history-actions .tiny{border-radius:9px}
+
+/* Buttons across forms, modals, and settings */
+.form-actions{gap:9px}
+.form-actions button,.modal-actions button{min-height:42px;border-radius:11px}
+.tiny{border:1px solid #dfeae2;background:#edf5ef;color:#2f6949}
+.tiny:hover{background:#e1efe5}
+.tiny.danger{border-color:#f1ddda;background:#fff2f0;color:#b9574e}
+.bill-actions{gap:8px!important}
+#billActions.bill-actions>button{min-height:45px;border-radius:12px;font-weight:800;box-shadow:0 2px 7px rgba(25,67,46,.055)}
+#billActions .hold-action{background:#f6faf7;border-color:#dfeae2;color:#55715f}
+#billActions .save-action{background:linear-gradient(135deg,#246b50,#1b5a42);box-shadow:0 5px 13px rgba(28,96,66,.16)}
+#billActions .print-action{background:#eef5ef;border-color:#dce9df;color:#35664a}
+#billActions.bill-actions>button:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(25,67,46,.10)}
+#billActions #cancelBillEdit{border-radius:10px}
+.statement-open{border-radius:11px}
+.statement-modal,.app-modal{backdrop-filter:blur(7px)}
+.statement-dialog,.app-modal-dialog{border:1px solid #e3ece5;border-radius:20px;box-shadow:0 22px 70px rgba(15,45,30,.22)}
+.statement-close{width:34px;height:34px;border-radius:11px;background:#f0f5f1;color:#55715f}
+.app-modal-head,.statement-modal-head{border-bottom-color:#edf1ed}
+.settings-panel{border-radius:19px}
+.settings-panel hr{border-top-color:#e9efea}
+.data-actions .secondary,.upload-btn{border-radius:11px}
+.load-more-button{border-radius:13px}
+
+/* Small screens */
+@media(max-width:900px){
+ .medicine-list:not(.grid-view){grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+ .main{padding:20px 14px}
+ header{margin-bottom:20px}
+ .main .panel{padding:15px}
+ .billing-layout{gap:12px}
+ .bill-search-panel,.bill-panel{border-radius:16px!important}
+ .bill-option{min-height:70px;padding:8px}
+ .bill-panel{padding:15px!important}
+ .medicine-list:not(.grid-view){grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .medicine-list:not(.grid-view) .medicine-card{min-height:90px;padding:9px;gap:8px}
+ .medicine-list:not(.grid-view) .medicine-card>img,.medicine-list:not(.grid-view) .medicine-card>.medicine-placeholder{flex-basis:54px;width:54px;height:54px;min-height:54px;max-height:54px}
+}
+@media(max-width:560px){
+ .toolbar{gap:8px}
+ .toolbar #addMedicineBtn{min-height:40px;padding:9px 11px;font-size:11px}
+ .medicine-list:not(.grid-view){grid-template-columns:1fr}
+ .medicine-list:not(.grid-view) .medicine-card{min-height:82px}
+ .bill-row{grid-template-columns:16px minmax(0,1fr) auto auto 21px!important;gap:3px!important;padding:8px 6px!important}
+ .bill-item-name{font-size:11px}
+ .bill-line-total{font-size:10px!important}
+ .patient-fields{grid-template-columns:minmax(0,1fr) 94px;gap:7px}
+ #billActions.bill-actions{gap:5px}
+ #billActions.bill-actions>button{font-size:10px;min-height:42px}
+}
+@media(hover:none){
+ .medicine-list .medicine-card:hover,.bill-option:hover,.pending-bill-card:hover,.history-row:hover{transform:none}
+}
