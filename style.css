@@ -1439,3 +1439,59 @@ button .ui-icon{pointer-events:none}
 .pending-delete:hover{background:transparent!important;border:0!important;box-shadow:none!important;color:#bf443c!important}
 .history-date-group,.history-date-group+.history-date-group,.history-date-group:not(:last-child){border:0!important;border-top:0!important;border-bottom:0!important}
 .history-row{border-bottom:1px solid #e8eeea!important}
+
+/* Refined compact controls, semantic delete icons and clean bill editor */
+.medicine-list:not(.grid-view) .medicine-card .card-actions{top:50%!important;transform:translateY(-50%)!important;align-items:center!important;justify-content:center!important}
+.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny.danger{width:26px!important;height:30px!important;min-width:26px!important;min-height:30px!important;display:grid!important;place-items:center!important;border-radius:7px!important;background:transparent!important;box-shadow:none!important}
+.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny.danger .ui-icon{width:15px;height:15px}
+.medicine-list.grid-view .medicine-card .card-actions{display:flex!important;align-items:center!important;gap:5px!important;min-width:0!important}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.edit{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;width:auto!important;min-width:0!important;max-width:calc(100% - 34px)!important;height:30px!important;min-height:30px!important;margin:0!important;padding:0 9px!important;overflow:hidden!important;white-space:nowrap!important}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.edit .ui-icon{width:12px;height:12px;flex:0 0 12px}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.edit span{overflow:hidden;text-overflow:ellipsis}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.danger{display:grid!important;place-items:center!important;flex:0 0 28px!important;width:28px!important;height:28px!important;min-width:28px!important;min-height:28px!important;border:1px solid #f0d8d5!important;border-radius:8px!important;background:#fff!important;color:#bd5149!important;box-shadow:0 2px 7px rgba(80,35,30,.12)!important}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.danger .ui-icon{width:15px;height:15px}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.danger{opacity:0;visibility:hidden}
+.medicine-list.grid-view .medicine-card:hover .card-actions .tiny.danger,.medicine-list.grid-view .medicine-card:focus-within .card-actions .tiny.danger{opacity:1;visibility:visible}
+@media(hover:none){.medicine-list.grid-view .medicine-card .card-actions .tiny.danger{opacity:1;visibility:visible}}
+.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny.edit{gap:4px!important;padding:0 8px!important}
+.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny.edit .ui-icon{position:static!important;transform:none!important;order:0!important}
+.toolbar #addMedicineBtn{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;white-space:nowrap!important}
+.toolbar #addMedicineBtn .ui-icon{position:static!important;flex:0 0 15px!important}
+.medicine-card{min-height:78px!important;padding-top:9px!important;padding-bottom:9px!important;gap:9px!important}
+.medicine-card>img,.medicine-card>.medicine-placeholder{width:50px!important;height:50px!important;min-width:50px!important;min-height:50px!important}
+.medicine-card .medicine-info b{line-height:1.3}
+.bill-total{min-width:0!important;gap:12px!important}
+.bill-total>span{flex:0 0 auto}
+.bill-total>b{display:block;min-width:0;max-width:58%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+.bill-total.grand>b{max-width:60%;font-size:clamp(13px,3.4vw,17px)}
+.bill-line-total{max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+.app-modal-dialog.confirm-mode{width:min(360px,calc(100% - 20px))!important;max-height:none!important;padding:15px 16px!important;border-radius:14px!important}
+.confirm-mode .app-modal-head{padding-bottom:8px!important;margin-bottom:10px!important;gap:8px!important}
+.confirm-mode .app-modal-head .eyebrow,.confirm-mode #appModalSubtitle{display:none!important}
+.confirm-mode .app-modal-head h3{font-size:15px!important;margin:0!important}
+.confirm-mode .confirm-dialog-content p{font-size:13px!important;line-height:1.45!important;margin:0 0 13px!important}
+.confirm-mode .modal-actions{gap:8px!important}
+.confirm-mode .modal-actions button{min-height:34px!important;padding:7px 12px!important;font-size:12px!important}
+.app-modal-dialog.bill-edit-mode{width:min(560px,100%)!important;max-height:90vh!important;padding:14px!important;border-radius:15px!important}
+.bill-edit-mode .app-modal-head{padding-bottom:8px!important;margin-bottom:10px!important}
+.bill-edit-mode .app-modal-head .eyebrow{display:none!important}
+.bill-edit-mode .app-modal-head h3{font-size:16px!important;margin:0!important}
+.bill-edit-mode #appModalSubtitle{font-size:11px!important;margin:3px 0 0!important}
+.bill-edit-mode .bill-panel{padding:10px!important;border:0!important;border-radius:10px!important}
+.bill-edit-mode .bill-panel .patient-fields{gap:9px!important;margin:0 0 8px!important}
+.bill-edit-mode .bill-panel label{margin-top:0!important;font-size:11px!important;gap:4px!important}
+.bill-edit-mode .bill-panel input{min-height:36px!important;padding:7px 9px!important;font-size:13px!important}
+.bill-edit-mode #billItems{margin:0!important}
+.bill-edit-mode .bill-row{padding:7px 0!important}
+.bill-edit-mode .bill-total{padding:8px 0!important;font-size:12px!important}
+.bill-edit-mode .bill-total.grand{font-size:15px!important}
+.bill-edit-mode #holdBill,.bill-edit-mode #cancelBillEdit,.bill-edit-mode .pending-bills-wrap,.bill-edit-mode #billMessage{display:none!important}
+.bill-edit-mode .bill-actions{display:flex!important;gap:8px!important;margin-top:10px!important}
+.bill-edit-mode .bill-actions button{flex:1!important;min-width:0!important;min-height:36px!important;padding:8px 10px!important;font-size:12px!important}
+.bill-edit-mode .discount-tools,.bill-edit-mode .rounding-row,.bill-edit-mode #roundingAppliedLabel{margin:5px 0!important}
+@media(max-width:560px){
+ .medicine-list.grid-view .medicine-card .card-actions .tiny.edit{max-width:calc(100% - 32px)!important;padding:0 6px!important}
+ .medicine-list:not(.grid-view) .medicine-card .card-actions{right:8px!important;top:50%!important;transform:translateY(-50%)!important}
+ .bill-edit-mode .bill-panel{padding:7px!important}
+ .bill-edit-mode .app-modal-body{padding:0!important}
+}
