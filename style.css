@@ -1255,3 +1255,158 @@ input::placeholder{color:#a0ada5}
  .history-row{gap:8px;flex-wrap:wrap}
  .history-row .history-actions{width:100%;justify-content:flex-end}
 }
+
+
+/* 2026-11-21 visual correction: deliberate, spacious cards and icon controls */
+:root{
+  --green:#176b48;--green2:#238456;--ink:#1d3027;--muted:#78877e;
+  --line:#e7eee8;--bg:#f4f8f5;--red:#c6534b;
+}
+input:focus,select:focus,.auth-card input:focus,.patient-name-field input:focus{
+  border-color:#78a98a!important;background:#fff!important;
+  box-shadow:0 0 0 2px rgba(35,132,86,.075)!important;outline:0
+}
+input,select{transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}
+
+/* Catalogue: the image, information and action each have their own breathing room */
+.medicine-list:not(.grid-view){grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.medicine-list:not(.grid-view) .medicine-card{
+  min-height:116px;padding:13px!important;gap:13px;align-items:center;
+  border:1px solid #e4ece6;border-radius:18px;background:#fff;
+  box-shadow:0 4px 16px rgba(23,69,43,.045);
+  transition:transform .18s,border-color .18s,box-shadow .18s
+}
+.medicine-list:not(.grid-view) .medicine-card:hover{
+  transform:translateY(-2px);border-color:#c9dfd0;
+  box-shadow:0 9px 23px rgba(23,69,43,.085)
+}
+.medicine-list:not(.grid-view) .medicine-card>img{
+  flex:0 0 76px;width:76px;height:76px;max-height:76px;min-height:76px;
+  padding:0!important;border:0!important;border-radius:12px!important;background:transparent!important
+}
+.medicine-list:not(.grid-view) .medicine-card>.medicine-placeholder{
+  flex:0 0 76px;width:76px;height:76px;max-height:76px;min-height:76px;
+  border:0!important;border-radius:14px!important;background:#edf6ef!important;color:#328052
+}
+.medicine-list:not(.grid-view) .medicine-card .medicine-info{min-width:0;gap:6px}
+.medicine-list:not(.grid-view) .medicine-card .medicine-info b{font-size:13px;line-height:1.4;color:#203b2d}
+.medicine-list:not(.grid-view) .medicine-card .medicine-info .medicine-meta{font-size:11px;color:#2b8050;font-weight:800}
+.medicine-list:not(.grid-view) .medicine-card .medicine-tags{display:flex;flex-wrap:wrap;gap:4px}
+.medicine-list:not(.grid-view) .medicine-card .card-actions{display:flex;flex-direction:column;gap:7px;flex:0 0 auto}
+.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny{
+  display:inline-flex;align-items:center;justify-content:center;min-width:68px;min-height:34px;
+  border-radius:10px;font-size:11px;font-weight:800
+}
+.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny.edit{
+  color:#fff;background:linear-gradient(135deg,#238653,#176b48);border:1px solid #176b48;
+  box-shadow:0 4px 10px rgba(23,107,72,.15)
+}
+.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny.danger{
+  width:34px;min-width:34px;min-height:32px;align-self:flex-end;
+  color:#c34e46;background:#fff;border:1px solid #f0dcd9;border-radius:10px
+}
+
+/* Grid cards: floating inset Edit action, never flush against the card edge */
+.medicine-list.grid-view{grid-template-columns:repeat(4,minmax(0,1fr));gap:15px}
+.medicine-list.grid-view .medicine-card{
+  border:1px solid #e4ece6!important;border-radius:19px!important;
+  background:#fff!important;box-shadow:0 4px 17px rgba(23,69,43,.055)!important
+}
+.medicine-list.grid-view .medicine-card>img{
+  height:150px;min-height:150px;max-height:150px;padding:15px!important;
+  background:#fff!important;border:0!important
+}
+.medicine-list.grid-view .medicine-card>.medicine-placeholder{
+  height:150px;min-height:150px;max-height:150px;background:#eff7f1!important
+}
+.medicine-list.grid-view .medicine-card .medicine-info{
+  min-height:75px;padding:11px 13px 6px!important
+}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.danger{
+  top:10px!important;right:10px!important;width:33px!important;height:33px!important;
+  min-width:33px!important;min-height:33px!important;padding:0!important;
+  border:1px solid #e9d9d6!important;border-radius:50%!important;
+  background:rgba(255,255,255,.96)!important;color:#bd5149!important;font-size:14px!important;
+  box-shadow:0 3px 12px rgba(35,48,39,.13)!important
+}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.edit{
+  right:10px!important;bottom:10px!important;left:10px!important;top:auto!important;
+  width:calc(100% - 20px)!important;height:39px!important;min-height:39px!important;
+  border:0!important;border-radius:11px!important;
+  background:linear-gradient(135deg,#238653,#176b48)!important;color:#fff!important;
+  box-shadow:0 5px 13px rgba(23,107,72,.19)!important;font-size:12px!important
+}
+.medicine-list.grid-view .medicine-card .medicine-info{padding-bottom:60px!important}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.edit:hover{
+  background:linear-gradient(135deg,#2b9660,#1b7650)!important;transform:translateY(-1px)
+}
+
+/* Billing search: real product images sit cleanly on white, no tile/border */
+.bill-option .bill-medicine-image{
+  flex:0 0 56px!important;width:56px!important;height:56px!important;
+  padding:0!important;object-fit:contain!important;border:0!important;border-radius:0!important;
+  background:transparent!important;box-shadow:none!important
+}
+.bill-option .bill-medicine-placeholder{
+  flex:0 0 56px;width:56px;height:56px;border:0;border-radius:13px;background:#edf6ef;color:#398052
+}
+.bill-option{border:1px solid #e7eee9;border-radius:15px;background:#fff}
+.bill-option .add-bill{display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  border:1px solid #d8e9dd;background:#edf7f0;color:#23764a;border-radius:10px;font-weight:800}
+.bill-option .add-bill:hover{background:#e1f1e6;border-color:#bcd9c5}
+
+/* Font Awesome icon-only controls */
+.remove-item,.pending-delete,.toast-close,.statement-close{
+  display:inline-grid;place-items:center;padding:0;line-height:1
+}
+.remove-item,.pending-delete{
+  width:30px;height:30px;min-width:30px;min-height:30px;border-radius:10px;
+  background:#fff!important;color:#c04d45!important;border:1px solid #f0d8d5!important;
+  font-size:13px!important;box-shadow:0 2px 6px rgba(130,53,45,.055)
+}
+.remove-item:hover,.pending-delete:hover{background:#fff0ee!important;border-color:#e9bdb8!important;transform:translateY(-1px)}
+.qty-controls .qty-btn{
+  display:inline-grid;place-items:center;width:29px;height:29px;min-width:29px;
+  border:1px solid #d9e9dd;border-radius:9px;background:#edf7f0;color:#23764a;
+  font-size:11px!important;line-height:1;box-shadow:0 2px 5px rgba(29,91,53,.05)
+}
+.qty-controls .qty-btn:hover{background:#dff0e4;border-color:#bcd9c5}
+.qty-controls .qty-btn i,.remove-item i,.pending-delete i,.toast-close i,.statement-close i{pointer-events:none}
+.pending-delete{opacity:0;pointer-events:none;transition:opacity .16s,transform .16s}
+.pending-bill-card:hover .pending-delete,.pending-bill-card:focus-within .pending-delete,
+.pending-bill-card:focus-visible .pending-delete{opacity:1;pointer-events:auto}
+.statement-close{width:36px;height:36px;border:1px solid #e2ebe4;border-radius:12px;
+  background:#f5faf6;color:#456b53;font-size:15px}
+.toast-close{border:1px solid #e5ece7;border-radius:9px;background:#fff;color:#718078;font-size:12px}
+
+/* History: no separator above a new day; subtle divider after each day */
+.history-date-group{padding:7px 0 14px!important;border:0!important}
+.history-date-group+.history-date-group{border-top:0!important;padding-top:8px!important}
+.history-date-group:not(:last-child){border-bottom:1px solid #e7eee8!important}
+.history-date-heading{margin:7px 0 10px!important;background:#f0f7f1!important;border:0!important}
+.history-row{border:0!important;border-bottom:1px solid #edf1ee!important;border-radius:0!important;
+  box-shadow:none!important;margin:0!important;padding:13px 5px!important;background:transparent!important}
+.history-row:hover{transform:none!important;background:#fbfdfb!important;box-shadow:none!important}
+
+/* Responsive cards */
+@media(max-width:1100px){.medicine-list.grid-view{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){
+ .medicine-list.grid-view{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+ .medicine-list:not(.grid-view){grid-template-columns:repeat(2,minmax(0,1fr))}
+ .medicine-list:not(.grid-view) .medicine-card{min-height:104px;padding:10px!important;gap:9px}
+ .medicine-list:not(.grid-view) .medicine-card>img,.medicine-list:not(.grid-view) .medicine-card>.medicine-placeholder{
+  flex-basis:58px;width:58px;height:58px;min-height:58px;max-height:58px}
+ .medicine-list:not(.grid-view) .medicine-card .card-actions .tiny{min-width:58px}
+ .medicine-list.grid-view .medicine-card>img,.medicine-list.grid-view .medicine-card>.medicine-placeholder{
+  height:128px;min-height:128px;max-height:128px}
+}
+@media(max-width:560px){
+ .medicine-list.grid-view{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .medicine-list:not(.grid-view){grid-template-columns:1fr}
+ .medicine-list:not(.grid-view) .medicine-card{min-height:94px}
+ .medicine-list:not(.grid-view) .medicine-card>img,.medicine-list:not(.grid-view) .medicine-card>.medicine-placeholder{
+  flex-basis:64px;width:64px;height:64px;min-height:64px;max-height:64px}
+ .medicine-list.grid-view .medicine-card>img,.medicine-list.grid-view .medicine-card>.medicine-placeholder{
+  height:120px;min-height:120px;max-height:120px}
+ .bill-row{grid-template-columns:16px minmax(0,1fr) auto auto 26px!important}
+}
