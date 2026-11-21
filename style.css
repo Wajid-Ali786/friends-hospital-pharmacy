@@ -1495,3 +1495,10 @@ button .ui-icon{pointer-events:none}
  .bill-edit-mode .bill-panel{padding:7px!important}
  .bill-edit-mode .app-modal-body{padding:0!important}
 }
+
+/* Keep statement figures readable on narrow screens without widening the table */
+.statement-summary>div{min-width:0}
+.statement-summary>div>b{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
+.statement-table td.statement-amount{max-width:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
+.history-actions .bill-delete-action{display:inline-grid!important;place-items:center!important;width:30px!important;min-width:30px!important;height:30px!important;min-height:30px!important;padding:0!important}
+.history-actions .bill-delete-action .ui-icon{width:15px;height:15px}
