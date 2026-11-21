@@ -1410,3 +1410,33 @@ input,select{transition:border-color .16s ease,box-shadow .16s ease,background .
   height:120px;min-height:120px;max-height:120px}
  .bill-row{grid-template-columns:16px minmax(0,1fr) auto auto 26px!important}
 }
+
+.ui-icon{width:15px;height:15px;display:block;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+button .ui-icon{pointer-events:none}
+.medicine-list:not(.grid-view) .medicine-card{position:relative;min-height:92px!important;padding:11px 112px 11px 12px!important;gap:11px!important;align-items:center!important}
+.medicine-list:not(.grid-view) .medicine-card .card-actions{position:absolute!important;right:10px!important;top:50%!important;bottom:auto!important;transform:translateY(-50%)!important;display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-end!important;gap:5px!important;width:auto!important;padding:0!important;margin:0!important;border:0!important;background:transparent!important;pointer-events:none!important}
+.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny{pointer-events:auto!important;min-width:0!important;height:30px!important;min-height:30px!important;padding:0 9px!important;border-radius:9px!important;font-size:11px!important;box-shadow:none!important}
+.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny.edit{display:inline-flex!important;align-items:center;justify-content:center;gap:5px;color:#fff!important;background:#21804f!important;border:1px solid #21804f!important}
+.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny.edit .ui-icon{width:12px;height:12px}
+.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny.danger{display:inline-grid!important;place-items:center;width:23px!important;min-width:23px!important;height:23px!important;min-height:23px!important;padding:0!important;border:0!important;border-radius:6px!important;background:transparent!important;color:#bd5149!important;box-shadow:none!important;opacity:0;visibility:hidden;pointer-events:none!important;transition:opacity .14s,visibility .14s}
+.medicine-list:not(.grid-view) .medicine-card:hover .card-actions .tiny.danger,.medicine-list:not(.grid-view) .medicine-card:focus-within .card-actions .tiny.danger{opacity:1;visibility:visible;pointer-events:auto!important}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.danger{width:24px!important;height:24px!important;min-width:24px!important;min-height:24px!important;padding:0!important;border:0!important;border-radius:5px!important;background:transparent!important;color:#b64b43!important;box-shadow:none!important;opacity:0;visibility:hidden;pointer-events:none!important;transition:opacity .14s,visibility .14s}
+.medicine-list.grid-view .medicine-card:hover .card-actions .tiny.danger,.medicine-list.grid-view .medicine-card:focus-within .card-actions .tiny.danger{opacity:1;visibility:visible;pointer-events:auto!important}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.edit{border:0!important;border-radius:10px!important;background:#21804f!important;box-shadow:none!important;min-height:34px!important;height:34px!important;margin:0 3px 3px!important;width:calc(100% - 6px)!important}
+@media(hover:none){.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny.danger,.medicine-list.grid-view .medicine-card .card-actions .tiny.danger{opacity:1;visibility:visible;pointer-events:auto!important}}
+@media(max-width:560px){.medicine-list:not(.grid-view) .medicine-card{padding-right:100px!important;min-height:86px!important}.medicine-list:not(.grid-view) .medicine-card .card-actions{right:8px!important;gap:3px!important}.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny.edit{padding:0 7px!important}}
+.bill-row{grid-template-columns:18px minmax(0,1fr) 94px minmax(0,1fr) 18px!important;gap:5px!important;min-width:0}
+.qty-controls,.qty-controls-centered{width:94px!important;min-width:94px!important;justify-self:center!important;justify-content:center!important;gap:3px!important}
+.qty-controls .qty-btn{width:21px!important;height:21px!important;min-width:21px!important;min-height:21px!important;border:0!important;border-radius:6px!important;background:#edf6f0!important;color:#27784c!important;font-size:10px!important;box-shadow:none!important;padding:0!important}
+.qty-controls input{width:43px!important;min-width:43px!important;max-width:43px!important;height:27px!important;padding:3px 1px!important;text-align:center!important;font-size:12px!important}
+.bill-line-total{display:block;min-width:0;max-width:100%;justify-self:end;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;font-size:11px!important;font-variant-numeric:tabular-nums}
+.remove-item{width:18px!important;height:22px!important;min-width:18px!important;min-height:22px!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:#9b625d!important;box-shadow:none!important;font-size:13px!important}
+.remove-item:hover{background:transparent!important;color:#bf443c!important;box-shadow:none!important}
+@media(max-width:480px){.bill-row{grid-template-columns:15px minmax(0,1fr) 83px minmax(0,1fr) 16px!important;gap:3px!important}.qty-controls,.qty-controls-centered{width:83px!important;min-width:83px!important;gap:2px!important}.qty-controls .qty-btn{width:19px!important;height:19px!important;min-width:19px!important;min-height:19px!important}.qty-controls input{width:41px!important;min-width:41px!important;max-width:41px!important}.bill-line-total{font-size:10px!important;max-width:100%}}
+.pending-bill-amount{min-width:0!important;max-width:100%;gap:4px!important;overflow:hidden}
+.pending-bill-amount>strong{display:block;min-width:0;max-width:92px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-variant-numeric:tabular-nums}
+.pending-delete{width:19px!important;height:22px!important;min-width:19px!important;min-height:22px!important;flex:0 0 19px!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:#a95b55!important;box-shadow:none!important;font-size:13px!important}
+.pending-delete:hover{background:transparent!important;border:0!important;box-shadow:none!important;color:#bf443c!important}
+.history-date-group,.history-date-group+.history-date-group,.history-date-group:not(:last-child){border:0!important;border-top:0!important;border-bottom:0!important}
+.history-row{border-bottom:1px solid #e8eeea!important}
+.history-row:last-child{border-bottom:0!important}
