@@ -155,7 +155,7 @@ function closeMedicineModal(){
 }
 function emptyAction(message,label,prefill=""){
  const box=document.createElement("div");box.className="empty-state";const title=document.createElement("b");title.textContent=message;box.append(title);
- if(medicineModeEnabled){const action=document.createElement("button");action.type="button";action.className="primary";action.innerHTML='<i class="fa-solid fa-plus" aria-hidden="true"></i><span></span>';action.querySelector("span").textContent=String(label).replace(/^＋\\s*/,"");action.onclick=()=>openAddMedicine(prefill);box.append(action);}return box;
+ if(medicineModeEnabled){const action=document.createElement("button");action.type="button";action.className="primary";action.innerHTML='<i class="fa-solid fa-plus" aria-hidden="true"></i><span></span>';action.querySelector("span").textContent=String(label).replace(/^＋\s*/,"");action.onclick=()=>openAddMedicine(prefill);box.append(action);}return box;
 }
 let medicineViewMode="list";
 function medicineSortTime(m){const value=m?.createdAt??m?.updatedAt??0;if(typeof value==="number")return value;if(value?.toMillis)return value.toMillis();const parsed=Date.parse(value);return Number.isFinite(parsed)?parsed:0;}
