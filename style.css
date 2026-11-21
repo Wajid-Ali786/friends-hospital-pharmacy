@@ -1080,3 +1080,178 @@ input::placeholder{color:#a0ada5}
 @media(hover:none){
  .medicine-list .medicine-card:hover,.bill-option:hover,.pending-bill-card:hover,.history-row:hover{transform:none}
 }
+
+
+/* =========================================================
+   FINAL VISUAL FIX — premium catalogue cards + safer UI polish
+   ========================================================= */
+
+/* Grid product cards: image-first, clean white canvas, controls anchored */
+.medicine-list.grid-view .medicine-card{
+  position:relative!important;isolation:isolate;overflow:hidden;
+  display:flex;flex-direction:column;align-items:stretch;gap:0;
+  min-width:0;min-height:0;padding:0!important;
+  border:1px solid #e6ede7;border-radius:18px!important;
+  background:#fff;box-shadow:0 4px 16px rgba(24,67,47,.065);
+  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease
+}
+.medicine-list.grid-view .medicine-card:hover{
+  transform:translateY(-3px);border-color:#c8dfcf;
+  box-shadow:0 12px 28px rgba(24,67,47,.12)
+}
+.medicine-list.grid-view .medicine-card>img,
+.medicine-list.grid-view .medicine-card>.medicine-placeholder{
+  display:grid;place-items:center;flex:0 0 auto;
+  width:100%;height:146px;min-height:146px;max-height:146px;
+  margin:0;padding:12px;object-fit:contain;
+  border:0!important;border-radius:0!important;
+  background:#fff!important
+}
+.medicine-list.grid-view .medicine-card>.medicine-placeholder{
+  background:linear-gradient(145deg,#f1f7f2,#e8f1ea)!important;
+  color:#4c8060;font-size:27px
+}
+.medicine-list.grid-view .medicine-card .medicine-info{
+  display:flex;flex:1;flex-direction:column;justify-content:center;gap:5px;
+  width:100%;min-height:76px;margin:0;padding:12px 13px 56px!important;
+  text-align:left;background:#fff
+}
+.medicine-list.grid-view .medicine-card .medicine-info b{
+  display:block;color:#203b2d;font-size:13px;font-weight:800;line-height:1.35;
+  overflow-wrap:anywhere
+}
+.medicine-list.grid-view .medicine-card .medicine-info .medicine-meta{
+  margin:0;color:#36734e;font-size:11px;font-weight:800;line-height:1.35
+}
+.medicine-list.grid-view .medicine-card .medicine-tags{
+  display:flex;flex-wrap:wrap;gap:4px;margin:0;padding:0 13px 53px;
+  background:#fff
+}
+.medicine-list.grid-view .medicine-card .medicine-tags:empty{display:none}
+
+/* The wrapper fills the card, but only the two buttons receive pointer events.
+   Explicit anchors avoid the old flex-order bug that sent the X to the bottom. */
+.medicine-list.grid-view .medicine-card .card-actions{
+  position:absolute!important;inset:0!important;z-index:5;
+  display:block!important;width:auto!important;min-height:0!important;
+  margin:0!important;padding:0!important;border:0!important;
+  background:transparent!important;pointer-events:none!important
+}
+.medicine-list.grid-view .medicine-card .card-actions .tiny{
+  position:absolute;display:grid;place-items:center;
+  pointer-events:auto!important;box-shadow:0 3px 10px rgba(20,48,33,.13)
+}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.danger{
+  top:9px!important;right:9px!important;bottom:auto!important;left:auto!important;
+  width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;
+  padding:0!important;border:1px solid #f3dfdc!important;border-radius:50%!important;
+  background:#fff!important;color:#c34e45!important;font-size:19px!important;
+  line-height:1;box-shadow:0 3px 12px rgba(55,35,30,.13)
+}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.danger:hover{
+  background:#fff0ed!important;transform:scale(1.06)
+}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.edit{
+  right:0!important;bottom:0!important;left:0!important;top:auto!important;
+  width:100%!important;height:43px!important;min-height:43px!important;
+  margin:0!important;padding:9px 12px!important;border:0!important;
+  border-top:1px solid rgba(255,255,255,.16)!important;
+  border-radius:0 0 17px 17px!important;
+  background:linear-gradient(110deg,#347d55 0%,#246440 100%)!important;
+  color:#fff!important;font-size:12px!important;font-weight:850!important;
+  letter-spacing:.2px;box-shadow:none!important
+}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.edit:hover{
+  background:linear-gradient(110deg,#3b8b60 0%,#2b7650 100%)!important
+}
+
+/* List cards share the same premium surfaces but retain the horizontal layout */
+.medicine-list:not(.grid-view) .medicine-card{
+  min-width:0;min-height:104px;padding:12px!important;gap:12px;
+  border:1px solid #e5ede7;border-radius:16px;
+  background:linear-gradient(150deg,#fff 0%,#fbfdfb 100%);
+  box-shadow:0 3px 13px rgba(24,67,47,.05)
+}
+.medicine-list:not(.grid-view) .medicine-card>img{
+  flex:0 0 68px;width:68px;height:68px;min-height:68px;max-height:68px;
+  padding:0!important;border:0!important;border-radius:0!important;background:transparent!important
+}
+.medicine-list:not(.grid-view) .medicine-card>.medicine-placeholder{
+  flex:0 0 68px;width:68px;height:68px;min-height:68px;max-height:68px;
+  padding:5px;border:1px solid #e2ece4!important;border-radius:13px!important;
+  background:linear-gradient(145deg,#f0f7f1,#e5f0e8)!important
+}
+.medicine-list:not(.grid-view) .medicine-card .medicine-info{gap:5px}
+.medicine-list:not(.grid-view) .medicine-card .medicine-info b{font-size:13px;color:#203b2d;line-height:1.35}
+.medicine-list:not(.grid-view) .medicine-card .medicine-info .medicine-meta{font-size:11px;color:#397651;font-weight:800}
+.medicine-list:not(.grid-view) .medicine-card .card-actions .tiny{
+  min-width:34px;min-height:34px;border-radius:10px;font-weight:800
+}
+
+/* Billing and history elements: preserve compact workflow while softening old controls */
+.bill-search-panel,.bill-panel{background:#fff;border:1px solid #e5ede7;border-radius:20px;box-shadow:0 6px 22px rgba(24,67,47,.055)}
+#billMedicineList{gap:9px}
+.bill-option{
+  display:flex;align-items:center;gap:11px;min-width:0;min-height:74px;
+  padding:10px 11px;border:1px solid #e8eee9;border-radius:15px;
+  background:linear-gradient(145deg,#fff,#fbfdfb);box-shadow:0 2px 9px rgba(24,67,47,.035)
+}
+.bill-option .bill-medicine-image,.bill-option .bill-medicine-placeholder{
+  display:grid;place-items:center;flex:0 0 52px;width:52px;height:52px;
+  object-fit:contain;border:1px solid #e8eee9;border-radius:12px;background:#f5f9f6
+}
+.bill-option .bill-medicine-info{flex:1;min-width:0;display:grid;gap:5px}
+.bill-option .bill-medicine-info b{font-size:12px;line-height:1.35;color:#203b2d}
+.bill-option .bill-medicine-info small{font-size:10px;color:#43805c;font-weight:750}
+.bill-option .add-bill{flex:0 0 auto;min-height:34px;border-radius:10px;padding:7px 11px}
+.bill-row{border:1px solid #e8eee9!important;border-radius:13px!important;background:#fbfdfb!important}
+.bill-row:hover{background:#fff!important;border-color:#cfe1d4!important}
+.bill-total.grand{border-radius:15px;background:linear-gradient(135deg,#eff7f1,#e8f3eb)}
+#billActions.bill-actions>button{min-height:45px;border-radius:12px}
+.pending-bill-card,.history-row{
+  border:1px solid #e6ede7;border-radius:14px;background:#fff;
+  box-shadow:0 3px 12px rgba(24,67,47,.045)
+}
+.pending-bill-card{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.history-row{padding:13px!important;margin:7px 0}
+.history-row .history-actions{display:flex;gap:6px;flex:0 0 auto}
+.history-row .history-actions .tiny{min-height:30px;border-radius:9px}
+.empty-state{border-radius:15px;background:linear-gradient(145deg,#fff,#f6faf7);border-color:#dce9df}
+
+/* Form, settings and modal surfaces use the same visual language */
+.form-grid,.settings-panel,.app-modal-dialog,.statement-dialog{
+  border-radius:19px;border-color:#e4ece6
+}
+.form-grid input,.form-grid select,.settings-panel input{
+  min-height:43px;border-radius:11px
+}
+.form-actions button,.modal-actions button{min-height:42px;border-radius:11px}
+.app-modal-dialog{box-shadow:0 24px 70px rgba(17,49,34,.2)}
+.statement-dialog{box-shadow:0 24px 70px rgba(17,49,34,.2)}
+.statement-close{border-radius:11px}
+
+/* Responsive card sizing and touch targets */
+@media(max-width:760px){
+ .medicine-list.grid-view{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+ .medicine-list.grid-view .medicine-card>img,
+ .medicine-list.grid-view .medicine-card>.medicine-placeholder{height:124px;min-height:124px;max-height:124px}
+ .medicine-list.grid-view .medicine-card .medicine-info{min-height:76px;padding:10px 10px 55px!important}
+ .medicine-list.grid-view .medicine-card .card-actions .tiny.danger{top:7px!important;right:7px!important;width:29px!important;height:29px!important;min-width:29px!important;min-height:29px!important}
+ .medicine-list.grid-view .medicine-card .card-actions .tiny.edit{height:40px!important;min-height:40px!important}
+}
+@media(max-width:560px){
+ .medicine-list.grid-view{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .medicine-list.grid-view .medicine-card>img,
+ .medicine-list.grid-view .medicine-card>.medicine-placeholder{height:118px;min-height:118px;max-height:118px}
+ .medicine-list.grid-view .medicine-card .medicine-info{min-height:74px;padding:9px 9px 52px!important}
+ .medicine-list.grid-view .medicine-card .medicine-info b{font-size:12px}
+ .medicine-list.grid-view .medicine-card .medicine-info .medicine-meta{font-size:10px}
+ .medicine-list.grid-view .medicine-card .card-actions .tiny.edit{height:38px!important;min-height:38px!important;font-size:11px!important}
+ .medicine-list:not(.grid-view){grid-template-columns:1fr}
+ .medicine-list:not(.grid-view) .medicine-card{min-height:88px}
+ .bill-option{gap:8px;padding:9px}
+ .bill-option .bill-medicine-image,.bill-option .bill-medicine-placeholder{flex-basis:46px;width:46px;height:46px}
+ .bill-option .add-bill{padding:7px 9px;font-size:10px}
+ .history-row{gap:8px;flex-wrap:wrap}
+ .history-row .history-actions{width:100%;justify-content:flex-end}
+}
