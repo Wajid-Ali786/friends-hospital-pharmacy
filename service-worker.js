@@ -1,4 +1,4 @@
-const CACHE_NAME = "friends-pharmacy-v70";
+const CACHE_NAME = "friends-pharmacy-v71";
 const APP_SHELL = [
   "./",
   "./index.html",
