@@ -775,7 +775,7 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
 }
 
 /* Grid mode: vertical product/postcard cards */
-.medicine-list.grid-view{grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.medicine-list.grid-view{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
 .medicine-list.grid-view .medicine-card{
   min-height:0;padding:0;display:flex;flex-direction:column;
   align-items:stretch;gap:0;border-radius:15px
@@ -832,4 +832,43 @@ select{min-width:0;width:100%;border:1px solid var(--line);background:#fff;borde
     height:105px;min-height:105px;max-height:105px
   }
   .medicine-list.grid-view .medicine-card .medicine-info{min-height:68px}
+}
+
+
+/* Final catalogue refinements: transparent real images and cleaner grid edit controls */
+.medicine-list:not(.grid-view) .medicine-card>img{
+  background:transparent!important;border:0!important;border-radius:0!important;
+  padding:0!important;object-fit:contain
+}
+.medicine-list:not(.grid-view) .medicine-card>.medicine-placeholder{
+  background:linear-gradient(145deg,#eaf3ed,#dcebe1)!important;
+  border:1px solid #dce9e0!important;border-radius:11px!important
+}
+.medicine-list.grid-view .medicine-card{position:relative;padding-bottom:48px!important}
+.medicine-list.grid-view .medicine-card .medicine-info{padding-bottom:8px}
+.medicine-list.grid-view .medicine-card .card-actions{
+  position:absolute;inset:8px 8px 8px;z-index:3;
+  display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;
+  width:auto;padding:0;border:0;pointer-events:none
+}
+.medicine-list.grid-view .medicine-card .card-actions .tiny{
+  pointer-events:auto;box-shadow:0 2px 8px rgba(18,45,32,.16)
+}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.danger{
+  align-self:flex-end;width:31px;height:31px;min-width:31px;min-height:31px;
+  display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.9);
+  border-radius:50%;background:#fff0ee;color:#c44940;font-size:18px;
+  box-shadow:0 3px 10px rgba(65,28,24,.2)
+}
+.medicine-list.grid-view .medicine-card .card-actions .tiny.edit{
+  align-self:stretch;width:100%;min-height:38px;margin-top:auto;
+  border:1px solid #286b49;border-radius:9px;
+  background:linear-gradient(135deg,#347d55,#246440);color:#fff;
+  font-size:12px;font-weight:800;box-shadow:0 3px 9px rgba(31,99,62,.2)
+}
+@media(max-width:760px){
+  .medicine-list.grid-view .medicine-card{padding-bottom:43px!important}
+  .medicine-list.grid-view .medicine-card .card-actions{inset:6px}
+  .medicine-list.grid-view .medicine-card .card-actions .tiny.edit{min-height:34px;font-size:11px}
+  .medicine-list.grid-view .medicine-card .card-actions .tiny.danger{width:27px;height:27px;min-width:27px;min-height:27px}
 }
