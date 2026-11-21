@@ -1124,7 +1124,7 @@ input::placeholder{color:#a0ada5}
   margin:0;color:#36734e;font-size:11px;font-weight:800;line-height:1.35
 }
 .medicine-list.grid-view .medicine-card .medicine-tags{
-  display:flex;flex-wrap:wrap;gap:4px;margin:0;padding:0 13px 53px;
+  display:flex;flex-wrap:wrap;gap:4px;margin:0;padding:0 13px;
   background:#fff
 }
 .medicine-list.grid-view .medicine-card .medicine-tags:empty{display:none}
