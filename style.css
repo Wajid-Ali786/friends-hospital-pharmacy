@@ -1439,4 +1439,3 @@ button .ui-icon{pointer-events:none}
 .pending-delete:hover{background:transparent!important;border:0!important;box-shadow:none!important;color:#bf443c!important}
 .history-date-group,.history-date-group+.history-date-group,.history-date-group:not(:last-child){border:0!important;border-top:0!important;border-bottom:0!important}
 .history-row{border-bottom:1px solid #e8eeea!important}
-.history-row:last-child{border-bottom:0!important}
