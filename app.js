@@ -22,7 +22,7 @@ function notify(message,type="success",duration=3600){
  const node=document.createElement("div");node.className="app-toast toast-"+type;
  const icon=document.createElement("span");icon.className="toast-icon";icon.textContent=type==="success"?"✓":type==="error"?"!":type==="warning"?"⚠":"✎";
  const textNode=document.createElement("span");textNode.className="toast-copy";textNode.textContent=message;
- const close=document.createElement("button");close.type="button";close.className="toast-close";close.setAttribute("aria-label","Dismiss notification");close.textContent="×";
+ const close=document.createElement("button");close.type="button";close.className="toast-close";close.setAttribute("aria-label","Dismiss notification");close.innerHTML='<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
  const track=document.createElement("span");track.className="toast-progress";const bar=document.createElement("i");track.append(bar);node.append(icon,textNode,close,track);host.replaceChildren(node);
  toastRemaining=duration;let started=0;
  const dismiss=()=>{if(!node.isConnected)return;clearTimeout(toastTimer);toastTimer=null;node.classList.add("toast-leaving");setTimeout(()=>node.remove(),220);};
@@ -266,7 +266,7 @@ function renderPendingBills(){
   const total=asArray(d.items).filter(x=>x&&typeof x==="object").reduce((s,x)=>s+(Number(x.price)||0)*(Number(x.qty)||0)+(Number(x.adjustment)||0),0)-Math.max(0,Number(d.discount)||0);
   const amountWrap=document.createElement("div");amountWrap.className="pending-bill-amount";
   const amount=document.createElement("strong");amount.textContent=wholeMoney(Math.max(0,total));
-  const del=document.createElement("button");del.type="button";del.className="pending-delete";del.textContent="×";del.title="Remove pending bill";del.setAttribute("aria-label","Remove pending bill for "+(d.patientName||"unnamed patient"));
+  const del=document.createElement("button");del.type="button";del.className="pending-delete";del.innerHTML='<i class="fa-solid fa-xmark" aria-hidden="true"></i>';del.title="Remove pending bill";del.setAttribute("aria-label","Remove pending bill for "+(d.patientName||"unnamed patient"));
   del.onclick=async e=>{e.stopPropagation();if(!await confirmAction("Remove pending bill","Delete this temporarily held bill?","Delete"))return;pendingBills=pendingBills.filter(x=>x.id!==d.id);await persistPendingBills();notify("Pending bill removed","info");};
   amountWrap.append(amount,del);info.append(name,meta);card.append(info,amountWrap);
   card.onclick=()=>resumePendingBill(d.id);
@@ -320,12 +320,12 @@ function renderBill(){
   const row=document.createElement("div");row.className="bill-row";
   const serial=document.createElement("span");serial.className="bill-item-serial";serial.textContent=String(i+1)+".";const name=document.createElement("span");name.className="bill-item-name";name.textContent=it.name;const unitLabel=document.createElement("small");unitLabel.className="bill-item-unit";unitLabel.textContent=it.unit||"Piece";const nameWrap=document.createElement("span");nameWrap.className="bill-item-description";nameWrap.append(name,unitLabel);
   const controls=document.createElement("div");controls.className="qty-controls";
-  const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.textContent="−";minus.setAttribute("aria-label","Decrease quantity");minus.title="Hold to decrease continuously";minus.addEventListener("pointerdown",e=>startQuantityHold(e,it,-1));minus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}if(e.detail===0)changeBillQuantity(it,-1);};
+  const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.innerHTML='<i class="fa-solid fa-minus" aria-hidden="true"></i>';minus.setAttribute("aria-label","Decrease quantity");minus.title="Hold to decrease continuously";minus.addEventListener("pointerdown",e=>startQuantityHold(e,it,-1));minus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}if(e.detail===0)changeBillQuantity(it,-1);};
   const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value=it.qty;qty.setAttribute("aria-label","Quantity");qty.onchange=()=>{it.qty=Math.max(1,Math.floor(Number(qty.value)||1));renderBill();};
-  const plus=document.createElement("button");plus.type="button";plus.className="qty-btn";plus.textContent="+";plus.setAttribute("aria-label","Increase quantity");plus.title="Hold to increase continuously";plus.addEventListener("pointerdown",e=>startQuantityHold(e,it,1));plus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}if(e.detail===0)changeBillQuantity(it,1);};
+  const plus=document.createElement("button");plus.type="button";plus.className="qty-btn";plus.innerHTML='<i class="fa-solid fa-plus" aria-hidden="true"></i>';plus.setAttribute("aria-label","Increase quantity");plus.title="Hold to increase continuously";plus.addEventListener("pointerdown",e=>startQuantityHold(e,it,1));plus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}if(e.detail===0)changeBillQuantity(it,1);};
   controls.append(minus,qty,plus);controls.classList.add("qty-controls-centered");
   const lineTotal=it.price*it.qty+(it.adjustment||0),price=document.createElement("b");price.className="bill-line-total";price.textContent=wholeMoney(lineTotal);
-  const del=document.createElement("button");del.type="button";del.className="remove-item";del.textContent="×";del.title="Remove item";del.setAttribute("aria-label","Remove "+it.name);del.onclick=()=>{bill.splice(i,1);renderBill();};
+  const del=document.createElement("button");del.type="button";del.className="remove-item";del.innerHTML='<i class="fa-solid fa-xmark" aria-hidden="true"></i>';del.title="Remove item";del.setAttribute("aria-label","Remove "+it.name);del.onclick=()=>{bill.splice(i,1);renderBill();};
   row.append(serial,nameWrap,controls,price,del);root.append(row);
  });
  const sub=bill.reduce((sum,item)=>sum+item.qty*item.price,0);
