@@ -229,9 +229,12 @@ function renderBillSearch(q=""){
  if(!matches.length){
   const box=document.createElement("div");box.className="empty-state";
   const title=document.createElement("b");title.textContent=medicines.length?(q.trim()?"Medicine not found":"No medicines available"):"Add your medicines before creating a bill.";
-  const action=document.createElement("button");action.type="button";action.className="primary";action.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add New Medicine</span>';
-  action.onclick=()=>{document.querySelector('.nav[data-page="medicines"]').click();openAddMedicine(q.trim());};
-  box.append(title,action);list.append(box);
+  if(medicineModeEnabled){
+   const action=document.createElement("button");action.type="button";action.className="primary";action.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add New Medicine</span>';
+   action.onclick=()=>{document.querySelector('.nav[data-page="medicines"]').click();openAddMedicine(q.trim());};
+   box.append(action);
+  }
+  box.classList.add("bill-search-empty");list.append(box);
  }
 }
 function roundingSuggestion(total){
@@ -862,12 +865,12 @@ async function enableMedicineEditMode(){
  if(!currentUser||!localDB)return;
  const record=await localDB.get("meta","medicineEditPassword");
  const ok=await editModePasswordDialog(!record);
- if(!ok){$("medicineEditMode").checked=false;medicineModeEnabled=false;await localDB.put("meta",false,"medicineModeEnabled");renderMedicines($("medicineSearch").value);return;}
- medicineModeEnabled=true;$("medicineEditMode").checked=true;await localDB.put("meta",true,"medicineModeEnabled");renderMedicines($("medicineSearch").value);
+ if(!ok){$("medicineEditMode").checked=false;medicineModeEnabled=false;await localDB.put("meta",false,"medicineModeEnabled");renderMedicines($("medicineSearch").value);renderBillSearch($("billSearch")?.value||"");return;}
+ medicineModeEnabled=true;$("medicineEditMode").checked=true;await localDB.put("meta",true,"medicineModeEnabled");renderMedicines($("medicineSearch").value);renderBillSearch($("billSearch")?.value||"");
 }
 $("medicineEditMode").onchange=async()=>{
  if($("medicineEditMode").checked){$("medicineEditMode").checked=false;await enableMedicineEditMode();return;}
- medicineModeEnabled=false;await localDB.put("meta",false,"medicineModeEnabled");if(modalKind==="medicine")closeMedicineModal();renderMedicines($("medicineSearch").value);
+ medicineModeEnabled=false;await localDB.put("meta",false,"medicineModeEnabled");if(modalKind==="medicine")closeMedicineModal();renderMedicines($("medicineSearch").value);renderBillSearch($("billSearch")?.value||"");
 };
 function showNewPackingFields(){const mode=$("medicineImageMode"),fields=$("newPackingFields"),hint=$("packingModeHint"),replaceTab=$("packingReplaceTab"),newTab=$("packingNewTab");if(mode&&fields){const isNew=mode.value==="new";fields.classList.toggle("hidden",!isNew);if(hint)hint.textContent=isNew?"A separate packing will be saved with its own name, unit, price and image. Your current packing will remain unchanged.":"Current packing image will be updated. Its name, unit and price will stay unchanged.";if(replaceTab){replaceTab.classList.toggle("active",!isNew);replaceTab.setAttribute("aria-pressed",String(!isNew));}if(newTab){newTab.classList.toggle("active",isNew);newTab.setAttribute("aria-pressed",String(isNew));}}}
 $("medicineImageMode").onchange=showNewPackingFields;
