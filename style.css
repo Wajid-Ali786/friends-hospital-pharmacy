@@ -704,30 +704,28 @@ semantic delete icons and clean bill editor */
 
 
 /* Custom billing items */
-.bill-items-heading{display:flex;align-items:center;gap:10px;margin:5px 0 0;padding:0 0 7px;border-bottom:1px solid var(--line)}
+.bill-items-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:5px 0 4px;padding:0 0 7px;border-bottom:1px solid var(--line)}
 .bill-items-heading h3{margin:0;font-size:13px;font-weight:750;color:var(--ink)}
-.bill-items-tools{display:flex;justify-content:flex-start;align-items:center;margin:7px 0 5px}
-.custom-item-trigger{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:25px;padding:3px 2px;border:0;border-radius:6px;background:transparent;color:#548064;font-size:11px;font-weight:600;box-shadow:none;opacity:.9}
-.custom-item-trigger:hover{background:transparent;color:#285d3c;text-decoration:underline}
+.custom-item-trigger{display:inline-flex;align-items:center;gap:4px;padding:4px 3px;border:0;border-radius:6px;background:transparent;color:#548064;font-size:11px;font-weight:650;box-shadow:none;cursor:pointer;transition:color .18s ease,background .18s ease}
+.custom-item-trigger:hover{color:#245c38;background:#edf5ef}
 .custom-item-trigger span{font-size:14px;line-height:1}
 .custom-bill-row .bill-item-name{color:#315f46}
 .custom-fixed-qty{display:flex;align-items:center;justify-content:center;color:#8b978f;font-size:12px}
-.custom-item-form{display:grid;gap:15px;padding:2px 1px 0}
+.custom-item-form{display:grid;gap:15px;padding:2px 0 0}
 .custom-item-form>label{display:grid;gap:7px;margin:0!important;color:var(--ink);font-size:12px;font-weight:700}
-.custom-item-form input,.custom-item-form select{width:100%;min-height:44px;padding:10px 12px;border:1px solid #dfe7e1;border-radius:10px;background:#fbfcfb;color:var(--ink);font:inherit;font-size:13px;box-shadow:0 1px 2px rgba(20,40,28,.03)}
-.custom-item-form input:focus,.custom-item-form select:focus{outline:none;border-color:#74a786;box-shadow:0 0 0 3px rgba(66,132,87,.1)}
-.custom-item-section-label{display:block;margin:1px 0 -8px;color:#526158;font-size:12px;font-weight:700}
-.custom-item-type{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-.custom-item-type-option{display:grid;gap:5px;min-width:0;min-height:70px;padding:12px;text-align:left;border:1px solid #e0e8e2;border-radius:11px;background:#fff;color:var(--ink);box-shadow:none}
-.custom-item-type-option strong{font-size:12px;font-weight:750}
-.custom-item-type-option small{font-size:10px;line-height:1.35;color:#78847c}
-.custom-item-type-option.active{border-color:#79a889;background:#f1f7f2;box-shadow:0 0 0 2px rgba(79,137,96,.09)}
-.custom-item-quantity-fields{display:grid;grid-template-columns:.75fr 1fr 1.25fr;gap:9px}
-.custom-item-quantity-fields label{display:grid;gap:6px;margin:0!important;color:var(--ink);font-size:11px;font-weight:700}
-.custom-item-note{margin:0!important;padding:10px 11px;border-radius:9px;background:#f6f8f6;color:#718078;font-size:10px;line-height:1.5}
+.custom-item-form input,.custom-item-form select{width:100%;min-width:0;min-height:43px;padding:10px 12px;border:1px solid #e1e8e3;border-radius:10px;background:#fbfcfb;color:var(--ink);font:inherit;font-size:13px;box-shadow:none;transition:border-color .18s ease,box-shadow .18s ease}
+.custom-item-form input:focus,.custom-item-form select:focus{outline:none;border-color:#79a889;box-shadow:0 0 0 3px rgba(66,132,87,.1)}
+.custom-item-type{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px;border-radius:11px;background:#f1f4f1}
+.custom-item-type-option{min-height:36px;padding:7px 9px;border:0;border-radius:8px;background:transparent;color:#657168;font-size:11px;font-weight:650;box-shadow:none;cursor:pointer;transition:background .18s ease,color .18s ease,box-shadow .18s ease}
+.custom-item-type-option.active{background:#fff;color:#28603d;box-shadow:0 1px 4px rgba(20,40,28,.1)}
+.custom-item-quantity-fields{display:grid;grid-template-columns:.75fr 1fr 1.2fr;gap:8px}
+.custom-item-quantity-fields label{display:grid;gap:6px;min-width:0;margin:0!important;color:var(--ink);font-size:10px;font-weight:700}
 .custom-item-actions{padding-top:2px}
-.custom-item-actions button{min-width:105px;min-height:42px}
-#appModalDialog:has(.custom-item-form){width:min(470px,calc(100% - 24px));max-height:90vh;padding:19px;border-radius:17px}
-@media(max-width:420px){.custom-item-quantity-fields{grid-template-columns:1fr 1fr}.custom-item-quantity-fields label:last-child{grid-column:1/-1}}
+.custom-item-actions button{min-width:105px;min-height:40px}
+#appModalDialog:has(.custom-item-form){width:min(390px,calc(100% - 28px));max-height:88vh;padding:18px 19px;border-radius:16px}
+#appModalDialog:has(.custom-item-form) .app-modal-head{padding-bottom:10px;margin-bottom:13px}
+#appModalDialog:has(.custom-item-form) .app-modal-head h3{font-size:18px}
+#appModalDialog:has(.custom-item-form) #appModalSubtitle{font-size:11px;color:#839087}
+@media(max-width:420px){.custom-item-quantity-fields{grid-template-columns:.8fr 1fr 1.15fr;gap:6px}.custom-item-quantity-fields label{font-size:9px}.custom-item-form input,.custom-item-form select{padding:9px 8px;font-size:12px}}
 #billMedicineList>.empty-state{align-items:center;text-align:center}
 #billMedicineList>.empty-state .primary{display:inline-flex;align-items:center;justify-content:center;gap:7px}
