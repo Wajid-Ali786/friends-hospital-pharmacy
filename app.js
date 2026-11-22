@@ -576,7 +576,7 @@ async function buildBillSnapshot(){
  const patientName=$("patientName").value.trim();
  const errors=[];
  if(!patientName)errors.push({field:"patient",text:"Add patient name"});
- if(!bill.length)errors.push({field:"items",text:"Add a medicine"});
+ if(!bill.length)errors.push({field:"items",text:"Add an item"});
  if(errors.length){showBillValidation(errors);notify(errors.map(x=>x.text).join(" · "),"warning");return null;}
  showBillValidation([]);
  const subtotal=bill.reduce((sum,item)=>sum+Math.max(0,Number(item.qty)||0)*Math.max(0,Number(item.price)||0),0);
