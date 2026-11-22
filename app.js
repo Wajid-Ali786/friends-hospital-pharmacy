@@ -168,7 +168,15 @@ function renderMedicines(filter=""){
  const filtered=medicines.filter(m=>medicineMatches(m,filter)),visible=filtered.slice(0,medicineVisibleCount);
  visible.forEach(m=>{
   const el=document.createElement("article");el.className="medicine-card"+(medicineViewMode==="grid"?" medicine-grid-card":"");
-  el.innerHTML=(m.image?'<img alt="">':'<div class="medicine-placeholder">✚</div>')+'<div class="medicine-info"><b></b><small class="medicine-meta"></small><span class="medicine-tags"></span></div>'+(medicineModeEnabled?'<div class="card-actions"><button class="tiny edit"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg><span>Edit</span></button><button class="tiny danger del" aria-label="Delete medicine" title="Delete medicine"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M9 6V4h6v2m3 0-1 14H7L6 6m4 4v7m4-7v7"/></svg></button></div>':'');
+  const gridCard=medicineViewMode==="grid";
+  const imageMarkup=m.image?'<img alt="">':'<div class="medicine-placeholder">✚</div>';
+  const editMarkup='<button class="tiny edit" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg><span>Edit</span></button>';
+  const deleteMarkup='<button class="tiny danger del" type="button" aria-label="Delete medicine" title="Delete medicine"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M9 6V4h6v2m3 0-1 14H7L6 6m4 4v7m4-7v7"/></svg></button>';
+  if(gridCard){
+   el.innerHTML='<div class="medicine-media">'+imageMarkup+(medicineModeEnabled?deleteMarkup:'')+'</div><div class="medicine-card-details"><div class="medicine-info"><b></b><small class="medicine-meta"></small><span class="medicine-tags"></span></div>'+(medicineModeEnabled?'<div class="card-actions">'+editMarkup+'</div>':'')+'</div>';
+  }else{
+   el.innerHTML=imageMarkup+'<div class="medicine-info"><b></b><small class="medicine-meta"></small><span class="medicine-tags"></span></div>'+(medicineModeEnabled?'<div class="card-actions">'+editMarkup+deleteMarkup+'</div>':'');
+  }
   if(m.image){const img=el.querySelector("img");img.src=m.image;img.loading="lazy";img.alt=m.name;}
   appendSearchHighlight(el.querySelector(".medicine-info b"),m.name,filter);el.querySelector(".medicine-meta").textContent=m.unit+" · "+medicinePriceText(m.price);
   const tagWrap=el.querySelector(".medicine-tags"),tagQuery=String(filter||"").trim().toLowerCase();if(tagQuery){asArray(m.tags).filter(tag=>String(tag||"").toLowerCase().includes(tagQuery)).forEach(tag=>{const chip=document.createElement("span");chip.className="medicine-tag";appendSearchHighlight(chip,tag,filter);tagWrap.append(chip);});}if(!tagWrap.childElementCount)tagWrap.remove();
