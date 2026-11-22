@@ -731,4 +731,4 @@ semantic delete icons and clean bill editor */
 #billMedicineList>.empty-state .primary{display:inline-flex;align-items:center;justify-content:center;gap:7px}
 
 /* Keep SVG icons and their labels aligned on one visual centre line. */
-button:has(.ui-icon){display:inline-flex;align-items:center;justify-content:center;gap:7px}button:has(.ui-icon)>.ui-icon{position:static;transform:none;align-self:center;flex:0 0 15px}button:has(.ui-icon)>span{display:inline-flex;align-items:center;line-height:1.2}.bill-search-empty{align-items:center;text-align:center}.bill-search-empty .primary{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+button:has(.ui-icon):not(.hidden){display:inline-flex;align-items:center;justify-content:center;gap:7px}button:has(.ui-icon)>.ui-icon{position:static;transform:none;align-self:center;flex:0 0 15px}button:has(.ui-icon)>span{display:inline-flex;align-items:center;line-height:1.2}.bill-search-empty{align-items:center;text-align:center}.bill-search-empty .primary{display:inline-flex;align-items:center;justify-content:center;gap:7px}
