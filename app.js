@@ -252,14 +252,56 @@ function roundingSuggestion(total){
 }
 function clearMedicineRounding(){
  roundingApplied=0;roundingBase=null;
- bill.forEach(item=>{item.adjustment=0;});
+ bill.forEach(item=>{if(item.kind!=="custom")item.adjustment=0;});
+}
+function billItemTotal(item){return Math.max(0,Number(item?.qty)||0)*Math.max(0,Number(item?.price)||0)+(Number(item?.adjustment)||0);}
+function openCustomItemForm(){
+ const box=document.createElement("div");box.className="custom-item-form";
+ const nameLabel=document.createElement("label");nameLabel.textContent="Item / charge name";
+ const name=document.createElement("input");name.type="text";name.maxLength=80;name.placeholder="e.g. Dressing Fee";name.required=true;nameLabel.append(name);
+ const typeLabel=document.createElement("label");typeLabel.textContent="Entry type";
+ const type=document.createElement("select");type.innerHTML='<option value="fixed">Fixed amount</option><option value="quantity">Quantity × unit price</option>';typeLabel.append(type);
+ const amountLabel=document.createElement("label");amountLabel.textContent="Amount (Rs.)";
+ const amount=document.createElement("input");amount.type="number";amount.min="0.01";amount.step="0.01";amount.placeholder="Enter total amount";amountLabel.append(amount);
+ const details=document.createElement("div");details.className="custom-item-quantity-fields hidden";
+ const qtyLabel=document.createElement("label");qtyLabel.textContent="Quantity";
+ const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value="1";qtyLabel.append(qty);
+ const unitLabel=document.createElement("label");unitLabel.textContent="Unit";
+ const unit=document.createElement("select");UNIT_OPTIONS.forEach(value=>{const option=document.createElement("option");option.value=value;option.textContent=value;unit.append(option);});unit.value="Piece";unitLabel.append(unit);
+ const priceLabel=document.createElement("label");priceLabel.textContent="Price per unit (Rs.)";
+ const price=document.createElement("input");price.type="number";price.min="0.01";price.step="0.01";price.placeholder="Enter unit price";priceLabel.append(price);
+ details.append(qtyLabel,unitLabel,priceLabel);
+ const note=document.createElement("p");note.className="muted small-text custom-item-note";note.textContent="Custom charges are added to this bill only. They do not change medicine stock.";
+ const actions=document.createElement("div");actions.className="modal-actions";
+ const cancel=document.createElement("button");cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";
+ const add=document.createElement("button");add.type="button";add.className="primary";add.textContent="Add item";
+ actions.append(cancel,add);box.append(nameLabel,typeLabel,amountLabel,details,note,actions);
+ const updateMode=()=>{const quantityMode=type.value==="quantity";details.classList.toggle("hidden",!quantityMode);amountLabel.classList.toggle("hidden",quantityMode);};
+ type.onchange=updateMode;updateMode();
+ const finish=()=>closeAppModal();cancel.onclick=finish;
+ add.onclick=()=>{
+  const itemName=name.value.trim();if(!itemName){name.focus();return;}
+  let item;
+  if(type.value==="fixed"){
+   const total=Number(amount.value);if(!Number.isFinite(total)||total<=0){amount.focus();return;}
+   item={id:crypto.randomUUID(),kind:"custom",name:itemName,unit:"Charge",qty:1,price:total,isFixedCharge:true,roundingAllowed:false,adjustment:0};
+  }else{
+   const quantity=Math.floor(Number(qty.value)),unitPrice=Number(price.value);
+   if(!Number.isFinite(quantity)||quantity<1){qty.focus();return;}
+   if(!Number.isFinite(unitPrice)||unitPrice<=0){price.focus();return;}
+   item={id:crypto.randomUUID(),kind:"custom",name:itemName,unit:unit.value,qty:quantity,price:unitPrice,isFixedCharge:false,roundingAllowed:false,adjustment:0};
+  }
+  bill.push(item);renderBill();persistActiveDraft().catch(console.warn);notify("Custom item added to bill","success",2400);finish();
+ };
+ openAppModal(box,"Add Custom Item","Add a one-time charge or a quantity-based item.","custom-item");
+ setTimeout(()=>{name.focus();},0);
 }
 function applyMedicineRounding(extra){
  bill=asArray(bill).filter(x=>x&&typeof x==="object");
  const extraCents=Math.round((Number(extra)||0)*100);
  if(extraCents<=0)return null;
  const eligible=bill.map((item,index)=>({item,index,lineCents:Math.round((Number(item.price||0)*Number(item.qty||0))*100)}))
-  .filter(entry=>entry.item.roundingAllowed).sort((a,b)=>b.lineCents-a.lineCents);
+  .filter(entry=>entry.item.kind!=="custom"&&entry.item.roundingAllowed).sort((a,b)=>b.lineCents-a.lineCents);
  if(!eligible.length)return null;
  const needed=entry=>((500-((entry.lineCents%500)+500)%500)%500);
  // Search every eligible medicine with dynamic programming, not a fixed 3-item limit.
@@ -303,8 +345,8 @@ function renderPendingBills(){
  pendingBills.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).forEach(d=>{
   const card=document.createElement("article");card.className="pending-bill-card";card.tabIndex=0;card.setAttribute("role","button");card.setAttribute("aria-label","Open pending bill for "+(d.patientName||"unnamed patient"));card.title="Tap to open this pending bill";
   const info=document.createElement("div");info.className="pending-bill-info";
-  const name=document.createElement("b");name.textContent=d.patientName||"Unnamed patient";const meta=document.createElement("small");meta.textContent=(d.items?.length||0)+" medicines · "+new Date(d.updatedAt||Date.now()).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-  const total=asArray(d.items).filter(x=>x&&typeof x==="object").reduce((s,x)=>s+(Number(x.price)||0)*(Number(x.qty)||0)+(Number(x.adjustment)||0),0)-Math.max(0,Number(d.discount)||0);
+  const name=document.createElement("b");name.textContent=d.patientName||"Unnamed patient";const meta=document.createElement("small");meta.textContent=(d.items?.length||0)+" items · "+new Date(d.updatedAt||Date.now()).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+  const total=asArray(d.items).filter(x=>x&&typeof x==="object").reduce((s,x)=>s+billItemTotal(x),0)-Math.max(0,Number(d.discount)||0);
   const amountWrap=document.createElement("div");amountWrap.className="pending-bill-amount";
   const amount=document.createElement("strong");amount.textContent=wholeMoney(Math.max(0,total));
   const del=document.createElement("button");del.type="button";del.className="pending-delete";del.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M9 6V4h6v2m3 0-1 14H7L6 6m4 4v7m4-7v7"/></svg>';del.title="Delete pending bill";del.setAttribute("aria-label","Remove pending bill for "+(d.patientName||"unnamed patient"));
@@ -336,7 +378,7 @@ function stopQuantityHold(){
 function changeBillQuantity(item,delta){
  if(!bill.includes(item))return;
  item.qty=Math.max(1,Math.floor(Number(item.qty)||1)+delta);
- quantityDraftChanged=true;clearMedicineRounding();renderBill();
+ quantityDraftChanged=true;if(item.kind!=="custom")clearMedicineRounding();renderBill();
 }
 function startQuantityHold(event,item,delta){
  if(event.button!==undefined&&event.button!==0)return;
@@ -362,40 +404,39 @@ function renderBill(){
  if(bill.length){root.classList.remove("bill-items-error");if($("patientName").value.trim())$("billMessage").classList.remove("validation-alert");}
  if(!bill.length)root.innerHTML='<p class="muted">No items added yet.</p>';
  bill.forEach((it,i)=>{
-  const row=document.createElement("div");row.className="bill-row";
+  const custom=it.kind==="custom",fixed=custom&&it.isFixedCharge===true;
+  const row=document.createElement("div");row.className="bill-row"+(custom?" custom-bill-row":"")+(fixed?" custom-fixed-row":"");
   const serial=document.createElement("span");serial.className="bill-item-serial";serial.textContent=String(i+1)+".";
   const name=document.createElement("span");name.className="bill-item-name";name.textContent=it.name;
-  if(Number(it.adjustment)>0){name.classList.add("rounding-adjusted");name.title="Rounding adjustment added to this medicine";}
-  const unitLabel=document.createElement("small");unitLabel.className="bill-item-unit";unitLabel.textContent=it.unit||"Piece";
+  if(!custom&&Number(it.adjustment)>0){name.classList.add("rounding-adjusted");name.title="Rounding adjustment added to this medicine";}
+  const unitLabel=document.createElement("small");unitLabel.className="bill-item-unit";unitLabel.textContent=fixed?"Fixed charge":(it.unit||"Piece");
   const nameWrap=document.createElement("span");nameWrap.className="bill-item-description";nameWrap.append(name,unitLabel);
   const controls=document.createElement("div");controls.className="qty-controls";
-  const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>';minus.setAttribute("aria-label","Decrease quantity");minus.title="Hold to decrease continuously";minus.addEventListener("pointerdown",e=>startQuantityHold(e,it,-1));minus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}if(e.detail===0){changeBillQuantity(it,-1);finishQuantityHold();}};
-  const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value=it.qty;qty.setAttribute("aria-label","Quantity");qty.onchange=()=>{it.qty=Math.max(1,Math.floor(Number(qty.value)||1));clearMedicineRounding();renderBill();persistActiveDraft().catch(console.warn);};qty.addEventListener("keydown",e=>{if(e.key!=="Enter")return;e.preventDefault();it.qty=Math.max(1,Math.floor(Number(qty.value)||1));clearMedicineRounding();const nextIndex=Math.min(i+1,bill.length-1);renderBill();persistActiveDraft().catch(console.warn);requestAnimationFrame(()=>{const next=$("billItems").querySelectorAll(".qty-controls input")[nextIndex];if(next){next.focus();next.select();}});});
-  const plus=document.createElement("button");plus.type="button";plus.className="qty-btn";plus.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';plus.setAttribute("aria-label","Increase quantity");plus.title="Hold to increase continuously";plus.addEventListener("pointerdown",e=>startQuantityHold(e,it,1));plus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}if(e.detail===0){changeBillQuantity(it,1);finishQuantityHold();}};
-  controls.append(minus,qty,plus);controls.classList.add("qty-controls-centered");
-  const lineTotal=it.price*it.qty+(it.adjustment||0),price=document.createElement("b");price.className="bill-line-total";price.textContent=wholeMoney(lineTotal);
-  const del=document.createElement("button");del.type="button";del.className="remove-item";del.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg>';del.title="Remove item";del.setAttribute("aria-label","Remove "+it.name);del.onclick=()=>{bill.splice(i,1);clearMedicineRounding();renderBill();persistActiveDraft().catch(console.warn);};
+  if(fixed){controls.classList.add("custom-fixed-qty");controls.textContent="—";}
+  else{
+   const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>';minus.setAttribute("aria-label","Decrease quantity");minus.title="Hold to decrease continuously";minus.addEventListener("pointerdown",e=>startQuantityHold(e,it,-1));minus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}if(e.detail===0){changeBillQuantity(it,-1);finishQuantityHold();}};
+   const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value=it.qty;qty.setAttribute("aria-label","Quantity");qty.onchange=()=>{it.qty=Math.max(1,Math.floor(Number(qty.value)||1));if(it.kind!=="custom")clearMedicineRounding();renderBill();persistActiveDraft().catch(console.warn);};qty.addEventListener("keydown",e=>{if(e.key!=="Enter")return;e.preventDefault();it.qty=Math.max(1,Math.floor(Number(qty.value)||1));if(it.kind!=="custom")clearMedicineRounding();const nextIndex=Math.min(i+1,bill.length-1);renderBill();persistActiveDraft().catch(console.warn);requestAnimationFrame(()=>{const next=$("billItems").querySelectorAll(".qty-controls input")[nextIndex];if(next){next.focus();next.select();}});});
+   const plus=document.createElement("button");plus.type="button";plus.className="qty-btn";plus.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';plus.setAttribute("aria-label","Increase quantity");plus.title="Hold to increase continuously";plus.addEventListener("pointerdown",e=>startQuantityHold(e,it,1));plus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}if(e.detail===0){changeBillQuantity(it,1);finishQuantityHold();}};
+   controls.append(minus,qty,plus);controls.classList.add("qty-controls-centered");
+  }
+  const price=document.createElement("b");price.className="bill-line-total";price.textContent=wholeMoney(billItemTotal(it));
+  const del=document.createElement("button");del.type="button";del.className="remove-item";del.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg>';del.title="Remove item";del.setAttribute("aria-label","Remove "+it.name);del.onclick=()=>{bill.splice(i,1);if(!custom)clearMedicineRounding();renderBill();persistActiveDraft().catch(console.warn);};
   row.append(serial,nameWrap,controls,price,del);root.append(row);
  });
- const sub=bill.reduce((sum,item)=>sum+item.qty*item.price,0);
- const applied=bill.reduce((sum,item)=>sum+(item.adjustment||0),0);
+ const sub=bill.reduce((sum,item)=>sum+Math.max(0,Number(item.qty)||0)*Math.max(0,Number(item.price)||0),0);
  const discount=Math.min(sub,Math.max(0,Number($("discount").value)||0));
- const base=Math.max(0,sub-discount);
- roundingBase=base;
- const currentAdjustment=bill.reduce((sum,item)=>sum+(item.adjustment||0),0);
- const eligible=bill.some(item=>item.roundingAllowed);
+ const base=Math.max(0,sub-discount);roundingBase=base;
+ const currentAdjustment=bill.reduce((sum,item)=>sum+(item.kind==="custom"?0:(Number(item.adjustment)||0)),0);
+ const eligible=bill.some(item=>item.kind!=="custom"&&item.roundingAllowed);
  const suggestion=currentAdjustment>0?0:roundingSuggestion(base);
- $("subtotal").textContent=wholeMoney(sub);
- $("roundingAmount").textContent=suggestion>0?"+ "+money(suggestion):"";
- $("roundingApply").classList.toggle("hidden",!(suggestion>0));
- $("roundingApply").disabled=!(suggestion>0&&eligible);
- $("roundingApply").textContent="Apply";
+ $("subtotal").textContent=wholeMoney(sub);$("roundingAmount").textContent=suggestion>0?"+ "+money(suggestion):"";
+ $("roundingApply").classList.toggle("hidden",!(suggestion>0));$("roundingApply").disabled=!(suggestion>0&&eligible);$("roundingApply").textContent="Apply";
  $("roundingAppliedLabel").textContent=currentAdjustment>0?"Medicine prices adjusted: + "+money(currentAdjustment):(suggestion>0&&!eligible?"Rounding available — select at least one medicine marked “Rounding Allowed” to apply.":"");
  $("finalTotal").textContent=wholeMoney(base+currentAdjustment);
  $("roundingApply").onclick=()=>{
   if(!eligible){$("billMessage").textContent="Select a medicine marked Rounding Allowed first.";return;}
   const adjusted=applyMedicineRounding(suggestion);
-  if(!adjusted){$("billMessage").textContent="No clean 1–3 medicine combination can apply this rounding. Add or select another Rounding Allowed medicine.";notify("No suitable medicine combination for clean rounding","warning");return;}
+  if(!adjusted){$("billMessage").textContent="No suitable medicine combination can apply this rounding. Add or select another Rounding Allowed medicine.";notify("No suitable medicine combination for clean rounding","warning");return;}
   bill=adjusted;roundingApplied=suggestion;$("billMessage").textContent="Rounding applied to selected medicine prices for this bill only.";renderBill();persistActiveDraft().catch(console.warn);
  };
 }
@@ -538,11 +579,11 @@ async function buildBillSnapshot(){
  if(!bill.length)errors.push({field:"items",text:"Add a medicine"});
  if(errors.length){showBillValidation(errors);notify(errors.map(x=>x.text).join(" · "),"warning");return null;}
  showBillValidation([]);
- const subtotal=bill.reduce((sum,item)=>sum+Number(item.qty)*Number(item.price),0);
+ const subtotal=bill.reduce((sum,item)=>sum+Math.max(0,Number(item.qty)||0)*Math.max(0,Number(item.price)||0),0);
  const discount=Math.min(subtotal,Math.max(0,Number($("discount").value)||0));
- const rounding=bill.reduce((sum,item)=>sum+(item.adjustment||0),0);
+ const rounding=bill.reduce((sum,item)=>sum+(item.kind==="custom"?0:(Number(item.adjustment)||0)),0);
  const finalTotal=Math.max(0,subtotal-discount)+rounding;
- const adjustedItems=bill.map(item=>{const lineTotal=Number(item.qty)*Number(item.price)+(item.adjustment||0);return {medicineId:item.id,name:item.name,unit:item.unit,quantity:Number(item.qty),unitPrice:lineTotal/Number(item.qty),originalUnitPrice:Number(item.price),lineAdjustment:item.adjustment||0,roundingAllowed:item.roundingAllowed===true,lineTotal};});
+ const adjustedItems=bill.map(item=>{const quantity=Math.max(1,Number(item.qty)||1),lineTotal=billItemTotal(item);return {kind:item.kind==="custom"?"custom":"medicine",...(item.kind==="custom"?{}:{medicineId:item.id}),name:item.name,unit:item.unit||"",quantity,unitPrice:Number(item.price)||0,originalUnitPrice:Number(item.price)||0,isFixedCharge:item.kind==="custom"&&item.isFixedCharge===true,lineAdjustment:item.kind==="custom"?0:(Number(item.adjustment)||0),roundingAllowed:item.kind!=="custom"&&item.roundingAllowed===true,lineTotal};});
  const now=new Date();
  const previous=editingBillId?savedBills.find(x=>x.id===editingBillId):null;
  const receiptNumber=previous?.receiptNumber||await nextBillNumber();
@@ -612,7 +653,7 @@ function beginBillEdit(item){
  if(!billEditAllowed(item)){alert("This bill is locked after 1 hour.");renderBillingHistory();return;}
  editingBillId=item.id;editingBillCreatedAt=Number(item.createdAtMillis)||Date.now();
  $("patientName").value=item.patientName||"";$("tokenNumber").value=item.tokenNumber||"";$("discount").value=Number(item.discount)||0;setDiscountEditor(Number(item.discount)>0);
- bill=asArray(item.items).filter(line=>line&&typeof line==="object").map(line=>({id:line.medicineId||crypto.randomUUID(),name:line.name,unit:line.unit||"Piece",qty:Number(line.quantity)||1,price:Number(line.originalUnitPrice??line.unitPrice)||0,roundingAllowed:line.roundingAllowed===true,adjustment:Number(line.lineAdjustment)||0}));
+ bill=asArray(item.items).filter(line=>line&&typeof line==="object").map(line=>({id:line.medicineId||crypto.randomUUID(),kind:line.kind==="custom"?"custom":"medicine",name:line.name,unit:line.unit||(line.kind==="custom"?"Charge":"Piece"),qty:Number(line.quantity)||1,price:Number(line.originalUnitPrice??line.unitPrice)||0,isFixedCharge:line.kind==="custom"&&line.isFixedCharge===true,roundingAllowed:line.kind!=="custom"&&line.roundingAllowed===true,adjustment:line.kind==="custom"?0:(Number(line.lineAdjustment)||0)}));
  $("saveBill").textContent="Update";$("printBill").textContent="Update & Print";$("billMessage").textContent="";
  $("cancelBillEdit")?.remove();
  renderBill();$("billMessage").textContent="";notify("Bill opened for editing","info",2200);
@@ -650,7 +691,7 @@ function showReceipt(item){
  root.classList.remove("hidden");root.innerHTML="";
  const brand=document.createElement("div");brand.className="receipt-brand";
  const brandName=document.createElement("b");brandName.textContent="FRIENDS HOSPITAL PHARMACY";
- const brandSub=document.createElement("small");brandSub.textContent="MEDICINE BILL";
+ const brandSub=document.createElement("small");brandSub.textContent="PHARMACY BILL";
  brand.append(brandName,brandSub);root.append(brand);
  const title=document.createElement("h3");title.textContent=item.receiptNumber;root.append(title);
  const meta=document.createElement("div");meta.className="receipt-meta";
@@ -659,14 +700,14 @@ function showReceipt(item){
  meta.append(patient,details);root.append(meta);
  const table=document.createElement("div");table.className="receipt-lines";
  const head=document.createElement("div");head.className="receipt-line receipt-head";
- ["#","Medicine","Qty","Amount"].forEach(label=>{const cell=document.createElement("span");cell.textContent=label;head.append(cell);});
+ ["#","Item","Qty","Amount"].forEach(label=>{const cell=document.createElement("span");cell.textContent=label;head.append(cell);});
  table.append(head);
  asArray(item.items).filter(line=>line&&typeof line==="object").forEach((line,index)=>{
   const row=document.createElement("div");row.className="receipt-line";
   const serial=document.createElement("span");serial.className="receipt-serial";serial.textContent=String(index+1);
   const number=document.createElement("span");number.className="receipt-number";number.textContent=String(line.itemNumber||table.children.length)+".";
   const name=document.createElement("span");name.className="receipt-medicine";name.textContent=line.name;
-  const qty=document.createElement("span");qty.className="receipt-qty";qty.textContent=String(line.quantity)+" "+line.unit;
+  const qty=document.createElement("span");qty.className="receipt-qty";qty.textContent=line.kind==="custom"&&line.isFixedCharge===true?"—":String(line.quantity)+" "+(line.unit||"");
   const amount=document.createElement("b");amount.className="receipt-amount";amount.textContent=Math.round(Number(line.lineTotal)||0).toLocaleString("en-PK");
   row.append(serial,name,qty,amount);table.append(row);
  });root.append(table);
