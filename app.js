@@ -203,7 +203,7 @@ function askBillQuantity(m){
   const existing=bill.find(x=>x.id===m.id);
   if(existing)existing.qty+=qty;
   else bill.push({id:m.id,name:m.name,unit:m.unit||"Tablet",qty,price:Number(m.price??m.tabletPrice)||0,roundingAllowed:m.roundingAllowed===true,adjustment:0});
-  renderBill();notify(m.name+" added to bill","success",2400);$("billSearch").value="";renderBillSearch("");finish();
+  clearMedicineRounding();renderBill();notify(m.name+" added to bill","success",2400);$("billSearch").value="";renderBillSearch("");finish();
   setTimeout(()=>{if($("billingPage")&&!$("billingPage").classList.contains("hidden")&&$("appModal").classList.contains("hidden")){$("billSearch").focus();$("billSearch").select();}},80);
  };
  input.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();add.click();}});
@@ -250,12 +250,38 @@ function roundingSuggestion(total){
  }
  return Math.max(0,Number((target-amount).toFixed(2)));
 }
+function clearMedicineRounding(){
+ roundingApplied=0;roundingBase=null;
+ bill.forEach(item=>{item.adjustment=0;});
+}
 function applyMedicineRounding(extra){
- bill=asArray(bill).filter(x=>x&&typeof x==="object");let remaining=Math.round(extra*100),adjusted=bill.map(x=>({...x,adjustment:0}));
- const eligible=adjusted.filter(x=>x.roundingAllowed);
- if(!eligible.length||remaining<=0)return null;
- const base=Math.floor(remaining/eligible.length),remainder=remaining%eligible.length;
- eligible.forEach((item,index)=>{item.adjustment=Number(((base+(index<remainder?1:0))/100).toFixed(2));});
+ bill=asArray(bill).filter(x=>x&&typeof x==="object");
+ const extraCents=Math.round((Number(extra)||0)*100);
+ if(extraCents<=0)return null;
+ const eligible=bill.map((item,index)=>({item,index,lineCents:Math.round((Number(item.price||0)*Number(item.qty||0))*100)}))
+  .filter(entry=>entry.item.roundingAllowed).sort((a,b)=>b.lineCents-a.lineCents);
+ if(!eligible.length)return null;
+ const needed=entry=>((500-((entry.lineCents%500)+500)%500)%500);
+ const findCombination=(size,start,chosen,total)=>{
+  if(chosen.length===size)return total<=extraCents&&(extraCents-total)%500===0?chosen.slice():null;
+  for(let i=start;i<=eligible.length-(size-chosen.length);i++){
+   const next=chosen.concat(eligible[i]),sum=total+needed(eligible[i]);
+   if(sum>extraCents)continue;
+   const found=findCombination(size,i+1,next,sum);
+   if(found)return found;
+  }
+  return null;
+ };
+ let selected=null;
+ for(let size=1;size<=Math.min(3,eligible.length)&&!selected;size++)selected=findCombination(size,0,[],0);
+ if(!selected)return null;
+ const selectedNeed=selected.reduce((sum,entry)=>sum+needed(entry),0);
+ const extraSteps=(extraCents-selectedNeed)/500;
+ const adjusted=bill.map(item=>({...item,adjustment:0}));
+ selected.forEach((entry,index)=>{
+  const cents=needed(entry)+(index===0?extraSteps*500:0);
+  adjusted[entry.index].adjustment=Number((cents/100).toFixed(2));
+ });
  return adjusted;
 }
 
@@ -304,7 +330,7 @@ function stopQuantityHold(){
 function changeBillQuantity(item,delta){
  if(!bill.includes(item))return;
  item.qty=Math.max(1,Math.floor(Number(item.qty)||1)+delta);
- renderBill();
+ clearMedicineRounding();renderBill();persistActiveDraft().catch(console.warn);
 }
 function startQuantityHold(event,item,delta){
  if(event.button!==undefined&&event.button!==0)return;
@@ -327,21 +353,25 @@ function renderBill(){
  if(!bill.length)root.innerHTML='<p class="muted">No items added yet.</p>';
  bill.forEach((it,i)=>{
   const row=document.createElement("div");row.className="bill-row";
-  const serial=document.createElement("span");serial.className="bill-item-serial";serial.textContent=String(i+1)+".";const name=document.createElement("span");name.className="bill-item-name";name.textContent=it.name;const unitLabel=document.createElement("small");unitLabel.className="bill-item-unit";unitLabel.textContent=it.unit||"Piece";const nameWrap=document.createElement("span");nameWrap.className="bill-item-description";nameWrap.append(name,unitLabel);
+  const serial=document.createElement("span");serial.className="bill-item-serial";serial.textContent=String(i+1)+".";
+  const name=document.createElement("span");name.className="bill-item-name";name.textContent=it.name;
+  if(Number(it.adjustment)>0){name.classList.add("rounding-adjusted");name.title="Rounding adjustment added to this medicine";}
+  const unitLabel=document.createElement("small");unitLabel.className="bill-item-unit";unitLabel.textContent=it.unit||"Piece";
+  const nameWrap=document.createElement("span");nameWrap.className="bill-item-description";nameWrap.append(name,unitLabel);
   const controls=document.createElement("div");controls.className="qty-controls";
   const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>';minus.setAttribute("aria-label","Decrease quantity");minus.title="Hold to decrease continuously";minus.addEventListener("pointerdown",e=>startQuantityHold(e,it,-1));minus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}if(e.detail===0)changeBillQuantity(it,-1);};
-  const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value=it.qty;qty.setAttribute("aria-label","Quantity");qty.onchange=()=>{it.qty=Math.max(1,Math.floor(Number(qty.value)||1));renderBill();persistActiveDraft().catch(console.warn);};qty.addEventListener("keydown",e=>{if(e.key!=="Enter")return;e.preventDefault();it.qty=Math.max(1,Math.floor(Number(qty.value)||1));const nextIndex=Math.min(i+1,bill.length-1);renderBill();persistActiveDraft().catch(console.warn);requestAnimationFrame(()=>{const next=$("billItems").querySelectorAll(".qty-controls input")[nextIndex];if(next){next.focus();next.select();}});});
+  const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value=it.qty;qty.setAttribute("aria-label","Quantity");qty.onchange=()=>{it.qty=Math.max(1,Math.floor(Number(qty.value)||1));clearMedicineRounding();renderBill();persistActiveDraft().catch(console.warn);};qty.addEventListener("keydown",e=>{if(e.key!=="Enter")return;e.preventDefault();it.qty=Math.max(1,Math.floor(Number(qty.value)||1));clearMedicineRounding();const nextIndex=Math.min(i+1,bill.length-1);renderBill();persistActiveDraft().catch(console.warn);requestAnimationFrame(()=>{const next=$("billItems").querySelectorAll(".qty-controls input")[nextIndex];if(next){next.focus();next.select();}});});
   const plus=document.createElement("button");plus.type="button";plus.className="qty-btn";plus.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';plus.setAttribute("aria-label","Increase quantity");plus.title="Hold to increase continuously";plus.addEventListener("pointerdown",e=>startQuantityHold(e,it,1));plus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}if(e.detail===0)changeBillQuantity(it,1);};
   controls.append(minus,qty,plus);controls.classList.add("qty-controls-centered");
   const lineTotal=it.price*it.qty+(it.adjustment||0),price=document.createElement("b");price.className="bill-line-total";price.textContent=wholeMoney(lineTotal);
-  const del=document.createElement("button");del.type="button";del.className="remove-item";del.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg>';del.title="Remove item";del.setAttribute("aria-label","Remove "+it.name);del.onclick=()=>{bill.splice(i,1);renderBill();};
+  const del=document.createElement("button");del.type="button";del.className="remove-item";del.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg>';del.title="Remove item";del.setAttribute("aria-label","Remove "+it.name);del.onclick=()=>{bill.splice(i,1);clearMedicineRounding();renderBill();persistActiveDraft().catch(console.warn);};
   row.append(serial,nameWrap,controls,price,del);root.append(row);
  });
  const sub=bill.reduce((sum,item)=>sum+item.qty*item.price,0);
  const applied=bill.reduce((sum,item)=>sum+(item.adjustment||0),0);
  const discount=Math.min(sub,Math.max(0,Number($("discount").value)||0));
  const base=Math.max(0,sub-discount);
- if(roundingBase!==base){roundingBase=base;roundingApplied=0;bill.forEach(item=>item.adjustment=0);}
+ roundingBase=base;
  const currentAdjustment=bill.reduce((sum,item)=>sum+(item.adjustment||0),0);
  const eligible=bill.some(item=>item.roundingAllowed);
  const suggestion=currentAdjustment>0?0:roundingSuggestion(base);
@@ -355,8 +385,8 @@ function renderBill(){
  $("roundingApply").onclick=()=>{
   if(!eligible){$("billMessage").textContent="Select a medicine marked Rounding Allowed first.";return;}
   const adjusted=applyMedicineRounding(suggestion);
-  if(!adjusted){$("billMessage").textContent="The adjustment could not be distributed. Check eligible medicines.";return;}
-  bill=adjusted;roundingApplied=suggestion;$("billMessage").textContent="Eligible medicine prices adjusted for this bill only.";renderBill();
+  if(!adjusted){$("billMessage").textContent="No clean 1–3 medicine combination can apply this rounding. Add or select another Rounding Allowed medicine.";notify("No suitable medicine combination for clean rounding","warning");return;}
+  bill=adjusted;roundingApplied=suggestion;$("billMessage").textContent="Rounding applied to selected medicine prices for this bill only.";renderBill();persistActiveDraft().catch(console.warn);
  };
 }
 
@@ -475,7 +505,7 @@ $("billSearch").addEventListener("keydown",e=>{
   if(add)add.click();
  }
 });
-$("discount").oninput=()=>{if(Number($("discount").value)>0)setDiscountEditor(true);renderBill();persistActiveDraft().catch(console.warn);};$("discountToggle").onclick=()=>{setDiscountEditor(true);const field=$("discount");field.focus();field.select();};$("patientName").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("tokenNumber").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("patientName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("tokenNumber").focus();$("tokenNumber").select();}});$("tokenNumber").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();const first=$("billItems").querySelector(".qty-controls input");if(first){first.focus();first.select();}else $("billSearch").focus();}});$("holdBill").onclick=holdCurrentBill;
+$("discount").oninput=()=>{if(Number($("discount").value)>0)setDiscountEditor(true);clearMedicineRounding();renderBill();persistActiveDraft().catch(console.warn);};$("discountToggle").onclick=()=>{setDiscountEditor(true);const field=$("discount");field.focus();field.select();};$("patientName").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("tokenNumber").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("patientName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("tokenNumber").focus();$("tokenNumber").select();}});$("tokenNumber").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();const first=$("billItems").querySelector(".qty-controls input");if(first){first.focus();first.select();}else $("billSearch").focus();}});$("holdBill").onclick=holdCurrentBill;
 document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-page]").forEach(x=>x.classList.toggle("active",x===b));["medicines","billing","history","settings"].forEach(p=>show(p+"Page",p===b.dataset.page));$("pageTitle").textContent=b.textContent.trim().replace(/^\S+\s*/,"");if(b.dataset.page==="billing")renderBillSearch();if(b.dataset.page==="history")startBillingHistory();});
 function showBillValidation(errors){
   const patient=$("patientName"),items=$("billItems"),message=$("billMessage");
