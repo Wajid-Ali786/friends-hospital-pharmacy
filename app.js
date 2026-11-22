@@ -229,7 +229,7 @@ function renderBillSearch(q=""){
  if(!matches.length){
   const box=document.createElement("div");box.className="empty-state";
   const title=document.createElement("b");title.textContent=medicines.length?(q.trim()?"Medicine not found":"No medicines available"):"Add your medicines before creating a bill.";
-  const action=document.createElement("button");action.type="button";action.className="primary";action.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add medicine</span>';
+  const action=document.createElement("button");action.type="button";action.className="primary";action.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add New Medicine</span>';
   action.onclick=()=>{document.querySelector('.nav[data-page="medicines"]').click();openAddMedicine(q.trim());};
   box.append(title,action);list.append(box);
  }
@@ -868,3 +868,5 @@ $("importData").onchange=async e=>{
   button.disabled=false;e.target.value="";
  }
 };
+
+$("addCustomItemBtn").onclick=()=>openCustomItemForm();
