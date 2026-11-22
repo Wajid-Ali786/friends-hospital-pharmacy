@@ -259,30 +259,43 @@ function openCustomItemForm(){
  const box=document.createElement("div");box.className="custom-item-form";
  const nameLabel=document.createElement("label");nameLabel.textContent="Item / charge name";
  const name=document.createElement("input");name.type="text";name.maxLength=80;name.placeholder="e.g. Dressing Fee";name.required=true;nameLabel.append(name);
- const typeLabel=document.createElement("label");typeLabel.textContent="Entry type";
- const type=document.createElement("select");type.innerHTML='<option value="fixed">Fixed amount</option><option value="quantity">Quantity × unit price</option>';typeLabel.append(type);
- const amountLabel=document.createElement("label");amountLabel.textContent="Amount (Rs.)";
- const amount=document.createElement("input");amount.type="number";amount.min="0.01";amount.step="0.01";amount.placeholder="Enter total amount";amountLabel.append(amount);
+ const typeLabel=document.createElement("span");typeLabel.className="custom-item-section-label";typeLabel.textContent="How would you like to add it?";
+ const type=document.createElement("div");type.className="custom-item-type";type.setAttribute("role","group");type.setAttribute("aria-label","Entry type");
+ let entryType="fixed";
+ const makeTypeButton=(value,title,description)=>{
+  const button=document.createElement("button");button.type="button";button.className="custom-item-type-option";button.setAttribute("aria-pressed",String(value===entryType));
+  const heading=document.createElement("strong");heading.textContent=title;const detail=document.createElement("small");detail.textContent=description;
+  button.append(heading,detail);button.onclick=()=>{entryType=value;updateMode();};return button;
+ };
+ const fixedButton=makeTypeButton("fixed","Fixed amount","One-time charge");
+ const quantityButton=makeTypeButton("quantity","Quantity × unit price","For items counted by unit");
+ type.append(fixedButton,quantityButton);
+ const amountLabel=document.createElement("label");amountLabel.className="custom-item-field";amountLabel.textContent="Total amount (Rs.)";
+ const amount=document.createElement("input");amount.type="number";amount.min="0.01";amount.step="0.01";amount.placeholder="e.g. 500";amountLabel.append(amount);
  const details=document.createElement("div");details.className="custom-item-quantity-fields hidden";
  const qtyLabel=document.createElement("label");qtyLabel.textContent="Quantity";
  const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value="1";qtyLabel.append(qty);
  const unitLabel=document.createElement("label");unitLabel.textContent="Unit";
  const unit=document.createElement("select");UNIT_OPTIONS.forEach(value=>{const option=document.createElement("option");option.value=value;option.textContent=value;unit.append(option);});unit.value="Piece";unitLabel.append(unit);
  const priceLabel=document.createElement("label");priceLabel.textContent="Price per unit (Rs.)";
- const price=document.createElement("input");price.type="number";price.min="0.01";price.step="0.01";price.placeholder="Enter unit price";priceLabel.append(price);
+ const price=document.createElement("input");price.type="number";price.min="0.01";price.step="0.01";price.placeholder="e.g. 250";priceLabel.append(price);
  details.append(qtyLabel,unitLabel,priceLabel);
- const note=document.createElement("p");note.className="muted small-text custom-item-note";note.textContent="Custom charges are added to this bill only. They do not change medicine stock.";
- const actions=document.createElement("div");actions.className="modal-actions";
+ const note=document.createElement("p");note.className="custom-item-note";note.textContent="This item will be added to this bill only. It will not change medicine stock.";
+ const actions=document.createElement("div");actions.className="modal-actions custom-item-actions";
  const cancel=document.createElement("button");cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";
- const add=document.createElement("button");add.type="button";add.className="primary";add.textContent="Add item";
- actions.append(cancel,add);box.append(nameLabel,typeLabel,amountLabel,details,note,actions);
- const updateMode=()=>{const quantityMode=type.value==="quantity";details.classList.toggle("hidden",!quantityMode);amountLabel.classList.toggle("hidden",quantityMode);};
- type.onchange=updateMode;updateMode();
+ const add=document.createElement("button");add.type="button";add.className="primary";add.textContent="Add Item";
+ actions.append(cancel,add);box.append(nameLabel,typeLabel,type,amountLabel,details,note,actions);
+ function updateMode(){
+  const quantityMode=entryType==="quantity";amountLabel.classList.toggle("hidden",quantityMode);details.classList.toggle("hidden",!quantityMode);
+  fixedButton.classList.toggle("active",!quantityMode);quantityButton.classList.toggle("active",quantityMode);
+  fixedButton.setAttribute("aria-pressed",String(!quantityMode));quantityButton.setAttribute("aria-pressed",String(quantityMode));
+ }
+ updateMode();
  const finish=()=>closeAppModal();cancel.onclick=finish;
  add.onclick=()=>{
   const itemName=name.value.trim();if(!itemName){name.focus();return;}
   let item;
-  if(type.value==="fixed"){
+  if(entryType==="fixed"){
    const total=Number(amount.value);if(!Number.isFinite(total)||total<=0){amount.focus();return;}
    item={id:crypto.randomUUID(),kind:"custom",name:itemName,unit:"Charge",qty:1,price:total,isFixedCharge:true,roundingAllowed:false,adjustment:0};
   }else{
@@ -294,7 +307,7 @@ function openCustomItemForm(){
   bill.push(item);renderBill();persistActiveDraft().catch(console.warn);notify("Custom item added to bill","success",2400);finish();
  };
  openAppModal(box,"Add Custom Item","Add a one-time charge or a quantity-based item.","custom-item");
- setTimeout(()=>{name.focus();},0);
+ setTimeout(()=>name.focus(),0);
 }
 function applyMedicineRounding(extra){
  bill=asArray(bill).filter(x=>x&&typeof x==="object");
