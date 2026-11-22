@@ -696,3 +696,8 @@ semantic delete icons and clean bill editor */
   .medicine-list.grid-view .medicine-card-details .medicine-info .medicine-meta{font-size:10px}
   .medicine-list.grid-view .medicine-card-details .card-actions{margin:5px 8px 0}
 }
+
+/* Billing polish: keep medicine tags fitted to their text and identify adjusted lines. */
+.bill-medicine-info .medicine-tag{display:inline-flex;justify-self:start;align-self:start;width:max-content;max-width:100%;box-sizing:border-box;margin:5px 0 0;padding:2px 6px;}
+.bill-item-name.rounding-adjusted{color:#16834b;font-weight:850;}
+.bill-item-name.rounding-adjusted::after{content:" · Rounded";color:#16834b;font-size:9px;font-weight:850;white-space:nowrap;}
