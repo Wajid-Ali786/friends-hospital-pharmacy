@@ -262,20 +262,26 @@ function applyMedicineRounding(extra){
   .filter(entry=>entry.item.roundingAllowed).sort((a,b)=>b.lineCents-a.lineCents);
  if(!eligible.length)return null;
  const needed=entry=>((500-((entry.lineCents%500)+500)%500)%500);
- const findCombination=(size,start,chosen,total)=>{
-  if(chosen.length===size)return total<=extraCents&&(extraCents-total)%500===0?chosen.slice():null;
-  for(let i=start;i<=eligible.length-(size-chosen.length);i++){
-   const next=chosen.concat(eligible[i]),sum=total+needed(eligible[i]);
-   if(sum>extraCents)continue;
-   const found=findCombination(size,i+1,next,sum);
-   if(found)return found;
+ // Search every eligible medicine with dynamic programming, not a fixed 3-item limit.
+ const reachable=new Map([[0,[]]]);
+ for(const entry of eligible){
+  const amount=needed(entry);
+  const states=Array.from(reachable.entries());
+  for(const [sum,chosen] of states){
+   const nextSum=sum+amount;
+   if(nextSum>extraCents)continue;
+   const nextChosen=chosen.concat(entry);
+   const existing=reachable.get(nextSum);
+   if(!existing||nextChosen.length>existing.length)reachable.set(nextSum,nextChosen);
   }
-  return null;
- };
- let selected=null;
- for(let size=Math.min(3,eligible.length);size>=1&&!selected;size--)selected=findCombination(size,0,[],0);
+ }
+ let selected=null,selectedNeed=-1;
+ for(const [sum,chosen] of reachable){
+  if(chosen.length&&sum<=extraCents&&(extraCents-sum)%500===0&&chosen.length>(selected?.length||0)){
+   selected=chosen;selectedNeed=sum;
+  }
+ }
  if(!selected)return null;
- const selectedNeed=selected.reduce((sum,entry)=>sum+needed(entry),0);
  const extraSteps=(extraCents-selectedNeed)/500;
  const adjusted=bill.map(item=>({...item,adjustment:0}));
  selected.forEach((entry,index)=>{
