@@ -571,6 +571,125 @@ $("billSearch").addEventListener("keydown",e=>{
  }
 });
 $("discount").oninput=()=>{if(Number($("discount").value)>0)setDiscountEditor(true);clearMedicineRounding();renderBill();persistActiveDraft().catch(console.warn);};$("discountToggle").onclick=()=>{setDiscountEditor(true);const field=$("discount");field.focus();field.select();};$("patientName").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("tokenNumber").addEventListener("input",()=>persistActiveDraft().catch(console.warn));$("patientName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("tokenNumber").focus();$("tokenNumber").select();}});$("tokenNumber").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();const first=$("billItems").querySelector(".qty-controls input");if(first){first.focus();first.select();}else $("billSearch").focus();}});$("holdBill").onclick=holdCurrentBill;
+
+let refundReturns=[],refundPurchases=[],refundDraftLoaded=false,refundSaving=false;
+const refundLineTotal=line=>Math.max(0,Number(line.quantity)||0)*Math.max(0,Number(line.unitPrice)||0);
+const refundTotals=()=>{
+ const returned=refundReturns.reduce((sum,line)=>sum+refundLineTotal(line),0);
+ const deduction=returned*.25,credit=returned-deduction;
+ const purchases=refundPurchases.reduce((sum,line)=>sum+refundLineTotal(line),0);
+ const net=purchases-credit;
+ return {returned,deduction,credit,purchases,net,cashAmount:Math.abs(net),cashDirection:net>0?"collect":net<0?"refund":"settled"};
+};
+const refundMoney=value=>"Rs. "+Math.round(Number(value)||0).toLocaleString("en-PK");
+async function persistRefundDraft(){
+ if(!localDB)return;
+ const draft={patientName:$("refundPatientName").value.trim(),tokenNumber:$("refundTokenNumber").value.trim(),returns:refundReturns.map(x=>({...x})),purchases:refundPurchases.map(x=>({...x})),updatedAt:Date.now()};
+ if(draft.patientName||draft.tokenNumber||draft.returns.length||draft.purchases.length)await localDB.put("meta",draft,"activeRefundDraft");
+ else await localDB.delete("meta","activeRefundDraft");
+}
+async function loadRefundDraft(){
+ if(refundDraftLoaded||!localDB)return;
+ const draft=await localDB.get("meta","activeRefundDraft");
+ if(draft){
+  $("refundPatientName").value=draft.patientName||"";
+  $("refundTokenNumber").value=draft.tokenNumber||"";
+  refundReturns=asArray(draft.returns).map(x=>({...x}));
+  refundPurchases=asArray(draft.purchases).map(x=>({...x}));
+ }
+ refundDraftLoaded=true;renderRefundWorkspace();
+}
+function addRefundMedicine(target,medicine){
+ target.push({id:crypto.randomUUID(),medicineId:medicine.id,name:medicine.name,unit:medicine.unit||"Tablet",quantity:1,unitPrice:Math.max(0,Number(medicine.price)||0)});
+ renderRefundWorkspace();persistRefundDraft().catch(console.warn);
+}
+function renderRefundSearch(kind,query=""){
+ const root=$(kind==="return"?"refundReturnResults":"refundNewResults");root.replaceChildren();
+ const q=String(query||"").trim();if(!q)return;
+ const matches=medicines.filter(m=>medicineMatches(m,q)).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),undefined,{sensitivity:"base",numeric:true})).slice(0,8);
+ if(!matches.length){const empty=document.createElement("p");empty.className="refund-search-empty";empty.textContent="No matching medicine found.";root.append(empty);return;}
+ matches.forEach(m=>{
+  const button=document.createElement("button");button.type="button";button.className="refund-search-option";
+  const name=document.createElement("span");name.textContent=m.name;
+  const meta=document.createElement("small");meta.textContent=(m.unit||"Tablet")+" · "+medicinePriceText(m.price);
+  const add=document.createElement("b");add.textContent="+";
+  button.append(name,meta,add);
+  button.onclick=()=>{addRefundMedicine(kind==="return"?refundReturns:refundPurchases,m);$(kind==="return"?"refundReturnSearch":"refundNewSearch").value="";root.replaceChildren();};
+  root.append(button);
+ });
+}
+function renderRefundLines(kind){
+ const isReturn=kind==="return",items=isReturn?refundReturns:refundPurchases,root=$(isReturn?"refundReturnLines":"refundNewLines");root.replaceChildren();
+ if(!items.length){const p=document.createElement("p");p.className="refund-empty";p.textContent=isReturn?"No returned medicines added.":"No new medicines added. Leave empty for refund only.";root.append(p);return;}
+ items.forEach((line,index)=>{
+  const row=document.createElement("div");row.className="refund-line";
+  const description=document.createElement("div");description.className="refund-line-description";
+  const name=document.createElement("b");name.textContent=line.name;const unit=document.createElement("small");unit.textContent=line.unit;description.append(name,unit);
+  const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value=String(line.quantity);qty.className="refund-qty";qty.setAttribute("aria-label","Quantity for "+line.name);
+  qty.onchange=()=>{line.quantity=Math.max(1,Math.floor(Number(qty.value)||1));renderRefundWorkspace();persistRefundDraft().catch(console.warn);};
+  const price=document.createElement("input");price.type="number";price.min="0";price.step="0.01";price.value=String(line.unitPrice);price.className="refund-price";price.readOnly=!isReturn;price.title=isReturn?"Confirm the price originally paid for this returned medicine":"Current medicine price";price.setAttribute("aria-label","Unit price for "+line.name);
+  if(isReturn)price.onchange=()=>{line.unitPrice=Math.max(0,Number(price.value)||0);renderRefundWorkspace();persistRefundDraft().catch(console.warn);};
+  const total=document.createElement("strong");total.className="refund-line-total";total.textContent=refundMoney(refundLineTotal(line));
+  const remove=document.createElement("button");remove.type="button";remove.className="refund-remove";remove.textContent="×";remove.setAttribute("aria-label","Remove "+line.name);remove.onclick=()=>{items.splice(index,1);renderRefundWorkspace();persistRefundDraft().catch(console.warn);};
+  const pricing=document.createElement("div");pricing.className="refund-line-pricing";pricing.append(qty,price,total,remove);
+  row.append(description,pricing);root.append(row);
+ });
+}
+function renderRefundWorkspace(){
+ if(!$("refundReturnLines"))return;
+ renderRefundLines("return");renderRefundLines("new");
+ const t=refundTotals();
+ $("refundReturnTotal").textContent=refundMoney(t.returned);$("refundNewTotal").textContent=refundMoney(t.purchases);
+ $("refundSubtotal").textContent=refundMoney(t.returned);$("refundDeduction").textContent="− "+refundMoney(t.deduction);$("refundCredit").textContent=refundMoney(t.credit);$("refundPurchaseTotal").textContent=refundMoney(t.purchases);
+ $("refundNetLabel").textContent=t.cashDirection==="collect"?"Amount to collect":t.cashDirection==="refund"?"Cash refund to patient":"No cash difference";
+ $("refundNetHint").textContent=t.cashDirection==="collect"?"Patient pays":t.cashDirection==="refund"?"Pay patient":"Settled";
+ $("refundNetAmount").textContent=refundMoney(t.cashAmount);
+ $("refundNetAmount").classList.toggle("refund-pay",t.cashDirection==="collect");
+ $("refundNetAmount").classList.toggle("refund-cashout",t.cashDirection==="refund");
+ $("saveRefund").disabled=refundSaving||!refundReturns.length||!$("refundPatientName").value.trim();
+}
+async function nextRefundNumber(){
+ const current=Number(await localDB.get("meta","refundCounter"))||0,next=current+1;
+ await localDB.put("meta",next,"refundCounter");return "R-"+String(next).padStart(6,"0");
+}
+async function saveRefundTransaction(){
+ if(refundSaving)return;
+ if(!$("refundPatientName").value.trim()){ $("refundPatientName").focus();notify("Enter patient name first","warning");return;}
+ if(!refundReturns.length){$("refundReturnSearch").focus();notify("Add at least one returned medicine","warning");return;}
+ const totals=refundTotals();refundSaving=true;renderRefundWorkspace();$("refundMessage").textContent="Saving transaction…";
+ try{
+  const now=new Date(),id=crypto.randomUUID(),receiptNumber=await nextRefundNumber();
+  const toSnapshot=lines=>lines.map((line,index)=>({kind:"medicine",medicineId:line.medicineId,name:line.name,unit:line.unit,quantity:Number(line.quantity),unitPrice:Number(line.unitPrice),lineTotal:refundLineTotal(line),itemNumber:index+1}));
+  const transaction={id,receiptNumber,transactionType:"refund",transactionKind:!refundPurchases.length?"refund-only":totals.cashDirection==="settled"?"exchange-settled":totals.cashDirection==="collect"?"purchase-with-refund-credit":"exchange-with-cash-refund",patientName:$("refundPatientName").value.trim(),tokenNumber:$("refundTokenNumber").value.trim(),refundItems:toSnapshot(refundReturns),newItems:toSnapshot(refundPurchases),returnedSubtotal:totals.returned,deductionRate:.25,deductionAmount:totals.deduction,refundCredit:totals.credit,newSubtotal:totals.purchases,netAmount:totals.net,cashDirection:totals.cashDirection,cashAmount:totals.cashAmount,finalTotal:totals.net,createdAt:now.toISOString(),createdAtMillis:now.getTime(),ownerUid:currentUser.uid};
+  await localDB.put("bills",transaction);await queueChange(id,"set",transaction,"bills");
+  savedBills=[transaction,...savedBills.filter(x=>x.id!==id)].sort((x,y)=>(y.createdAtMillis||0)-(x.createdAtMillis||0));renderBillingHistory();
+  refundReturns=[];refundPurchases=[];$("refundPatientName").value="";$("refundTokenNumber").value="";$("refundMessage").textContent="";
+  await localDB.delete("meta","activeRefundDraft");renderRefundWorkspace();
+  if(navigator.onLine)flushQueue().catch(err=>console.warn("Refund sync pending:",err));
+  notify("Refund / Exchange saved · "+receiptNumber,"success",3600);showReceipt(transaction);
+ }catch(error){console.error("Refund transaction failed:",error);$("refundMessage").textContent="Could not save: "+(error?.message||"Please try again");notify("Transaction could not be saved","error",4200);}
+ finally{refundSaving=false;renderRefundWorkspace();}
+}
+function clearRefundWorkspace(){
+ if(!refundReturns.length&&!refundPurchases.length&&!$("refundPatientName").value.trim()&&!$("refundTokenNumber").value.trim())return;
+ confirmAction("Clear refund workspace","Remove all returned and new medicines from this unsaved transaction?","Clear all").then(async ok=>{
+  if(!ok)return;refundReturns=[];refundPurchases=[];$("refundPatientName").value="";$("refundTokenNumber").value="";$("refundReturnSearch").value="";$("refundNewSearch").value="";$("refundReturnResults").replaceChildren();$("refundNewResults").replaceChildren();await localDB.delete("meta","activeRefundDraft");renderRefundWorkspace();
+ });
+}
+function setBillingMode(mode){
+ const refund=mode==="refund";
+ $("normalBillingWorkspace").classList.toggle("hidden",refund);$("refundWorkspace").classList.toggle("hidden",!refund);
+ $("normalBillingMode").classList.toggle("active",!refund);$("refundBillingMode").classList.toggle("active",refund);
+ $("normalBillingMode").setAttribute("aria-pressed",String(!refund));$("refundBillingMode").setAttribute("aria-pressed",String(refund));
+ if(refund)loadRefundDraft().catch(console.warn);else renderBillSearch($("billSearch").value);
+}
+$("normalBillingMode").onclick=()=>setBillingMode("normal");
+$("refundBillingMode").onclick=()=>setBillingMode("refund");
+$("refundReturnSearch").oninput=e=>renderRefundSearch("return",e.target.value);
+$("refundNewSearch").oninput=e=>renderRefundSearch("new",e.target.value);
+["refundPatientName","refundTokenNumber"].forEach(id=>$(id).addEventListener("input",()=>{renderRefundWorkspace();persistRefundDraft().catch(console.warn);}));
+$("saveRefund").onclick=saveRefundTransaction;$("clearRefund").onclick=clearRefundWorkspace;
+
 document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-page]").forEach(x=>x.classList.toggle("active",x===b));["medicines","billing","history","settings"].forEach(p=>show(p+"Page",p===b.dataset.page));$("pageTitle").textContent=b.textContent.trim().replace(/^\S+\s*/,"");if(b.dataset.page==="billing")renderBillSearch();if(b.dataset.page==="history")startBillingHistory();});
 function showBillValidation(errors){
   const patient=$("patientName"),items=$("billItems"),message=$("billMessage");
