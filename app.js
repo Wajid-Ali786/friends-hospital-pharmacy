@@ -29,6 +29,7 @@ async function ensureAccountEpoch(uid,dbRef){
 }
 function resetAccountMemory(){medicines=[];bill=[];pendingBills=[];savedBills=[];refundReturns=[];refundPurchases=[];refundDraftLoaded=false;roundingApplied=0;roundingBase=null;editingBillId=null;editingBillCreatedAt=0;medicineModeEnabled=false;syncNotice="";syncBlocked=false;if($("medicineEditMode"))$("medicineEditMode").checked=false;for(const id of ["patientName","tokenNumber","refundPatientName","refundTokenNumber","discount"])if($(id))$(id).value=id==="discount"?"0":"";setDiscountEditor(false);renderBill();renderPendingBills();renderRefundWorkspace();renderMedicines();renderBillingHistory();}
 let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncRetryTimer=null,syncRetryDelay=5000,syncNotice="",medicineModeEnabled=true,medicineImageDraft="",medicineImageRotation=0,medicineImageCrop=false,medicineVisibleCount=9,historyVisibleCount=9,historyObserver=null;
+let ignoreSyncBackoff=false,pendingPanelBusy=false,pendingPanelDirty=false;const SYNC_JOB_TIMEOUT=180000,SYNC_IMAGE_TIMEOUT=45000;
 const asArray=value=>Array.isArray(value)?value:[];
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2),wholeMoney=n=>"Rs. "+Math.round(Number(n)||0).toLocaleString("en-PK"),medicinePriceText=n=>{const v=Number(n)||0;return "Rs. "+(Number.isInteger(v)?v.toLocaleString("en-PK"):String(v));};
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
@@ -99,13 +100,16 @@ function setupRecoveryAdmin(user){
 function status(){ $("connection").textContent=syncBlocked?"● Cloud sync paused":navigator.onLine?"● Online / Firebase sync":"● Offline / Local mode";updatePendingPanel(); }
 async function updatePendingPanel(){
  const countNode=$("pendingSyncCount"),listNode=$("pendingSyncList"),retry=$("retryPendingSync");if(!countNode||!listNode||!localDB)return;
- try{const jobs=await localDB.getAll("pending");countNode.textContent=String(jobs.length);listNode.replaceChildren();
+ if(pendingPanelBusy){pendingPanelDirty=true;return;}
+ pendingPanelBusy=true;
+ try{do{pendingPanelDirty=false;
+  const jobs=(await listPendingMeta(localDB)).sort((a,b)=>a.queuedAt-b.queuedAt);countNode.textContent=String(jobs.length);listNode.replaceChildren();
   if(!jobs.length){const empty=document.createElement("p");empty.className="muted small-text";empty.textContent="No pending records. Everything is up to date.";listNode.append(empty);}
-  else{for(const job of jobs.slice(0,30)){const row=document.createElement("div");row.className="pending-sync-row";const label=document.createElement("span");const group=job.collectionName==="bills"?"Bill":"Medicine";label.textContent=group+" · "+(job.data?.name||job.data?.receiptNumber||job.targetId||job.id);const state=document.createElement("b");state.textContent=job.syncStage==="image"?"Image pending":job.lastError?"Sync error":"Pending";if(job.lastError){const detail=document.createElement("small");detail.className="pending-sync-error";detail.textContent=job.lastError;row.append(label,state);row.append(detail);}else row.append(label,state);listNode.append(row);}if(jobs.length>30){const more=document.createElement("p");more.className="muted small-text";more.textContent="And "+(jobs.length-30)+" more pending records.";listNode.append(more);}}
+  else{for(const job of jobs.slice(0,30)){const row=document.createElement("div");row.className="pending-sync-row";const label=document.createElement("span");const group=job.collectionName==="bills"?"Bill":"Medicine";label.textContent=group+" · "+job.label;const state=document.createElement("b");state.textContent=job.syncStage==="image"?"Image pending":job.lastError?"Sync error":"Pending";row.append(label,state);if(job.lastError){const detail=document.createElement("small");detail.className="pending-sync-error";detail.textContent=job.lastError;row.append(detail);}listNode.append(row);}if(jobs.length>30){const more=document.createElement("p");more.className="muted small-text";more.textContent="And "+(jobs.length-30)+" more pending records.";listNode.append(more);}}
   if(retry)retry.disabled=!jobs.length||!navigator.onLine;
- }catch(err){console.warn("Pending queue display:",err);}
+ }while(pendingPanelDirty);}catch(err){console.warn("Pending queue display:",err);}finally{pendingPanelBusy=false;}
 }
-$("retryPendingSync")?.addEventListener("click",async()=>{const btn=$("retryPendingSync"),original=btn.textContent;btn.disabled=true;btn.textContent="Syncing…";const node=$("importStatus");if(node){node.textContent="Sync started. Sending pending medicines, bills and images to Firebase…";node.className="message warning";}notify("Sync started…","info",3000);try{syncBlocked=false;syncNotice="";status();await syncOnline();await flushQueue();const left=await localDB.getAll("pending");const line=left.length?left.length+" item(s) remain pending. Open the pending list to see whether images or Firebase writes need attention.":"All pending records and images synced successfully.";if(node){node.textContent=line;node.className="message "+(left.length?"warning":"success");}notify(line,left.length?"warning":"success",8000);}catch(err){console.error("Manual sync retry:",err);const line="Sync failed: "+(err?.code||"")+" "+(err?.message||"Unknown error");if(node){node.textContent=line;node.className="message error";}notify(line,"error",10000);}finally{btn.textContent=original;await updatePendingPanel();}});
+$("retryPendingSync")?.addEventListener("click",async()=>{const btn=$("retryPendingSync"),original=btn.textContent;btn.disabled=true;btn.textContent="Syncing…";const node=$("importStatus");if(node){node.textContent="Sync started. Sending pending medicines, bills and images to Firebase…";node.className="message warning";}notify("Sync started…","info",3000);try{syncBlocked=false;syncNotice="";status();ignoreSyncBackoff=true;await syncOnline();ignoreSyncBackoff=true;await flushQueue();const left=await listPendingMeta(localDB);const line=left.length?left.length+" item(s) remain pending. Open the pending list to see whether images or Firebase writes need attention.":"All pending records and images synced successfully.";if(node){node.textContent=line;node.className="message "+(left.length?"warning":"success");}notify(line,left.length?"warning":"success",8000);}catch(err){console.error("Manual sync retry:",err);const line="Sync failed: "+(err?.code||"")+" "+(err?.message||"Unknown error");if(node){node.textContent=line;node.className="message error";}notify(line,"error",10000);}finally{btn.textContent=original;await updatePendingPanel();}});
 window.addEventListener("online",status);window.addEventListener("offline",status);status();
 async function cacheAll(){const tx=localDB.transaction("medicines","readwrite");for(const m of medicines)if(m&&m.id)await tx.store.put(m);await tx.done;}
 async function queueChange(id,type,data=null,collectionName="medicines"){const key=collectionName+":"+id;await localDB.put("pending",{id:key,targetId:id,collectionName,type,data,queuedAt:Date.now(),revision:crypto.randomUUID()});updatePendingPanel();}
@@ -114,19 +118,114 @@ async function reportQueuedWrite(id,collectionName,label){
  try{await flushQueue();const pending=await localDB?.get("pending",collectionName+":"+id);notify(pending?label+" saved locally; Firebase sync is still pending":label+" synced successfully",pending?"warning":"success",4200);}
  catch(err){console.warn(label+" sync pending:",err);notify(label+" saved locally; cloud sync will retry when available","warning",4200);}
 }
-async function flushQueue(){if(!currentUser||!navigator.onLine||!localDB||syncBlocked)return;if(syncPromise&&syncOwnerUid!==currentUser.uid)await syncPromise.catch(()=>{});if(syncPromise)return syncPromise;const ownerUid=currentUser.uid,dbRef=localDB;syncOwnerUid=ownerUid;syncPromise=(async()=>{const epochSnap=await getDoc(doc(db,"users",ownerUid));const cloudEpoch=epochSnap.data()?.dataEpoch;if(!cloudEpoch||cloudEpoch!==accountEpoch){syncBlocked=true;syncNotice="Local and cloud account versions differ or are not initialized. Local records and pending uploads are preserved; syncing is paused for safe recovery.";status();throw new Error(syncNotice);}const jobs=(await dbRef.getAll("pending")).sort((a,b)=>a.queuedAt-b.queuedAt);for(const job of jobs){if(!navigator.onLine||!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)break;const group=job.collectionName||"medicines",targetId=job.targetId||job.id;let keepPending=false;try{const target=doc(db,"users",ownerUid,group,targetId);if(group==="bills"){const existing=await getDoc(target);if(job.type==="delete"){if(existing.exists())await deleteDoc(target);}else if(existing.exists()){await setDoc(target,{...job.data,createdAt:existing.data().createdAt||serverTimestamp()});}else{await setDoc(target,{...job.data,createdAt:serverTimestamp()});}}else if(group==="medicines"){if(job.type==="delete")await deleteDoc(target);else{let cloudMedicine={...job.data},imageUploadFailed=false;if(Array.isArray(cloudMedicine.packagings)){for(const pack of cloudMedicine.packagings){if(typeof pack.image==="string"&&pack.image.startsWith("data:")){try{const imageRef=ref(storage,"users/"+ownerUid+"/medicines/"+targetId+"/packagings/"+pack.id+".png");await uploadString(imageRef,pack.image,"data_url");pack.image=await getDownloadURL(imageRef);}catch(imageErr){console.warn("Medicine packing image sync pending:",targetId,imageErr);pack.image="";imageUploadFailed=true;}}}const current=cloudMedicine.packagings.find(p=>p.isCurrent);if(current)cloudMedicine.image=current.image||"";}if(typeof cloudMedicine.image==="string"&&cloudMedicine.image.startsWith("data:")){try{const imageRef=ref(storage,"users/"+ownerUid+"/medicines/"+targetId+".png");await uploadString(imageRef,cloudMedicine.image,"data_url");cloudMedicine.image=await getDownloadURL(imageRef);}catch(imageErr){console.warn("Medicine image sync pending:",targetId,imageErr);cloudMedicine.image="";imageUploadFailed=true;}}if(!imageUploadFailed&&localDB===dbRef){const latest=await dbRef.get("pending",job.id);if(latest&&(latest.revision||latest.queuedAt)===(job.revision||job.queuedAt))await dbRef.put("medicines",cloudMedicine);}await setDoc(target,cloudMedicine);keepPending=imageUploadFailed;if(imageUploadFailed){const latest=await dbRef.get("pending",job.id);if(latest&&(latest.revision||latest.queuedAt)===(job.revision||job.queuedAt))await dbRef.put("pending",{...latest,syncStage:"image",lastError:"Medicine record saved to Firestore; one or more images could not upload. Check Firebase Storage permissions and quota."});}}}else{if(job.type==="delete")await deleteDoc(target);else await setDoc(target,job.data);}if(localDB===dbRef&&currentUser?.uid===ownerUid){const latest=await dbRef.get("pending",job.id);if(!keepPending&&latest&&(latest.revision||latest.queuedAt)===(job.revision||job.queuedAt))await dbRef.delete("pending",job.id);}}catch(err){console.warn("Sync will retry:",err);try{const latest=await dbRef.get("pending",job.id);if(latest)await dbRef.put("pending",{...latest,lastError:(err?.code||"sync-error")+": "+(err?.message||"Unknown sync error")});}catch(updateErr){console.warn("Could not save sync error:",updateErr);}if(err?.code==="permission-denied"){
- if(group==="bills"&&job.type==="delete"){
-  try{
-   let rejectedBill=job.data;if(!rejectedBill){const cloudBill=await getDoc(doc(db,"users",ownerUid,"bills",targetId));rejectedBill=cloudBill.exists()?cloudBill.data():null;}
-   if(rejectedBill){await dbRef.put("bills",rejectedBill);savedBills=[rejectedBill,...savedBills.filter(x=>x.id!==targetId)];}
-   await dbRef.delete("pending",job.id);
-   syncNotice="Firebase ne bill deletion reject kar di (1-hour limit ya permission). Bill history mein restore kar diya gaya hai.";
-   renderBillingHistory();
-  }catch(restoreErr){console.warn("Could not restore rejected bill deletion:",restoreErr);}
-  continue;
+// ---- Sync queue (rewritten) ------------------------------------------------
+// Rules of this queue:
+//  * ONE bad job must never stop the other jobs (it is retried later with backoff).
+//  * Every network step has a timeout, so a hung upload/write cannot freeze the queue.
+//  * The queue is read one job at a time (never load every base64 image at once).
+function withTimeout(promise,ms,label){let timer;return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Object.assign(new Error(label+" timed out after "+Math.round(ms/1000)+"s"),{code:"sync-timeout"})),ms);})]).finally(()=>clearTimeout(timer));}
+function cleanForFirestore(value){return JSON.parse(JSON.stringify(value??null));}
+function safeDocId(id){const clean=String(id??"").replace(/\//g,"_").trim();return clean&&clean!=="."&&clean!==".."&&!/^__.*__$/.test(clean)?clean:"item-"+crypto.randomUUID();}
+function syncBackoffMs(attempts){return Math.min(30000*Math.pow(2,Math.max(0,attempts-1)),3600000);}
+function sameRevision(a,b){return !!a&&!!b&&(a.revision||a.queuedAt)===(b.revision||b.queuedAt);}
+async function listPendingMeta(dbRef){
+ const out=[];let cursor=await dbRef.transaction("pending").store.openCursor();
+ while(cursor){const v=cursor.value||{};out.push({id:v.id,targetId:v.targetId,collectionName:v.collectionName,type:v.type,queuedAt:v.queuedAt||0,syncStage:v.syncStage,lastError:v.lastError,attempts:v.attempts||0,nextTry:v.nextTry||0,label:v.data?.name||v.data?.receiptNumber||v.targetId||v.id});cursor=await cursor.continue();}
+ return out;
+}
+async function uploadDataUrl(path,dataUrl){const imageRef=ref(storage,path);await withTimeout(uploadString(imageRef,dataUrl,"data_url"),SYNC_IMAGE_TIMEOUT,"Image upload");return withTimeout(getDownloadURL(imageRef),15000,"Image URL");}
+async function syncOneJob(job,ownerUid,dbRef,run){
+ const group=job.collectionName||"medicines",targetId=job.targetId||job.id;
+ const target=doc(db,"users",ownerUid,group,targetId);
+ if(job.type==="delete"){
+  if(group==="bills"){const existing=await getDoc(target);if(existing.exists())await deleteDoc(target);}else await deleteDoc(target);
+  return {keep:false};
  }
- syncBlocked=true;syncNotice="Cloud sync is blocked by Firebase permissions. Pending data is preserved locally; check Firebase rules and configuration.";status();break;
-}break;}}})().finally(()=>{syncPromise=null;syncOwnerUid=null;updatePendingPanel();if(syncRetryTimer){clearTimeout(syncRetryTimer);syncRetryTimer=null;}if(!syncBlocked&&currentUser?.uid===ownerUid&&navigator.onLine&&localDB===dbRef){dbRef.getAll("pending").then(jobs=>{if(jobs.length){const delay=syncRetryDelay;syncRetryDelay=Math.min(syncRetryDelay*2,60000);syncRetryTimer=setTimeout(()=>{if(currentUser?.uid===ownerUid&&navigator.onLine)syncOnline().catch(err=>console.warn("Scheduled sync retry:",err));},delay);}else syncRetryDelay=5000;}).catch(err=>console.warn("Could not inspect pending sync queue:",err));}});return syncPromise;}
+ if(group==="bills"){
+  const data=cleanForFirestore(job.data),existing=await getDoc(target);
+  await setDoc(target,{...data,createdAt:existing.exists()?(existing.data().createdAt||serverTimestamp()):serverTimestamp()});
+  return {keep:false};
+ }
+ if(group==="medicines"){
+  const m=cleanForFirestore(job.data);let imageFailed=false,imageError="";
+  const upload=async(dataUrl,path)=>{
+   if(run.imageFailures>=2){imageFailed=true;imageError=imageError||"image upload skipped after repeated Storage failures";return "";}
+   try{const url=await uploadDataUrl(path,dataUrl);run.imageFailures=0;return url;}
+   catch(err){run.imageFailures++;imageFailed=true;imageError=(err?.code||"storage-error")+": "+(err?.message||"image upload failed");console.warn("Medicine image sync pending:",targetId,err);return "";}
+  };
+  if(Array.isArray(m.packagings)){
+   for(const pack of m.packagings){if(pack&&typeof pack.image==="string"&&pack.image.startsWith("data:"))pack.image=await upload(pack.image,"users/"+ownerUid+"/medicines/"+targetId+"/packagings/"+pack.id+".png");}
+   const current=m.packagings.find(p=>p&&p.isCurrent);if(current)m.image=current.image||"";
+  }
+  if(typeof m.image==="string"&&m.image.startsWith("data:"))m.image=await upload(m.image,"users/"+ownerUid+"/medicines/"+targetId+".png");
+  const bytes=new Blob([JSON.stringify(m)]).size;
+  if(bytes>950000)throw Object.assign(new Error("Medicine record is "+Math.round(bytes/1024)+" KB; Firestore allows about 1 MB per record. Remove very large fields/images."),{code:"record-too-large"});
+  await withTimeout(setDoc(target,m),30000,"Firestore write");
+  if(!imageFailed&&localDB===dbRef){const latest=await dbRef.get("pending",job.id);if(sameRevision(latest,job))await dbRef.put("medicines",m);}
+  return {keep:imageFailed,imageError};
+ }
+ await setDoc(target,cleanForFirestore(job.data));
+ return {keep:false};
+}
+async function flushQueue(){
+ if(!currentUser||!navigator.onLine||!localDB||syncBlocked)return;
+ if(syncPromise&&syncOwnerUid!==currentUser.uid)await syncPromise.catch(()=>{});
+ if(syncPromise)return syncPromise;
+ const ownerUid=currentUser.uid,dbRef=localDB,force=ignoreSyncBackoff;ignoreSyncBackoff=false;syncOwnerUid=ownerUid;
+ syncPromise=(async()=>{
+  const epochSnap=await getDoc(doc(db,"users",ownerUid));const cloudEpoch=epochSnap.data()?.dataEpoch;
+  if(!cloudEpoch||cloudEpoch!==accountEpoch){syncBlocked=true;syncNotice="Local and cloud account versions differ or are not initialized. Local records and pending uploads are preserved; syncing is paused for safe recovery.";status();throw new Error(syncNotice);}
+  const metas=(await listPendingMeta(dbRef)).sort((a,b)=>a.queuedAt-b.queuedAt);
+  const run={imageFailures:0};let consecutiveTimeouts=0;
+  for(const meta of metas){
+   if(!navigator.onLine||!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)break;
+   if(!force&&meta.nextTry&&meta.nextTry>Date.now())continue;
+   const job=await dbRef.get("pending",meta.id);if(!job)continue;
+   const group=job.collectionName||"medicines",targetId=job.targetId||job.id;
+   try{
+    const result=await withTimeout(syncOneJob(job,ownerUid,dbRef,run),SYNC_JOB_TIMEOUT,"Sync of "+group+"/"+targetId);
+    if(localDB===dbRef&&currentUser?.uid===ownerUid){
+     const latest=await dbRef.get("pending",job.id);
+     if(sameRevision(latest,job)){
+      if(result.keep){const attempts=(latest.attempts||0)+1;await dbRef.put("pending",{...latest,syncStage:"image",attempts,nextTry:Date.now()+syncBackoffMs(attempts),lastError:"Medicine saved to Firestore; image not uploaded yet ("+result.imageError+"). Check Firebase Storage is enabled and its rules/quota."});}
+      else await dbRef.delete("pending",job.id);
+     }
+    }
+    consecutiveTimeouts=0;
+   }catch(err){
+    console.warn("Sync will retry:",group,targetId,err);
+    const code=err?.code||"sync-error";
+    try{const latest=await dbRef.get("pending",job.id);if(latest){const attempts=(latest.attempts||0)+1;await dbRef.put("pending",{...latest,attempts,nextTry:Date.now()+syncBackoffMs(attempts),lastError:code+": "+(err?.message||"Unknown sync error")});}}catch(updateErr){console.warn("Could not save sync error:",updateErr);}
+    if(code==="permission-denied"){
+     if(group==="bills"&&job.type==="delete"){
+      try{
+       let rejectedBill=job.data;if(!rejectedBill){const cloudBill=await getDoc(doc(db,"users",ownerUid,"bills",targetId));rejectedBill=cloudBill.exists()?cloudBill.data():null;}
+       if(rejectedBill){await dbRef.put("bills",rejectedBill);savedBills=[rejectedBill,...savedBills.filter(x=>x.id!==targetId)];}
+       await dbRef.delete("pending",job.id);
+       syncNotice="Firebase ne bill deletion reject kar di (1-hour limit ya permission). Bill history mein restore kar diya gaya hai.";
+       renderBillingHistory();
+      }catch(restoreErr){console.warn("Could not restore rejected bill deletion:",restoreErr);}
+      continue;
+     }
+     if(group==="bills"){syncNotice="Firebase rules ne ek bill reject kar di ("+(job.data?.receiptNumber||targetId)+"). Baqi medicines/bills sync hoti rahengi; us bill ka error pending list mein dekhein.";continue;}
+     syncBlocked=true;syncNotice="Cloud sync is blocked by Firebase permissions. Pending data is preserved locally; check Firebase rules and configuration.";status();break;
+    }
+    if(["unavailable","deadline-exceeded","auth/network-request-failed"].includes(code)||!navigator.onLine)break;
+    if(code==="sync-timeout"&&++consecutiveTimeouts>=3)break;
+   }
+  }
+ })().finally(()=>{
+  syncPromise=null;syncOwnerUid=null;updatePendingPanel();
+  if(syncRetryTimer){clearTimeout(syncRetryTimer);syncRetryTimer=null;}
+  if(!syncBlocked&&currentUser?.uid===ownerUid&&navigator.onLine&&localDB===dbRef){
+   listPendingMeta(dbRef).then(jobs=>{
+    if(jobs.length){const delay=syncRetryDelay;syncRetryDelay=Math.min(syncRetryDelay*2,60000);syncRetryTimer=setTimeout(()=>{if(currentUser?.uid===ownerUid&&navigator.onLine)syncOnline().catch(err=>console.warn("Scheduled sync retry:",err));},delay);}
+    else syncRetryDelay=5000;
+   }).catch(err=>console.warn("Could not inspect pending sync queue:",err));
+  }
+ });
+ return syncPromise;
+}
 async function syncOnline(){if(!currentUser||!navigator.onLine)return;if(!accountEpoch&&localDB)await ensureAccountEpoch(currentUser.uid,localDB);await flushQueue();if(!unsubscribe&&!syncBlocked)startCloudSync(currentUser);}
 window.addEventListener("online",()=>{status();syncRetryDelay=5000;syncOnline().catch(err=>console.warn("Online sync:",err));});
 window.addEventListener("pageshow",()=>{if(navigator.onLine)syncOnline().catch(err=>console.warn("Page-show sync:",err));});
@@ -548,9 +647,10 @@ function startCloudSync(user){
  const dbRef=localDB,ownerUid=user.uid;
  unsubscribe=onSnapshot(collection(db,"users",ownerUid,"medicines"),{includeMetadataChanges:true},async snap=>{
   if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
-  const pending=await dbRef.getAll("pending");
+  const pending=await listPendingMeta(dbRef);
   if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
   const pendingIds=new Set(pending.filter(x=>(x.collectionName||"medicines")==="medicines").map(x=>x.targetId||x.id));
+  const pendingMedicineDeletes=new Set(pending.filter(x=>(x.collectionName||"medicines")==="medicines"&&x.type==="delete").map(x=>x.targetId||x.id));
   const local=asArray(await dbRef.getAll("medicines")).filter(m=>m&&typeof m==="object");
   if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
   const cloud=snap.docs.map(d=>normalizeMedicine({...d.data(),id:d.id})).filter(m=>m&&m.id);
@@ -558,11 +658,12 @@ function startCloudSync(user){
   // Keep every local-only medicine. Pending local edits always win over cloud;
   // cloud wins only when there is no queued local change for that medicine.
   for(const m of local)if(pendingIds.has(m.id)||!merged.has(m.id))merged.set(m.id,m);
+  for(const id of pendingMedicineDeletes)merged.delete(id);
   medicines=[...merged.values()];
   // Never clear the IndexedDB store from a snapshot callback: imports and
   // offline-only records must survive while their queue is being processed.
   const tx=dbRef.transaction("medicines","readwrite");
-  for(const m of medicines)await tx.store.put(m);
+  for(const m of cloud)if(!pendingIds.has(m.id))await tx.store.put(m);
   await tx.done;
   if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
   renderMedicines($("medicineSearch").value);await flushQueue();
@@ -739,7 +840,7 @@ async function saveRefundTransaction(){
   savedBills=[transaction,...savedBills.filter(x=>x.id!==id)].sort((x,y)=>(y.createdAtMillis||0)-(x.createdAtMillis||0));renderBillingHistory();
   refundReturns=[];refundPurchases=[];$("refundPatientName").value="";$("refundTokenNumber").value="";$("refundMessage").textContent="";
   await localDB.delete("meta","activeRefundDraft");renderRefundWorkspace();
-  if(navigator.onLine){try{await flushQueue();const stillPending=(await localDB.getAll("pending")).some(job=>(job.collectionName||"medicines")==="bills"&&(job.targetId||job.id)===id);notify(stillPending?"Refund saved locally; Firebase sync is still pending · "+receiptNumber:"Refund synced successfully · "+receiptNumber,stillPending?"warning":"success",4200);}catch(syncErr){console.warn("Refund sync pending:",syncErr);notify("Refund saved locally; cloud sync will retry when available","warning",4200);}}
+  if(navigator.onLine){try{await flushQueue();const stillPending=(await listPendingMeta(localDB)).some(job=>(job.collectionName||"medicines")==="bills"&&(job.targetId||job.id)===id);notify(stillPending?"Refund saved locally; Firebase sync is still pending · "+receiptNumber:"Refund synced successfully · "+receiptNumber,stillPending?"warning":"success",4200);}catch(syncErr){console.warn("Refund sync pending:",syncErr);notify("Refund saved locally; cloud sync will retry when available","warning",4200);}}
   else notify("Refund saved on this device; waiting for internet to sync","info",4200);
   showReceipt(transaction);
  }catch(error){console.error("Refund transaction failed:",error);$("refundMessage").textContent="Could not save: "+(error?.message||"Please try again");notify("Transaction could not be saved","error",4200);}
@@ -810,7 +911,7 @@ async function saveCurrentBill({printAfter=false}={}){
   savedBills=[snapshot,...savedBills.filter(x=>x.id!==snapshot.id)].sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();
   const wasEditing=!!editingBillId;editingBillId=null;editingBillCreatedAt=0;$("saveBill").textContent="Save";$("printBill").textContent="Save & Print";if(wasEditing){$("cancelBillEdit")?.remove();closeAppModal();}
   $("billMessage").textContent="";
-  if(navigator.onLine)flushQueue().then(async()=>{const stillPending=(await localDB.getAll("pending")).some(job=>(job.collectionName||"medicines")==="bills"&&(job.targetId||job.id)===snapshot.id);if(stillPending)notify("Bill saved on this device; Firebase sync is still pending · "+snapshot.receiptNumber,"warning",4200);else notify("Bill synced successfully · "+snapshot.receiptNumber,"success",2600);}).catch(err=>{console.warn("Bill sync pending:",err);notify("Bill saved on this device; sync will retry when online","warning",4200);});
+  if(navigator.onLine)flushQueue().then(async()=>{const stillPending=(await listPendingMeta(localDB)).some(job=>(job.collectionName||"medicines")==="bills"&&(job.targetId||job.id)===snapshot.id);if(stillPending)notify("Bill saved on this device; Firebase sync is still pending · "+snapshot.receiptNumber,"warning",4200);else notify("Bill synced successfully · "+snapshot.receiptNumber,"success",2600);}).catch(err=>{console.warn("Bill sync pending:",err);notify("Bill saved on this device; sync will retry when online","warning",4200);});
   else notify("Bill saved on this device; waiting for internet to sync","info",3600);
   bill=[];$("patientName").value="";$("tokenNumber").value="";$("discount").value="0";setDiscountEditor(false);roundingApplied=0;roundingBase=null;await localDB.delete("meta","activeBillDraft");renderBill();notify((wasEditing?"Bill updated: ":"Bill saved: ")+snapshot.receiptNumber,"success");
   if(printAfter){showReceipt(snapshot);printReceipt();notify("Receipt ready to print: "+snapshot.receiptNumber,"success");}
@@ -828,7 +929,7 @@ function startBillingHistory(){
  const ownerUid=currentUser.uid,dbRef=localDB;
  historyUnsubscribe=onSnapshot(collection(db,"users",ownerUid,"bills"),async snap=>{
   if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
-  const pending=await dbRef.getAll("pending");
+  const pending=await listPendingMeta(dbRef);
   if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
   const billJobs=pending.filter(x=>x.collectionName==="bills"),pendingIds=new Set(billJobs.map(x=>x.targetId||x.id)),pendingDeletes=new Set(billJobs.filter(x=>x.type==="delete").map(x=>x.targetId||x.id));
   const cloud=snap.docs.map(d=>d.data()).filter(x=>x&&x.id&&!pendingDeletes.has(x.id));
@@ -1191,7 +1292,7 @@ $("importData").onchange=async e=>{
   const importedMedicineIds=[],importedBillIds=[];
   for(const raw of data.medicines){
    if(!raw||!raw.id||!raw.name){rejected++;continue;}
-   const medicine=normalizeMedicine({...raw,id:String(raw.id),name:String(raw.name).trim()});
+   const medicine=normalizeMedicine({...raw,id:safeDocId(raw.id),name:String(raw.name).trim()});
    if(!medicine||!medicine.id||!medicine.name){rejected++;continue;}
    await dbRef.put("medicines",medicine);await queueChange(medicine.id,"set",medicine,"medicines");
    importedMedicineIds.push(medicine.id);importedMedicines++;
@@ -1199,7 +1300,7 @@ $("importData").onchange=async e=>{
   if(mode==="all"){
    for(const raw of (data.bills||[])){
     if(!raw||!raw.id||!raw.receiptNumber){rejected++;continue;}
-    const restored={...raw,id:String(raw.id),ownerUid:uid,createdAtMillis:Number(raw.createdAtMillis)||Date.now()};
+    const restored={...raw,id:safeDocId(raw.id),ownerUid:uid,createdAtMillis:Number(raw.createdAtMillis)||Date.now()};
     await dbRef.put("bills",restored);await queueChange(restored.id,"set",restored,"bills");
     importedBillIds.push(restored.id);importedBills++;
    }
@@ -1208,8 +1309,8 @@ $("importData").onchange=async e=>{
   medicines=await dbRef.getAll("medicines");
   if(currentUser?.uid!==uid||localDB!==dbRef)throw Error("Account changed during import.");
   renderMedicines($("medicineSearch")?.value||"");
-  if(navigator.onLine)await flushQueue();
-  const remaining=await dbRef.getAll("pending");
+  if(navigator.onLine){ignoreSyncBackoff=true;await flushQueue();}
+  const remaining=await listPendingMeta(dbRef);
   const pendingMedicineIds=new Set(remaining.filter(x=>(x.collectionName||"medicines")==="medicines").map(x=>x.targetId||x.id));
   const pendingBillIds=new Set(remaining.filter(x=>x.collectionName==="bills").map(x=>x.targetId||x.id));
   const pendingMedicines=importedMedicineIds.filter(id=>pendingMedicineIds.has(id)).length;
