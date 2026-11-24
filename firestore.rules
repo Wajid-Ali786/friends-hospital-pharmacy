@@ -8,6 +8,19 @@ service cloud.firestore {
         && request.auth.uid == "Ud1gC1ZCaqZWSOhGPU63Wl26IzY2";
     }
 
+
+    // The owner may read the account data epoch and initialize it once.
+    // Only trusted server code may rotate/update it during a full data wipe.
+    match /users/{userId} {
+      allow get: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['dataEpoch', 'dataEpochUpdatedAt'])
+        && request.resource.data.dataEpoch is string
+        && request.resource.data.dataEpochUpdatedAt == request.time;
+      allow list, update, delete: if false;
+    }
+
     // Medicines
     match /users/{userId}/medicines/{medicineId} {
       allow read, write:
