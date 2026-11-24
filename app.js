@@ -676,21 +676,12 @@ function clearRefundWorkspace(){
   if(!ok)return;refundReturns=[];refundPurchases=[];$("refundPatientName").value="";$("refundTokenNumber").value="";$("refundReturnSearch").value="";$("refundNewSearch").value="";$("refundReturnResults").replaceChildren();$("refundNewResults").replaceChildren();await localDB.delete("meta","activeRefundDraft");renderRefundWorkspace();
  });
 }
-function setBillingMode(mode){
- const refund=mode==="refund";
- $("normalBillingWorkspace").classList.toggle("hidden",refund);$("refundWorkspace").classList.toggle("hidden",!refund);
- $("normalBillingMode").classList.toggle("active",!refund);$("refundBillingMode").classList.toggle("active",refund);
- $("normalBillingMode").setAttribute("aria-pressed",String(!refund));$("refundBillingMode").setAttribute("aria-pressed",String(refund));
- if(refund)loadRefundDraft().catch(console.warn);else renderBillSearch($("billSearch").value);
-}
-$("normalBillingMode").onclick=()=>setBillingMode("normal");
-$("refundBillingMode").onclick=()=>setBillingMode("refund");
 $("refundReturnSearch").oninput=e=>renderRefundSearch("return",e.target.value);
 $("refundNewSearch").oninput=e=>renderRefundSearch("new",e.target.value);
 ["refundPatientName","refundTokenNumber"].forEach(id=>$(id).addEventListener("input",()=>{renderRefundWorkspace();persistRefundDraft().catch(console.warn);}));
 $("saveRefund").onclick=saveRefundTransaction;$("clearRefund").onclick=clearRefundWorkspace;
 
-document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-page]").forEach(x=>x.classList.toggle("active",x===b));["medicines","billing","history","settings"].forEach(p=>show(p+"Page",p===b.dataset.page));$("pageTitle").textContent=b.textContent.trim().replace(/^\S+\s*/,"");if(b.dataset.page==="billing")renderBillSearch();if(b.dataset.page==="history")startBillingHistory();});
+document.querySelectorAll(".nav[data-page]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav[data-page]").forEach(x=>x.classList.toggle("active",x===b));["medicines","billing","history","refund","settings"].forEach(p=>show(p+"Page",p===b.dataset.page));$("pageTitle").textContent=b.textContent.trim().replace(/^\S+\s*/,"");if(b.dataset.page==="billing")renderBillSearch();if(b.dataset.page==="history")startBillingHistory();if(b.dataset.page==="refund")loadRefundDraft().catch(console.warn);});
 function showBillValidation(errors){
   const patient=$("patientName"),items=$("billItems"),message=$("billMessage");
   const needsPatient=errors.some(x=>x.field==="patient");
