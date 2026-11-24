@@ -818,3 +818,10 @@ button:has(.ui-icon):not(.hidden){display:inline-flex;align-items:center;justify
 .refund-actions #saveRefund:hover:not(:disabled){background:linear-gradient(135deg,#1d7949,#125d3e)}
 @media(max-width:720px){.refund-patient-fields{grid-template-columns:1fr 1fr;padding:12px}.refund-section{padding:13px}.refund-side-column{margin-top:0}}
 @media(max-width:480px){.refund-patient-fields{grid-template-columns:1fr}.refund-line{align-items:flex-start;flex-direction:column}.refund-line-pricing{width:100%;justify-content:flex-start;flex-wrap:wrap}}
+
+
+/* Account data wash control */
+.account-wash-section{margin-top:22px;padding:16px;border:1px solid #f0d7d5;border-radius:12px;background:#fffafa}
+.account-wash-section h4{margin:0 0 6px;color:#8f342e;font-size:14px}
+.account-wash-section p{margin:0 0 12px;line-height:1.55}
+.account-wash-section .danger-button{min-height:42px;padding:10px 16px}
