@@ -529,16 +529,21 @@ async function removeMedicine(id){
 }
 function startCloudSync(user){
  if(unsubscribe)unsubscribe();
- unsubscribe=onSnapshot(collection(db,"users",user.uid,"medicines"),{includeMetadataChanges:true},async snap=>{
-  if(!currentUser||currentUser.uid!==user.uid||!localDB)return;
-  const pending=await localDB.getAll("pending"),pendingIds=new Set(pending.filter(x=>(x.collectionName||"medicines")==="medicines").map(x=>x.targetId||x.id));
-  const local=asArray(await localDB.getAll("medicines")).filter(m=>m&&typeof m==="object"),cloud=snap.docs.map(d=>normalizeMedicine({...d.data(),id:d.id})).filter(m=>m&&m.id&&!pendingIds.has(m.id));
+ const dbRef=localDB,ownerUid=user.uid;
+ unsubscribe=onSnapshot(collection(db,"users",ownerUid,"medicines"),{includeMetadataChanges:true},async snap=>{
+  if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
+  const pending=await dbRef.getAll("pending");
+  if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
+  const pendingIds=new Set(pending.filter(x=>(x.collectionName||"medicines")==="medicines").map(x=>x.targetId||x.id));
+  const local=asArray(await dbRef.getAll("medicines")).filter(m=>m&&typeof m==="object");
+  if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
+  const cloud=snap.docs.map(d=>normalizeMedicine({...d.data(),id:d.id})).filter(m=>m&&m.id&&!pendingIds.has(m.id));
   const merged=new Map(cloud.map(m=>[m.id,m]));
   if(snap.metadata.fromCache){for(const m of local)if(!merged.has(m.id))merged.set(m.id,m);}
   else{for(const m of local)if(pendingIds.has(m.id))merged.set(m.id,m);}
   medicines=[...merged.values()];
-  if(snap.metadata.fromCache){const tx=localDB.transaction("medicines","readwrite");for(const m of medicines)await tx.store.put(m);await tx.done;}
-  else await cacheAll();
+  const tx=dbRef.transaction("medicines","readwrite");if(!snap.metadata.fromCache)await tx.store.clear();for(const m of medicines)await tx.store.put(m);await tx.done;
+  if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
   renderMedicines($("medicineSearch").value);await flushQueue();
  },err=>console.warn("Firestore sync",err));
 }
@@ -799,11 +804,17 @@ function startBillingHistory(){
  if(historyUnsubscribe)historyUnsubscribe();
  setHistoryLoading(true);
  if(!navigator.onLine){localDB.getAll("bills").then(items=>{savedBills=items.sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();$("billingHistoryList").insertAdjacentHTML("afterbegin",'<p class="muted">Offline — showing locally saved bills.</p>');setHistoryLoading(false);}).catch(err=>{console.warn(err);setHistoryLoading(false);});return;}
- historyUnsubscribe=onSnapshot(collection(db,"users",currentUser.uid,"bills"),async snap=>{
-  const pending=await localDB.getAll("pending"),billJobs=pending.filter(x=>x.collectionName==="bills"),pendingIds=new Set(billJobs.map(x=>x.targetId||x.id)),pendingDeletes=new Set(billJobs.filter(x=>x.type==="delete").map(x=>x.targetId||x.id));
+ const ownerUid=currentUser.uid,dbRef=localDB;
+ historyUnsubscribe=onSnapshot(collection(db,"users",ownerUid,"bills"),async snap=>{
+  if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
+  const pending=await dbRef.getAll("pending");
+  if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
+  const billJobs=pending.filter(x=>x.collectionName==="bills"),pendingIds=new Set(billJobs.map(x=>x.targetId||x.id)),pendingDeletes=new Set(billJobs.filter(x=>x.type==="delete").map(x=>x.targetId||x.id));
   const cloud=snap.docs.map(d=>d.data()).filter(x=>x&&x.id&&!pendingDeletes.has(x.id));
-  for(const item of cloud)if(!pendingIds.has(item.id))await localDB.put("bills",item);
-  const local=asArray(await localDB.getAll("bills")).filter(x=>x&&typeof x==="object"),merged=new Map(cloud.filter(x=>x&&x.id).map(x=>[x.id,x]));
+  for(const item of cloud)if(!pendingIds.has(item.id))await dbRef.put("bills",item);
+  if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
+  const local=asArray(await dbRef.getAll("bills")).filter(x=>x&&typeof x==="object"),merged=new Map(cloud.filter(x=>x&&x.id).map(x=>[x.id,x]));
+  if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
   for(const item of local)if(pendingIds.has(item.id))merged.set(item.id,item);
   savedBills=[...merged.values()].sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();setHistoryLoading(false);
  },err=>{console.warn("Billing history:",err);localDB.getAll("bills").then(items=>{savedBills=items.sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));renderBillingHistory();$("billingHistoryList").insertAdjacentHTML("afterbegin",'<p class="message">Cloud unavailable — showing locally saved bills.</p>');setHistoryLoading(false);});});
