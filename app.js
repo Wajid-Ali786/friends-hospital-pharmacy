@@ -31,7 +31,7 @@ function notify(message,type="success",duration=3600){
  bar.addEventListener("animationend",dismiss);node.addEventListener("mouseenter",pause);node.addEventListener("mouseleave",resume);node.addEventListener("focusin",pause);node.addEventListener("focusout",resume);close.onclick=dismiss;resume();
 }
 
-let modalNode=null,modalPlaceholder=null,modalKind="",billSearchActiveIndex=-1;
+let modalNode=null,modalPlaceholder=null,modalKind="",billSearchActiveIndex=-1,refundSearchActiveIndex={return:-1,new:-1};
 function openAppModal(node,title,subtitle="",kind="content"){
  if(!node)return;
  if(modalNode)closeAppModal();
@@ -269,14 +269,14 @@ function openCustomItemForm(){
  const quantityButton=document.createElement("button");quantityButton.type="button";quantityButton.className="custom-item-type-option";quantityButton.textContent="By quantity";
  type.append(fixedButton,quantityButton);
  const amountLabel=document.createElement("label");amountLabel.className="custom-item-field";amountLabel.textContent="Total amount";
- const amount=document.createElement("input");amount.type="number";amount.min="0.01";amount.step="0.01";amount.placeholder="Rs. 500";amount.required=true;amountLabel.append(amount);
+ const amount=document.createElement("input");amount.type="number";amount.min="0.01";amount.step="1";amount.placeholder="Rs. 500";amount.required=true;amountLabel.append(amount);
  const details=document.createElement("div");details.className="custom-item-quantity-fields hidden";
  const qtyLabel=document.createElement("label");qtyLabel.textContent="Quantity";
  const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value="1";qty.required=true;qtyLabel.append(qty);
  const unitLabel=document.createElement("label");unitLabel.textContent="Unit";
  const unit=document.createElement("select");UNIT_OPTIONS.forEach(value=>{const option=document.createElement("option");option.value=value;option.textContent=value;unit.append(option);});unit.value="Piece";unitLabel.append(unit);
  const priceLabel=document.createElement("label");priceLabel.textContent="Price per unit";
- const price=document.createElement("input");price.type="number";price.min="0.01";price.step="0.01";price.placeholder="Rs. 250";price.required=true;priceLabel.append(price);
+ const price=document.createElement("input");price.type="number";price.min="0.01";price.step="1";price.placeholder="Rs. 250";price.required=true;priceLabel.append(price);
  details.append(qtyLabel,unitLabel,priceLabel);
  const actions=document.createElement("div");actions.className="modal-actions custom-item-actions";
  const cancel=document.createElement("button");cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";
@@ -605,16 +605,16 @@ function addRefundMedicine(target,medicine){
 }
 function renderRefundSearch(kind,query=""){
  const root=$(kind==="return"?"refundReturnResults":"refundNewResults");root.replaceChildren();
- const q=String(query||"").trim();if(!q)return;
+ const q=String(query||"").trim();refundSearchActiveIndex[kind]=-1;if(!q)return;
  const matches=medicines.filter(m=>medicineMatches(m,q)).sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),undefined,{sensitivity:"base",numeric:true})).slice(0,8);
  if(!matches.length){const empty=document.createElement("p");empty.className="refund-search-empty";empty.textContent="No matching medicine found.";root.append(empty);return;}
  matches.forEach(m=>{
-  const button=document.createElement("button");button.type="button";button.className="refund-search-option";
+  const button=document.createElement("button");button.type="button";button.className="refund-search-option";button.setAttribute("role","option");button.setAttribute("aria-selected","false");
   const name=document.createElement("span");name.textContent=m.name;
   const meta=document.createElement("small");meta.textContent=(m.unit||"Tablet")+" · "+medicinePriceText(m.price);
   const add=document.createElement("b");add.textContent="+";
   button.append(name,meta,add);
-  button.onclick=()=>{addRefundMedicine(kind==="return"?refundReturns:refundPurchases,m);$(kind==="return"?"refundReturnSearch":"refundNewSearch").value="";root.replaceChildren();};
+  button.onclick=()=>{addRefundMedicine(kind==="return"?refundReturns:refundPurchases,m);$(kind==="return"?"refundReturnSearch":"refundNewSearch").value="";root.replaceChildren();refundSearchActiveIndex[kind]=-1;};
   root.append(button);
  });
 }
@@ -627,7 +627,7 @@ function renderRefundLines(kind){
   const name=document.createElement("b");name.textContent=line.name;const unit=document.createElement("small");unit.textContent=line.unit;description.append(name,unit);
   const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value=String(line.quantity);qty.className="refund-qty";qty.setAttribute("aria-label","Quantity for "+line.name);
   qty.onchange=()=>{line.quantity=Math.max(1,Math.floor(Number(qty.value)||1));renderRefundWorkspace();persistRefundDraft().catch(console.warn);};
-  const price=document.createElement("input");price.type="number";price.min="0";price.step="0.01";price.value=String(line.unitPrice);price.className="refund-price";price.readOnly=!isReturn;price.title=isReturn?"Confirm the price originally paid for this returned medicine":"Current medicine price";price.setAttribute("aria-label","Unit price for "+line.name);
+  const price=document.createElement("input");price.type="number";price.min="0";price.step="1";price.value=String(line.unitPrice);price.className="refund-price";price.readOnly=!isReturn;price.title=isReturn?"Confirm the price originally paid for this returned medicine":"Current medicine price";price.setAttribute("aria-label","Unit price for "+line.name);
   if(isReturn)price.onchange=()=>{line.unitPrice=Math.max(0,Number(price.value)||0);renderRefundWorkspace();persistRefundDraft().catch(console.warn);};
   const total=document.createElement("strong");total.className="refund-line-total";total.textContent=refundMoney(refundLineTotal(line));
   const remove=document.createElement("button");remove.type="button";remove.className="refund-remove";remove.textContent="×";remove.setAttribute("aria-label","Remove "+line.name);remove.onclick=()=>{items.splice(index,1);renderRefundWorkspace();persistRefundDraft().catch(console.warn);};
@@ -678,6 +678,18 @@ function clearRefundWorkspace(){
 }
 $("refundReturnSearch").oninput=e=>renderRefundSearch("return",e.target.value);
 $("refundNewSearch").oninput=e=>renderRefundSearch("new",e.target.value);
+[["return","refundReturnSearch","refundReturnResults"],["new","refundNewSearch","refundNewResults"]].forEach(([kind,inputId,listId])=>{
+ $(inputId).addEventListener("keydown",e=>{
+  if(!["ArrowDown","ArrowUp","Enter"].includes(e.key))return;
+  const options=[...$(listId).querySelectorAll(".refund-search-option")];if(!options.length)return;
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+   e.preventDefault();const step=e.key==="ArrowDown"?1:-1;
+   refundSearchActiveIndex[kind]=refundSearchActiveIndex[kind]<0?(step>0?0:options.length-1):(refundSearchActiveIndex[kind]+step+options.length)%options.length;
+   options.forEach((row,index)=>{const active=index===refundSearchActiveIndex[kind];row.classList.toggle("keyboard-active",active);row.setAttribute("aria-selected",String(active));});
+   options[refundSearchActiveIndex[kind]].scrollIntoView({block:"nearest",behavior:"auto"});
+  }else{e.preventDefault();options[refundSearchActiveIndex[kind]<0?0:refundSearchActiveIndex[kind]]?.click();}
+ });
+});
 ["refundPatientName","refundTokenNumber"].forEach(id=>$(id).addEventListener("input",()=>{renderRefundWorkspace();persistRefundDraft().catch(console.warn);}));
 $("saveRefund").onclick=saveRefundTransaction;$("clearRefund").onclick=clearRefundWorkspace;
 
