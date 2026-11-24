@@ -89,7 +89,7 @@ function setupRecoveryAdmin(user){
   recoveryAdminUnsubscribe=onSnapshot(collection(db,"editModeRecoveryRequests"),snap=>{const count=$("recoveryAdminCount");if(count)count.textContent=String(snap.size);if(bell){bell.title=snap.size+" pending recovery request"+(snap.size===1?"":"s");bell.style.background=snap.size?"#dff3e6":"#edf5f0";}},err=>console.warn("Recovery notifications unavailable:",err));
  }else{if(bell)bell.remove();if(link)link.remove();if(recoveryAdminUnsubscribe){recoveryAdminUnsubscribe();recoveryAdminUnsubscribe=null;}}
 }
-function status(){ $("connection").textContent=navigator.onLine?"● Online / Firebase sync":"● Offline / Local mode"; }
+function status(){ $("connection").textContent=syncBlocked?"● Cloud sync paused":navigator.onLine?"● Online / Firebase sync":"● Offline / Local mode"; }
 window.addEventListener("online",status);window.addEventListener("offline",status);status();
 async function cacheAll(){const tx=localDB.transaction("medicines","readwrite");await tx.store.clear();for(const m of medicines)await tx.store.put(m);await tx.done;}
 async function queueChange(id,type,data=null,collectionName="medicines"){const key=collectionName+":"+id;await localDB.put("pending",{id:key,targetId:id,collectionName,type,data,queuedAt:Date.now(),revision:crypto.randomUUID()});}
