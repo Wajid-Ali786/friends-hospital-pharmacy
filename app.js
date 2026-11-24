@@ -1096,12 +1096,30 @@ $("changeMedicineImage").onclick=()=>{if(!medicineModeEnabled)return;$("medicine
 $("medicineImage").onchange=()=>{const file=$("medicineImage").files?.[0];if(!file){const existing=medicines.find(m=>m.id===$("medicineId").value);if(existing?.image)showMedicineImagePreview(existing.image);else resetMedicineImagePreview();return;}if(!file.type.startsWith("image/")){alert("Please select a valid image.");$("medicineImage").value="";return;}if(file.size>8*1024*1024){alert("Image must be 8 MB or smaller.");$("medicineImage").value="";return;}const reader=new FileReader();reader.onload=()=>{medicineImageRotation=0;medicineImageCrop=false;showMedicineImagePreview(reader.result);openMedicineImageEditor();};reader.readAsDataURL(file);};
 $("saveName").onclick=async()=>{if(!currentUser)return;try{await updateProfile(currentUser,{displayName:$("displayName").value.trim()});$("userLabel").textContent=$("displayName").value.trim()||currentUser.email;notify("Display name updated","success");}catch(err){notify("Could not update display name: "+err.message,"error",5200);}};
 function backupImageCount(items){let count=0;for(const m of asArray(items)){if(typeof m?.image==="string"&&m.image)count++;for(const p of asArray(m?.packagings))if(typeof p?.image==="string"&&p.image)count++;}return count;}
+async function portableBackupImage(value){
+ if(typeof value!=="string"||!value||value.startsWith("data:")||!value.includes("firebasestorage.googleapis.com"))return value||"";
+ const response=await fetch(value);if(!response.ok)throw Error("A Firebase image could not be included in the backup (HTTP "+response.status+"). Keep the old backup and retry.");
+ const blob=await response.blob();if(blob.size>8*1024*1024)throw Error("An image is larger than the 8 MB upload limit.");
+ const bytes=new Uint8Array(await blob.arrayBuffer());let binary="";
+ for(let offset=0;offset<bytes.length;offset+=0x8000)binary+=String.fromCharCode(...bytes.subarray(offset,offset+0x8000));
+ return "data:"+(blob.type||"image/png")+";base64,"+btoa(binary);
+}
+async function makePortableBackupMedicines(items){
+ const result=[];
+ for(const source of items){
+  const medicine={...source,image:await portableBackupImage(source.image)};
+  if(Array.isArray(source.packagings)){medicine.packagings=[];for(const pack of source.packagings)medicine.packagings.push({...pack,image:await portableBackupImage(pack?.image)});}
+  result.push(medicine);
+ }
+ return result;
+}
 $("exportData").onclick=async()=>{
  try{
   if(!currentUser||!localDB)throw Error("Please sign in before exporting.");
   const [allMedicines,allBills]=await Promise.all([localDB.getAll("medicines"),localDB.getAll("bills")]);
   const validMedicines=allMedicines.filter(x=>x&&x.id&&x.name),validBills=allBills.filter(x=>x&&x.id&&x.receiptNumber);
-  const backup={version:3,exportedAt:new Date().toISOString(),ownerUid:currentUser.uid,manifest:{medicineCount:validMedicines.length,billCount:validBills.length,imageCount:backupImageCount(validMedicines)},medicines:validMedicines,bills:validBills};
+  const portableMedicines=await makePortableBackupMedicines(validMedicines);
+  const backup={version:3,exportedAt:new Date().toISOString(),ownerUid:currentUser.uid,manifest:{medicineCount:portableMedicines.length,billCount:validBills.length,imageCount:backupImageCount(portableMedicines)},medicines:portableMedicines,bills:validBills};
   const serialized=JSON.stringify(backup),verified=JSON.parse(serialized);
   if(verified.medicines.length!==backup.manifest.medicineCount||verified.bills.length!==backup.manifest.billCount||backupImageCount(verified.medicines)!==backup.manifest.imageCount)throw Error("Backup verification failed. No file was exported.");
   const blob=new Blob([JSON.stringify(verified,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");
