@@ -93,6 +93,11 @@ function status(){ $("connection").textContent=syncBlocked?"● Cloud sync pause
 window.addEventListener("online",status);window.addEventListener("offline",status);status();
 async function cacheAll(){const tx=localDB.transaction("medicines","readwrite");await tx.store.clear();for(const m of medicines)await tx.store.put(m);await tx.done;}
 async function queueChange(id,type,data=null,collectionName="medicines"){const key=collectionName+":"+id;await localDB.put("pending",{id:key,targetId:id,collectionName,type,data,queuedAt:Date.now(),revision:crypto.randomUUID()});}
+async function reportQueuedWrite(id,collectionName,label){
+ if(!navigator.onLine){notify(label+" saved on this device; waiting for internet to sync","info",4200);return;}
+ try{await flushQueue();const pending=await localDB?.get("pending",collectionName+":"+id);notify(pending?label+" saved locally; Firebase sync is still pending":label+" synced successfully",pending?"warning":"success",4200);}
+ catch(err){console.warn(label+" sync pending:",err);notify(label+" saved locally; cloud sync will retry when available","warning",4200);}
+}
 async function flushQueue(){if(!currentUser||!navigator.onLine||!localDB||syncBlocked)return;if(syncPromise&&syncOwnerUid!==currentUser.uid)await syncPromise.catch(()=>{});if(syncPromise)return syncPromise;const ownerUid=currentUser.uid,dbRef=localDB;syncOwnerUid=ownerUid;syncPromise=(async()=>{const epochSnap=await getDoc(doc(db,"users",ownerUid));const cloudEpoch=epochSnap.data()?.dataEpoch;if(!cloudEpoch||cloudEpoch!==accountEpoch){if(localDB===dbRef&&currentUser?.uid===ownerUid){await clearAccountLocalData(dbRef,cloudEpoch||"");resetAccountMemory();accountEpoch=cloudEpoch||"";}return;}const jobs=(await dbRef.getAll("pending")).sort((a,b)=>a.queuedAt-b.queuedAt);for(const job of jobs){if(!navigator.onLine||!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)break;const group=job.collectionName||"medicines",targetId=job.targetId||job.id;try{const target=doc(db,"users",ownerUid,group,targetId);if(group==="bills"){const existing=await getDoc(target);if(job.type==="delete"){if(existing.exists())await deleteDoc(target);}else if(existing.exists()){await setDoc(target,{...job.data,createdAt:existing.data().createdAt||serverTimestamp()});}else{await setDoc(target,{...job.data,createdAt:serverTimestamp()});}}else if(group==="medicines"){if(job.type==="delete")await deleteDoc(target);else{let cloudMedicine={...job.data};if(Array.isArray(cloudMedicine.packagings)){for(const pack of cloudMedicine.packagings){if(typeof pack.image==="string"&&pack.image.startsWith("data:")){const imageRef=ref(storage,"users/"+ownerUid+"/medicines/"+targetId+"/packagings/"+pack.id+".png");await uploadString(imageRef,pack.image,"data_url");pack.image=await getDownloadURL(imageRef);}}const current=cloudMedicine.packagings.find(p=>p.isCurrent);if(current)cloudMedicine.image=current.image||"";}if(typeof cloudMedicine.image==="string"&&cloudMedicine.image.startsWith("data:")){const imageRef=ref(storage,"users/"+ownerUid+"/medicines/"+targetId+".png");await uploadString(imageRef,cloudMedicine.image,"data_url");cloudMedicine.image=await getDownloadURL(imageRef);}if(localDB===dbRef){const latest=await dbRef.get("pending",job.id);if(latest&&(latest.revision||latest.queuedAt)===(job.revision||job.queuedAt))await dbRef.put("medicines",cloudMedicine);}await setDoc(target,cloudMedicine);}}else{if(job.type==="delete")await deleteDoc(target);else await setDoc(target,job.data);}if(localDB===dbRef&&currentUser?.uid===ownerUid){const latest=await dbRef.get("pending",job.id);if(latest&&(latest.revision||latest.queuedAt)===(job.revision||job.queuedAt))await dbRef.delete("pending",job.id);}}catch(err){console.warn("Sync will retry:",err);if(err?.code==="permission-denied"){
  if(group==="bills"&&job.type==="delete"){
   try{
@@ -489,7 +494,7 @@ async function saveMedicine(e){
  const m={id,name:$("medicineName").value.trim(),tags:[...new Set($("medicineTags").value.split(",").map(x=>x.trim()).filter(Boolean))],roundingAllowed:$("roundingAllowed").checked,unit:current?.unit||unit,price:current?Number(current.price)||0:price,image:current?.image||old?.image||"",packagings:packs,createdAt:Number(current?.createdAt)||Number(current?.updatedAt)||Date.now(),updatedAt:Date.now()};
  if(!m.name)return;medicines=medicines.filter(x=>x.id!==id).concat(m);await localDB.put("medicines",m);await queueChange(id,"set",m);
  renderMedicines($("medicineSearch").value);$("medicineForm").reset();$("medicineId").value="";resetMedicineImagePreview();$("medicineForm").querySelector('button[type="submit"]').textContent="Save medicine";closeAppModal();show("medicineForm",false);
- notify(old?"Medicine updated successfully":"Medicine saved successfully","success");if(navigator.onLine)syncOnline();
+ await reportQueuedWrite(id,"medicines",old?"Medicine updated":"Medicine saved");
 }
 function renderMedicinePackagings(m){
  const root=$("medicinePackagings");if(!root)return;root.replaceChildren();const packs=asArray(m?.packagings).filter(p=>p&&!p.isCurrent);
@@ -505,7 +510,7 @@ function renderMedicinePackagings(m){
   actions.append(use,del);info.append(name,meta,actions);card.append(img,info);root.append(card);
  });
 }
-async function persistMedicinePackingChange(m,message){m.updatedAt=Date.now();medicines=medicines.map(x=>x.id===m.id?m:x);await localDB.put("medicines",m);await queueChange(m.id,"set",m);$("medicineUnit").value=m.unit;$("medicinePrice").value=m.price;if(m.image)showMedicineImagePreview(m.image);else resetMedicineImagePreview();renderMedicinePackagings(m);renderMedicines($("medicineSearch").value);notify(message,"success");if(navigator.onLine)syncOnline();}
+async function persistMedicinePackingChange(m,message){m.updatedAt=Date.now();medicines=medicines.map(x=>x.id===m.id?m:x);await localDB.put("medicines",m);await queueChange(m.id,"set",m);$("medicineUnit").value=m.unit;$("medicinePrice").value=m.price;if(m.image)showMedicineImagePreview(m.image);else resetMedicineImagePreview();renderMedicinePackagings(m);renderMedicines($("medicineSearch").value);await reportQueuedWrite(m.id,"medicines",message);}
 
 function editMedicine(m){
  if(!medicineModeEnabled)return;
@@ -520,7 +525,7 @@ async function removeMedicine(id){
  if(!await confirmAction("Delete medicine","Are you sure you want to delete this medicine?","Delete medicine"))return;
  medicines=medicines.filter(m=>m.id!==id);await localDB.delete("medicines",id);
  await queueChange(id,"delete");renderMedicines($("medicineSearch").value);
- notify("Medicine deleted successfully","success");if(navigator.onLine)syncOnline();
+ await reportQueuedWrite(id,"medicines","Medicine deleted");
 }
 function startCloudSync(user){
  if(unsubscribe)unsubscribe();
