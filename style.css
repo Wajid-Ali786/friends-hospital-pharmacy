@@ -746,3 +746,40 @@ button:has(.ui-icon):not(.hidden){display:inline-flex;align-items:center;justify
 @media(max-width:600px){.refund-workspace{padding:15px}.refund-workspace-heading{align-items:flex-start}.refund-patient-fields{grid-template-columns:1fr;gap:10px;padding:12px}.refund-line{align-items:flex-start;flex-direction:column;gap:8px}.refund-line-pricing{width:100%;justify-content:flex-end}.refund-actions{display:grid;grid-template-columns:1fr 1.4fr}.refund-actions button{min-width:0}.billing-mode-tab{padding:9px 8px}.billing-mode-tab span{font-size:11px}.billing-mode-tab small{font-size:9px}}
 
 .refund-price-note{margin:7px 0 8px;color:var(--muted);font-size:10px;line-height:1.45}.history-row>strong.history-refund-out{color:#a45b50}.history-row>strong.history-refund-in{color:#28724e}
+
+/* Refund workspace: compact two-column transaction layout */
+#refundPage{max-width:1180px}
+#refundWorkspace.refund-workspace{max-width:none;width:100%;padding:0;border:0;background:transparent;box-shadow:none}
+.refund-workspace-heading{margin:0 0 15px;align-items:center}
+.refund-workspace-heading h3{font-size:19px;margin:0 0 3px}
+.refund-workspace-heading .small-text{font-size:11px;color:var(--muted);margin:0}
+.refund-rate-pill{flex:0 0 auto;padding:7px 11px;border-radius:9px;background:#edf5ef;color:#2d6848;font-size:11px;font-weight:750}
+.refund-patient-fields{grid-template-columns:minmax(0,1.5fr) minmax(170px,.65fr);gap:12px;padding:13px 15px;margin:0 0 15px;background:#fff;border:1px solid #e5ece7;border-radius:13px;box-shadow:0 3px 12px rgba(27,62,43,.035)}
+.refund-layout{display:grid;grid-template-columns:minmax(0,1fr) 310px;align-items:start;gap:15px}
+.refund-main-column{display:grid;gap:13px;min-width:0}
+.refund-section{padding:16px;background:#fff;border:1px solid #e5ece7;border-radius:13px;box-shadow:0 3px 12px rgba(27,62,43,.035)}
+.refund-section-heading{margin-bottom:10px}
+.refund-section-heading>div{display:block}
+.refund-section-heading h4,.refund-calculation-heading h4{font-size:13px}
+.refund-section-heading p{font-size:10px;margin-top:3px}
+.refund-section-total{font-size:13px}
+.refund-step{display:none}
+.refund-search{max-width:none;width:100%;min-height:41px;background:#fbfdfb}
+.refund-price-note{margin:7px 0 2px;color:#829087;font-size:10px}
+.refund-search-results{gap:5px}
+.refund-search-option{padding:9px 11px}
+.refund-lines:empty{display:none}
+.refund-line:last-child{border-bottom:0}
+.refund-side-column{position:sticky;top:18px;min-width:0}
+.refund-calculation{margin:0;padding:17px;background:#fff;border:1px solid #e2ebe4;border-radius:13px;box-shadow:0 5px 18px rgba(27,62,43,.055)}
+.refund-calculation-heading{margin-bottom:11px;padding-bottom:10px;border-bottom:1px solid #edf1ee}
+.refund-calculation-heading span{font-size:9px}
+.refund-summary-row{padding:8px 0;font-size:11px}
+.refund-net-row{margin-top:11px;padding:14px 12px}
+.refund-net-row>strong{font-size:20px}
+.refund-message{min-height:0;margin:8px 2px 0}
+.refund-actions{display:grid;grid-template-columns:.8fr 1.5fr;gap:8px;margin-top:10px}
+.refund-actions button{min-width:0;min-height:43px;padding:10px 8px;font-size:12px}
+@media(max-width:900px){.refund-layout{grid-template-columns:minmax(0,1fr) 285px;gap:12px}}
+@media(max-width:720px){.refund-layout{grid-template-columns:1fr}.refund-side-column{position:static}.refund-patient-fields{grid-template-columns:1fr 1fr}.refund-section{padding:13px}.refund-workspace-heading{margin-bottom:12px}}
+@media(max-width:480px){.refund-patient-fields{grid-template-columns:1fr}.refund-workspace-heading{align-items:flex-start}.refund-rate-pill{font-size:10px;padding:6px 8px}.refund-line{align-items:flex-start;flex-direction:column;gap:8px}.refund-line-pricing{width:100%;justify-content:flex-end}}
