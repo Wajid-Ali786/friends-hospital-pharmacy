@@ -18,7 +18,18 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['dataEpoch', 'dataEpochUpdatedAt'])
         && request.resource.data.dataEpoch is string
         && request.resource.data.dataEpochUpdatedAt == request.time;
-      allow list, update, delete: if false;
+
+      // Allow one-time epoch initialization on an older account document,
+      // without permitting changes to any pre-existing account fields.
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && !resource.data.keys().hasAny(['dataEpoch'])
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['dataEpoch', 'dataEpochUpdatedAt'])
+        && request.resource.data.dataEpoch is string
+        && request.resource.data.dataEpochUpdatedAt == request.time;
+
+      allow list, delete: if false;
     }
 
     // Medicines
