@@ -96,10 +96,19 @@ function setupRecoveryAdmin(user){
   recoveryAdminUnsubscribe=onSnapshot(collection(db,"editModeRecoveryRequests"),snap=>{const count=$("recoveryAdminCount");if(count)count.textContent=String(snap.size);if(bell){bell.title=snap.size+" pending recovery request"+(snap.size===1?"":"s");bell.style.background=snap.size?"#dff3e6":"#edf5f0";}},err=>console.warn("Recovery notifications unavailable:",err));
  }else{if(bell)bell.remove();if(link)link.remove();if(recoveryAdminUnsubscribe){recoveryAdminUnsubscribe();recoveryAdminUnsubscribe=null;}}
 }
-function status(){ $("connection").textContent=syncBlocked?"● Cloud sync paused":navigator.onLine?"● Online / Firebase sync":"● Offline / Local mode"; }
+function status(){ $("connection").textContent=syncBlocked?"● Cloud sync paused":navigator.onLine?"● Online / Firebase sync":"● Offline / Local mode";updatePendingPanel(); }
+async function updatePendingPanel(){
+ const countNode=$("pendingSyncCount"),listNode=$("pendingSyncList"),retry=$("retryPendingSync");if(!countNode||!listNode||!localDB)return;
+ try{const jobs=await localDB.getAll("pending");countNode.textContent=String(jobs.length);listNode.replaceChildren();
+  if(!jobs.length){const empty=document.createElement("p");empty.className="muted small-text";empty.textContent="No pending records. Everything is up to date.";listNode.append(empty);}
+  else{for(const job of jobs.slice(0,30)){const row=document.createElement("div");row.className="pending-sync-row";const label=document.createElement("span");const group=job.collectionName==="bills"?"Bill":"Medicine";label.textContent=group+" · "+(job.data?.name||job.data?.receiptNumber||job.targetId||job.id);const state=document.createElement("b");state.textContent="Pending";row.append(label,state);listNode.append(row);}if(jobs.length>30){const more=document.createElement("p");more.className="muted small-text";more.textContent="And "+(jobs.length-30)+" more pending records.";listNode.append(more);}}
+  if(retry)retry.disabled=!jobs.length||!navigator.onLine||syncBlocked;
+ }catch(err){console.warn("Pending queue display:",err);}
+}
+$("retryPendingSync")?.addEventListener("click",async()=>{const btn=$("retryPendingSync");btn.disabled=true;try{syncBlocked=false;syncNotice="";status();await syncOnline();await flushQueue();await updatePendingPanel();const left=await localDB.getAll("pending");const line=left.length?left.length+" record(s) are still pending.":"All pending records synced successfully.";const node=$("importStatus");if(node){node.textContent=line;node.className="message "+(left.length?"warning":"success");}notify(line,left.length?"warning":"success",8000);}catch(err){console.error("Manual sync retry:",err);notify("Sync retry failed: "+(err?.message||"Unknown error"),"error",9000);}finally{await updatePendingPanel();}});
 window.addEventListener("online",status);window.addEventListener("offline",status);status();
 async function cacheAll(){const tx=localDB.transaction("medicines","readwrite");for(const m of medicines)if(m&&m.id)await tx.store.put(m);await tx.done;}
-async function queueChange(id,type,data=null,collectionName="medicines"){const key=collectionName+":"+id;await localDB.put("pending",{id:key,targetId:id,collectionName,type,data,queuedAt:Date.now(),revision:crypto.randomUUID()});}
+async function queueChange(id,type,data=null,collectionName="medicines"){const key=collectionName+":"+id;await localDB.put("pending",{id:key,targetId:id,collectionName,type,data,queuedAt:Date.now(),revision:crypto.randomUUID()});updatePendingPanel();}
 async function reportQueuedWrite(id,collectionName,label){
  if(!navigator.onLine){notify(label+" saved on this device; waiting for internet to sync","info",4200);return;}
  try{await flushQueue();const pending=await localDB?.get("pending",collectionName+":"+id);notify(pending?label+" saved locally; Firebase sync is still pending":label+" synced successfully",pending?"warning":"success",4200);}
@@ -117,7 +126,7 @@ async function flushQueue(){if(!currentUser||!navigator.onLine||!localDB||syncBl
   continue;
  }
  syncBlocked=true;syncNotice="Cloud sync is blocked by Firebase permissions. Pending data is preserved locally; check Firebase rules and configuration.";status();break;
-}break;}}})().finally(()=>{syncPromise=null;syncOwnerUid=null;if(syncRetryTimer){clearTimeout(syncRetryTimer);syncRetryTimer=null;}if(!syncBlocked&&currentUser?.uid===ownerUid&&navigator.onLine&&localDB===dbRef){dbRef.getAll("pending").then(jobs=>{if(jobs.length){const delay=syncRetryDelay;syncRetryDelay=Math.min(syncRetryDelay*2,60000);syncRetryTimer=setTimeout(()=>{if(currentUser?.uid===ownerUid&&navigator.onLine)syncOnline().catch(err=>console.warn("Scheduled sync retry:",err));},delay);}else syncRetryDelay=5000;}).catch(err=>console.warn("Could not inspect pending sync queue:",err));}});return syncPromise;}
+}break;}}})().finally(()=>{syncPromise=null;syncOwnerUid=null;updatePendingPanel();if(syncRetryTimer){clearTimeout(syncRetryTimer);syncRetryTimer=null;}if(!syncBlocked&&currentUser?.uid===ownerUid&&navigator.onLine&&localDB===dbRef){dbRef.getAll("pending").then(jobs=>{if(jobs.length){const delay=syncRetryDelay;syncRetryDelay=Math.min(syncRetryDelay*2,60000);syncRetryTimer=setTimeout(()=>{if(currentUser?.uid===ownerUid&&navigator.onLine)syncOnline().catch(err=>console.warn("Scheduled sync retry:",err));},delay);}else syncRetryDelay=5000;}).catch(err=>console.warn("Could not inspect pending sync queue:",err));}});return syncPromise;}
 async function syncOnline(){if(!currentUser||!navigator.onLine)return;if(!accountEpoch&&localDB)await ensureAccountEpoch(currentUser.uid,localDB);await flushQueue();if(!unsubscribe&&!syncBlocked)startCloudSync(currentUser);}
 window.addEventListener("online",()=>{status();syncRetryDelay=5000;syncOnline().catch(err=>console.warn("Online sync:",err));});
 window.addEventListener("pageshow",()=>{if(navigator.onLine)syncOnline().catch(err=>console.warn("Page-show sync:",err));});
@@ -1113,30 +1122,70 @@ async function makePortableBackupMedicines(items){
  }
  return result;
 }
-$("exportData").onclick=async()=>{
- try{
-  if(!currentUser||!localDB)throw Error("Please sign in before exporting.");
-  const [allMedicines,allBills]=await Promise.all([localDB.getAll("medicines"),localDB.getAll("bills")]);
-  const validMedicines=allMedicines.filter(x=>x&&x.id&&x.name),validBills=allBills.filter(x=>x&&x.id&&x.receiptNumber);
-  const portableMedicines=await makePortableBackupMedicines(validMedicines);
-  const backup={version:3,exportedAt:new Date().toISOString(),ownerUid:currentUser.uid,manifest:{medicineCount:portableMedicines.length,billCount:validBills.length,imageCount:backupImageCount(portableMedicines)},medicines:portableMedicines,bills:validBills};
-  const serialized=JSON.stringify(backup),verified=JSON.parse(serialized);
-  if(verified.medicines.length!==backup.manifest.medicineCount||verified.bills.length!==backup.manifest.billCount||backupImageCount(verified.medicines)!==backup.manifest.imageCount)throw Error("Backup verification failed. No file was exported.");
-  const blob=new Blob([JSON.stringify(verified,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");
-  a.href=url;a.download="friends-pharmacy-backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);
-  notify("Verified backup: "+validMedicines.length+" medicines, "+backup.manifest.imageCount+" images, "+validBills.length+" bills.","success",6000);
- }catch(err){console.error("Backup export failed:",err);notify("Backup export failed: "+(err?.message||"Unknown error"),"error",5200);}
-};
+function backupChoice(title,description,choices){
+ return new Promise(resolve=>{
+  const wrap=document.createElement("div");wrap.className="backup-choice-dialog";
+  const intro=document.createElement("p");intro.className="muted small-text";intro.textContent=description;wrap.append(intro);
+  const actions=document.createElement("div");actions.className="modal-actions";
+  for(const choice of choices){const btn=document.createElement("button");btn.type="button";btn.className=choice.primary?"primary":"secondary";btn.textContent=choice.label;btn.onclick=()=>{closeAppModal();resolve(choice.value);};actions.append(btn);}
+  const cancel=document.createElement("button");cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";cancel.onclick=()=>{closeAppModal();resolve(null);};
+  wrap.append(actions,cancel);openAppModal(wrap,title,"Choose what to "+(title.toLowerCase().includes("export")?"export":"import"),"content");
+ });
+}
+async function exportBackup(){
+ if(!currentUser||!localDB)throw Error("Please sign in before exporting.");
+ const mode=await backupChoice("Export backup","Choose complete backup, all medicines only, or select individual medicines.",[
+  {label:"Complete data",value:"all",primary:true},{label:"All medicines only",value:"medicines"},{label:"Select medicines",value:"selected"}
+ ]);
+ if(!mode)return;
+ const allMedicines=(await localDB.getAll("medicines")).filter(x=>x&&x.id&&x.name);
+ const allBills=(await localDB.getAll("bills")).filter(x=>x&&x.id&&x.receiptNumber);
+ let chosen=allMedicines;
+ if(mode==="selected"){
+  const wrap=document.createElement("div");wrap.className="backup-medicine-picker";
+  const search=document.createElement("input");search.type="search";search.placeholder="Search medicines";search.className="backup-picker-search";
+  const list=document.createElement("div");list.className="backup-picker-list";
+  const checks=[];
+  for(const medicine of allMedicines){const label=document.createElement("label");label.className="backup-picker-row";const input=document.createElement("input");input.type="checkbox";input.value=medicine.id;input.checked=true;const name=document.createElement("span");name.textContent=medicine.name;label.append(input,name);list.append(label);checks.push({label,input,name});}
+  search.oninput=()=>{const q=search.value.trim().toLowerCase();for(const item of checks)item.label.hidden=!item.name.textContent.toLowerCase().includes(q);};
+  const top=document.createElement("div");top.className="backup-picker-actions";
+  const selectAll=document.createElement("button");selectAll.type="button";selectAll.className="secondary";selectAll.textContent="Select all";selectAll.onclick=()=>checks.forEach(x=>x.input.checked=true);
+  const selectNone=document.createElement("button");selectNone.type="button";selectNone.className="secondary";selectNone.textContent="Clear";selectNone.onclick=()=>checks.forEach(x=>x.input.checked=false);
+  top.append(selectAll,selectNone);wrap.append(search,top,list);
+  const actions=document.createElement("div");actions.className="modal-actions";
+  const cancel=document.createElement("button");cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";
+  const save=document.createElement("button");save.type="button";save.className="primary";save.textContent="Export selected";
+  const result=await new Promise(resolve=>{cancel.onclick=()=>{closeAppModal();resolve(null);};save.onclick=()=>{const ids=new Set(checks.filter(x=>x.input.checked).map(x=>x.input.value));closeAppModal();resolve(allMedicines.filter(x=>ids.has(x.id)));};actions.append(cancel,save);wrap.append(actions);openAppModal(wrap,"Select medicines","Choose the medicines to include in this file.","content");});
+  if(!result)return;chosen=result;
+ }
+ const portable=await makePortableBackupMedicines(chosen);
+ const includeBills=mode==="all";
+ const backup={format:"friends-pharmacy-backup",version:4,backupType:includeBills?"complete":mode==="selected"?"selected-medicines":"medicines-only",exportedAt:new Date().toISOString(),ownerUid:currentUser.uid,manifest:{medicineCount:portable.length,billCount:includeBills?allBills.length:0,imageCount:backupImageCount(portable)},medicines:portable,bills:includeBills?allBills:[]};
+ const verified=JSON.parse(JSON.stringify(backup));
+ if(verified.medicines.length!==backup.manifest.medicineCount||verified.bills.length!==backup.manifest.billCount||backupImageCount(verified.medicines)!==backup.manifest.imageCount)throw Error("Backup verification failed.");
+ const blob=new Blob([JSON.stringify(verified,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+ a.href=url;a.download="friends-pharmacy-"+backup.backupType+"-"+new Date().toISOString().slice(0,10)+".json";a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);
+ const line="Export complete: "+portable.length+" medicines, "+backup.manifest.imageCount+" images, "+backup.manifest.billCount+" bills.";
+ const node=$("importStatus");if(node){node.textContent=line;node.className="message success";}notify(line,"success",7000);
+}
+$("exportData").onclick=async()=>{const button=$("exportData");button.disabled=true;try{await exportBackup();}catch(err){console.error("Backup export failed:",err);const line="Export failed: "+(err?.message||"Unknown error");const node=$("importStatus");if(node){node.textContent=line;node.className="message error";}notify(line,"error",10000);}finally{button.disabled=false;}};
+
 
 let installPrompt=null;function updateInstallButton(){const installed=window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;show("installAppWrap",!!installPrompt&&!installed);}window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;updateInstallButton();});window.addEventListener("appinstalled",()=>{installPrompt=null;updateInstallButton();});$("installAppBtn").onclick=async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;updateInstallButton();};window.matchMedia("(display-mode: standalone)").addEventListener?.("change",updateInstallButton);if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(err=>console.warn("Service worker:",err)));updateInstallButton();
 $("importData").onchange=async e=>{
  const file=e.target.files?.[0];if(!file)return;
  const button=$("importData");button.disabled=true;
+ const statusNode=$("importStatus");
+ const showImportStatus=(line,type="success")=>{if(statusNode){statusNode.textContent=line;statusNode.className="message "+type;}notify(line,type,10000);};
  try{
-  if(!currentUser||!localDB)throw Error("Please sign in before importing a backup.");
+  if(!currentUser||!localDB)throw Error("Please sign in before importing.");
   const data=JSON.parse(await file.text());
-  if(!data||typeof data!=="object"||!Array.isArray(data.medicines))throw Error("Invalid backup file. Medicines data is missing.");
-  if(data.bills!==undefined&&!Array.isArray(data.bills))throw Error("Invalid backup file. Bills data is not a valid list.");
+  if(!data||typeof data!=="object"||!Array.isArray(data.medicines))throw Error("Invalid backup file: medicine list is missing.");
+  if(data.bills!==undefined&&!Array.isArray(data.bills))throw Error("Invalid backup file: bills list is invalid.");
+  const mode=await backupChoice("Import backup","Choose whether to restore all data in this file or medicines only.",[
+   {label:"Complete data",value:"all",primary:true},{label:"Medicines only",value:"medicines"}
+  ]);
+  if(!mode){showImportStatus("Import cancelled. No data was changed.","info");return;}
   const uid=currentUser.uid,dbRef=localDB;
   let importedMedicines=0,importedBills=0,rejected=0;
   const importedMedicineIds=[],importedBillIds=[];
@@ -1144,24 +1193,20 @@ $("importData").onchange=async e=>{
    if(!raw||!raw.id||!raw.name){rejected++;continue;}
    const medicine=normalizeMedicine({...raw,id:String(raw.id),name:String(raw.name).trim()});
    if(!medicine||!medicine.id||!medicine.name){rejected++;continue;}
-   await dbRef.put("medicines",medicine);
-   await queueChange(medicine.id,"set",medicine,"medicines");
+   await dbRef.put("medicines",medicine);await queueChange(medicine.id,"set",medicine,"medicines");
    importedMedicineIds.push(medicine.id);importedMedicines++;
   }
-  for(const raw of (data.bills||[])){
-   if(!raw||!raw.id||!raw.receiptNumber){rejected++;continue;}
-   const restored={...raw,id:String(raw.id),ownerUid:uid,createdAtMillis:Number(raw.createdAtMillis)||Date.now()};
-   await dbRef.put("bills",restored);
-   await queueChange(restored.id,"set",restored,"bills");
-   importedBillIds.push(restored.id);importedBills++;
-  }
-  if(importedBills){
-   const allBills=await dbRef.getAll("bills");
-   const maxNumber=allBills.reduce((max,item)=>Math.max(max,Number(String(item.receiptNumber||"").replace(/^B-/,""))||0),0);
-   await dbRef.put("meta",maxNumber,"billCounter");
+  if(mode==="all"){
+   for(const raw of (data.bills||[])){
+    if(!raw||!raw.id||!raw.receiptNumber){rejected++;continue;}
+    const restored={...raw,id:String(raw.id),ownerUid:uid,createdAtMillis:Number(raw.createdAtMillis)||Date.now()};
+    await dbRef.put("bills",restored);await queueChange(restored.id,"set",restored,"bills");
+    importedBillIds.push(restored.id);importedBills++;
+   }
+   if(importedBills){const allBills=await dbRef.getAll("bills");const maxNumber=allBills.reduce((max,item)=>Math.max(max,Number(String(item.receiptNumber||"").replace(/^B-/,""))||0),0);await dbRef.put("meta",maxNumber,"billCounter");}
   }
   medicines=await dbRef.getAll("medicines");
-  if(currentUser?.uid!==uid||localDB!==dbRef)throw Error("Account changed during import. Imported records remain saved locally; sign in again to continue.");
+  if(currentUser?.uid!==uid||localDB!==dbRef)throw Error("Account changed during import.");
   renderMedicines($("medicineSearch")?.value||"");
   if(navigator.onLine)await flushQueue();
   const remaining=await dbRef.getAll("pending");
@@ -1170,15 +1215,13 @@ $("importData").onchange=async e=>{
   const pendingMedicines=importedMedicineIds.filter(id=>pendingMedicineIds.has(id)).length;
   const pendingBills=importedBillIds.filter(id=>pendingBillIds.has(id)).length;
   const pendingTotal=pendingMedicines+pendingBills;
-  const imageCount=backupImageCount(data.medicines);
-  const summary="Import saved: "+importedMedicines+" medicines, "+imageCount+" images, "+importedBills+" bills"+(rejected?", "+rejected+" invalid record(s) skipped.":".");
-  const statusLine=summary+(pendingTotal?" Firebase sync pending for "+pendingTotal+" imported record(s).":" Firebase sync queue is clear.");const statusNode=$("importStatus");if(statusNode){statusNode.textContent=statusLine;statusNode.className="message "+(pendingTotal||rejected?"warning":"success");}notify(statusLine,pendingTotal||rejected?"warning":"success",9000);
+  const line="Import complete ("+(mode==="all"?"complete data":"medicines only")+"): "+importedMedicines+" medicines, "+backupImageCount(data.medicines)+" images, "+importedBills+" bills imported. "+(pendingTotal?pendingTotal+" record(s) pending Firebase sync.":"All imported records synced or no sync was required.")+(rejected?" "+rejected+" invalid record(s) skipped.":"");
+  showImportStatus(line,pendingTotal||rejected?"warning":"success");
+  await updatePendingPanel();
  }catch(err){
   console.error("Backup import failed:",err);
-  const errorLine="Import issue: "+(err?.message||"Unknown error")+". Any records already imported remain saved locally; do not delete this backup.";const statusNode=$("importStatus");if(statusNode){statusNode.textContent=errorLine;statusNode.className="message error";}notify(errorLine,"error",10000);
- }finally{
-  button.disabled=false;e.target.value="";
- }
+  showImportStatus("Import failed: "+(err?.message||"Unknown error")+". Local records already written are preserved; keep this backup file.","error");
+ }finally{button.disabled=false;e.target.value="";await updatePendingPanel();}
 };
 
 $("addCustomItemBtn").onclick=()=>openCustomItemForm();
