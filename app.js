@@ -29,7 +29,7 @@ async function ensureAccountEpoch(uid,dbRef){
 }
 function resetAccountMemory(){medicines=[];bill=[];pendingBills=[];savedBills=[];refundReturns=[];refundPurchases=[];refundDraftLoaded=false;roundingApplied=0;roundingBase=null;editingBillId=null;editingBillCreatedAt=0;medicineModeEnabled=false;syncNotice="";syncBlocked=false;if($("medicineEditMode"))$("medicineEditMode").checked=false;for(const id of ["patientName","tokenNumber","refundPatientName","refundTokenNumber","discount"])if($(id))$(id).value=id==="discount"?"0":"";setDiscountEditor(false);renderBill();renderPendingBills();renderRefundWorkspace();renderMedicines();renderBillingHistory();}
 let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncRetryTimer=null,syncRetryDelay=5000,syncNotice="",medicineModeEnabled=true,medicineImageDraft="",medicineImageRotation=0,medicineImageCrop=false,medicineVisibleCount=9,historyVisibleCount=9,historyObserver=null;
-let ignoreSyncBackoff=false,pendingPanelBusy=false,pendingPanelDirty=false;let storageSkipUntil=0,lastStorageWarnAt=0;const SYNC_JOB_TIMEOUT=180000,SYNC_IMAGE_TIMEOUT=25000;
+let ignoreSyncBackoff=false,pendingPanelBusy=false,pendingPanelDirty=false;let storageSkipUntil=0,storageFailedAt=0,lastStorageWarnAt=0,syncBatchTotal=0,syncLastDone=0,syncLastDoneTimer=null,syncWasPending=false,pendingPanelTimer=null,pendingPanelLast=0,pendingPanelWaiters=[],syncDurations=[],syncRun={active:false,list:[],doneIds:new Set(),id:"",label:"",stage:"",jobStart:0};const SYNC_JOB_TIMEOUT=180000,SYNC_IMAGE_TIMEOUT=25000;
 const asArray=value=>Array.isArray(value)?value:[];
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2),wholeMoney=n=>"Rs. "+Math.round(Number(n)||0).toLocaleString("en-PK"),medicinePriceText=n=>{const v=Number(n)||0;return "Rs. "+(Number.isInteger(v)?v.toLocaleString("en-PK"):String(v));};
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
@@ -98,18 +98,44 @@ function setupRecoveryAdmin(user){
  }else{if(bell)bell.remove();if(link)link.remove();if(recoveryAdminUnsubscribe){recoveryAdminUnsubscribe();recoveryAdminUnsubscribe=null;}}
 }
 function status(){ $("connection").textContent=syncBlocked?"● Cloud sync paused":navigator.onLine?"● Online / Firebase sync":"● Offline / Local mode";updatePendingPanel(); }
-async function updatePendingPanel(){
+function fmtEta(ms){const secs=Math.max(1,Math.round(ms/1000));return secs<60?"about "+secs+" sec left":"about "+Math.ceil(secs/60)+" min left";}
+function renderSyncProgress(listNode,left,done,total,errors){
+ let box=$("pendingSyncProgress");
+ if(!box){box=document.createElement("div");box.id="pendingSyncProgress";box.className="sync-progress hidden";box.setAttribute("role","status");box.setAttribute("aria-live","polite");box.innerHTML='<div class="sync-progress-top"><b class="sync-progress-title"></b><span class="sync-progress-pct"></span></div><div class="sync-bar"><span class="sync-bar-fill"></span></div><div class="sync-progress-stats"><span class="ok"></span><span class="wait"></span><span class="eta"></span></div><div class="sync-now"></div>';listNode.before(box);}
+ const q=sel=>box.querySelector(sel),active=syncRun.active&&left>0;
+ if(left===0&&!syncLastDone){box.classList.add("hidden");return;}
+ box.classList.remove("hidden");box.classList.toggle("is-active",active);box.classList.toggle("is-done",left===0);
+ const pct=left===0?100:Math.min(99,Math.round(done/Math.max(1,total)*100));
+ q(".sync-progress-title").textContent=left===0?"All synced ✔":active?"Syncing to Firebase…":"Waiting to sync";
+ q(".sync-progress-pct").textContent=pct+"%";q(".sync-bar-fill").style.width=pct+"%";
+ q(".ok").textContent=left===0?"✔ "+syncLastDone+" record"+(syncLastDone===1?"":"s")+" synced":"✔ "+done+" synced";
+ q(".wait").textContent=left===0?"":"⏳ "+left+" remaining"+(errors?" · ⚠ "+errors+" with errors":"");
+ q(".eta").textContent=active&&syncDurations.length>=3?fmtEta(syncDurations.reduce((a,b)=>a+b,0)/syncDurations.length*left):"";
+ const now=q(".sync-now");now.replaceChildren();
+ if(active&&syncRun.label){const dot=document.createElement("i");const text=document.createElement("span");text.textContent="Now: "+syncRun.label+" — "+(syncRun.stage||"saving…");now.append(dot,text);}
+}
+async function renderPendingPanel(){
  const countNode=$("pendingSyncCount"),listNode=$("pendingSyncList"),retry=$("retryPendingSync");if(!countNode||!listNode||!localDB)return;
  if(pendingPanelBusy){pendingPanelDirty=true;return;}
  pendingPanelBusy=true;
  try{do{pendingPanelDirty=false;
-  const jobs=(await listPendingMeta(localDB)).sort((a,b)=>a.queuedAt-b.queuedAt);countNode.textContent=String(jobs.length);listNode.replaceChildren();
-  if(!jobs.length){const empty=document.createElement("p");empty.className="muted small-text";empty.textContent="No pending records. Everything is up to date.";listNode.append(empty);}
-  else{for(const job of jobs.slice(0,30)){const row=document.createElement("div");row.className="pending-sync-row";const label=document.createElement("span");const group=job.collectionName==="bills"?"Bill":"Medicine";label.textContent=group+" · "+job.label;const state=document.createElement("b");state.textContent=job.syncStage==="image"?"Image pending":job.lastError?"Sync error":"Pending";row.append(label,state);if(job.lastError){const detail=document.createElement("small");detail.className="pending-sync-error";detail.textContent=job.lastError;row.append(detail);}listNode.append(row);}if(jobs.length>30){const more=document.createElement("p");more.className="muted small-text";more.textContent="And "+(jobs.length-30)+" more pending records.";listNode.append(more);}}
-  if(retry)retry.disabled=!jobs.length||!navigator.onLine;
+  // While a sync run is active use its in-memory list (reading the queue again would re-load every image).
+  const jobs=syncRun.active&&syncRun.list.length?syncRun.list.filter(j=>!syncRun.doneIds.has(j.id)):(await listPendingMeta(localDB)).sort((a,b)=>a.queuedAt-b.queuedAt);
+  const left=jobs.length;
+  if(left===0){if(syncBatchTotal>0&&syncWasPending){syncLastDone=syncBatchTotal;notify("All "+syncBatchTotal+" record"+(syncBatchTotal===1?"":"s")+" synced to Firebase ✔","success",5000);clearTimeout(syncLastDoneTimer);syncLastDoneTimer=setTimeout(()=>{syncLastDone=0;updatePendingPanel();},15000);}syncBatchTotal=0;syncDurations.length=0;syncWasPending=false;}
+  else{syncBatchTotal=Math.max(syncBatchTotal,left);syncWasPending=true;syncLastDone=0;clearTimeout(syncLastDoneTimer);}
+  const done=Math.max(0,syncBatchTotal-left),errors=jobs.filter(j=>j.lastError&&!(syncRun.active&&syncRun.id===j.id)).length;
+  countNode.textContent=String(left);listNode.replaceChildren();renderSyncProgress(listNode,left,done,syncBatchTotal,errors);
+  if(!left){if(!syncLastDone){const empty=document.createElement("p");empty.className="muted small-text";empty.textContent="No pending records. Everything is up to date.";listNode.append(empty);}}
+  else{for(const job of jobs.slice(0,30)){const isActive=syncRun.active&&syncRun.id===job.id;const row=document.createElement("div");row.className="pending-sync-row"+(isActive?" is-active":"");const label=document.createElement("span");const group=job.collectionName==="bills"?"Bill":"Medicine";label.textContent=group+" · "+job.label;const state=document.createElement("b");state.textContent=isActive?"Syncing…":job.syncStage==="image"?"Image pending":job.lastError?"Sync error":"Pending";row.append(label,state);if(job.lastError&&!isActive){const detail=document.createElement("small");detail.className="pending-sync-error";detail.textContent=job.lastError;row.append(detail);}listNode.append(row);}if(left>30){const more=document.createElement("p");more.className="muted small-text";more.textContent="And "+(left-30)+" more pending records.";listNode.append(more);}}
+  if(retry){const busy=retry.dataset.busy==="1";retry.disabled=busy||!left||!navigator.onLine;if(busy)retry.textContent="Syncing "+done+"/"+Math.max(syncBatchTotal,left)+"…";}
  }while(pendingPanelDirty);}catch(err){console.warn("Pending queue display:",err);}finally{pendingPanelBusy=false;}
 }
-$("retryPendingSync")?.addEventListener("click",async()=>{const btn=$("retryPendingSync"),original=btn.textContent;btn.disabled=true;btn.textContent="Syncing…";const node=$("importStatus");if(node){node.textContent="Sync started. Sending pending medicines, bills and images to Firebase…";node.className="message warning";}notify("Sync started…","info",3000);try{syncBlocked=false;syncNotice="";status();ignoreSyncBackoff=true;await syncOnline();ignoreSyncBackoff=true;await flushQueue();const left=await listPendingMeta(localDB);const line=left.length?left.length+" item(s) remain pending. Open the pending list to see whether images or Firebase writes need attention.":"All pending records and images synced successfully.";if(node){node.textContent=line;node.className="message "+(left.length?"warning":"success");}notify(line,left.length?"warning":"success",8000);}catch(err){console.error("Manual sync retry:",err);const line="Sync failed: "+(err?.code||"")+" "+(err?.message||"Unknown error");if(node){node.textContent=line;node.className="message error";}notify(line,"error",10000);}finally{btn.textContent=original;await updatePendingPanel();}});
+// Coalesce rapid calls (import queues many records) into one render every ~350 ms.
+function updatePendingPanel(){
+ return new Promise(resolve=>{pendingPanelWaiters.push(resolve);if(pendingPanelTimer)return;const wait=Math.max(0,350-(Date.now()-pendingPanelLast));pendingPanelTimer=setTimeout(async()=>{pendingPanelTimer=null;const waiters=pendingPanelWaiters.splice(0);try{await renderPendingPanel();}finally{pendingPanelLast=Date.now();waiters.forEach(fn=>fn());}},wait);});
+}
+$("retryPendingSync")?.addEventListener("click",async()=>{const btn=$("retryPendingSync"),original=btn.textContent;btn.disabled=true;btn.dataset.busy="1";btn.textContent="Syncing…";const node=$("importStatus");if(node){node.textContent="Sync started. Sending pending medicines, bills and images to Firebase…";node.className="message warning";}notify("Sync started…","info",3000);try{syncBlocked=false;syncNotice="";status();ignoreSyncBackoff=true;await syncOnline();ignoreSyncBackoff=true;await flushQueue();const left=await listPendingMeta(localDB);const line=left.length?left.length+" item(s) remain pending. Open the pending list to see whether images or Firebase writes need attention.":"All pending records and images synced successfully.";if(node){node.textContent=line;node.className="message "+(left.length?"warning":"success");}notify(line,left.length?"warning":"success",8000);}catch(err){console.error("Manual sync retry:",err);const line="Sync failed: "+(err?.code||"")+" "+(err?.message||"Unknown error");if(node){node.textContent=line;node.className="message error";}notify(line,"error",10000);}finally{delete btn.dataset.busy;btn.textContent=original;await updatePendingPanel();}});
 window.addEventListener("online",status);window.addEventListener("offline",status);status();
 async function cacheAll(){const tx=localDB.transaction("medicines","readwrite");for(const m of medicines)if(m&&m.id)await tx.store.put(m);await tx.done;}
 async function queueChange(id,type,data=null,collectionName="medicines"){const key=collectionName+":"+id;await localDB.put("pending",{id:key,targetId:id,collectionName,type,data,queuedAt:Date.now(),revision:crypto.randomUUID()});updatePendingPanel();}
@@ -133,7 +159,13 @@ async function listPendingMeta(dbRef){
  while(cursor){const v=cursor.value||{};out.push({id:v.id,targetId:v.targetId,collectionName:v.collectionName,type:v.type,queuedAt:v.queuedAt||0,syncStage:v.syncStage,lastError:v.lastError,attempts:v.attempts||0,nextTry:v.nextTry||0,label:v.data?.name||v.data?.receiptNumber||v.targetId||v.id});cursor=await cursor.continue();}
  return out;
 }
-async function uploadDataUrl(path,dataUrl){const imageRef=ref(storage,path);await withTimeout(uploadString(imageRef,dataUrl,"data_url"),SYNC_IMAGE_TIMEOUT,"Image upload");return withTimeout(getDownloadURL(imageRef),15000,"Image URL");}
+// Big photos (several MB) make sync very slow; send a 1280px JPEG instead.
+async function prepareUploadImage(dataUrl){
+ if(typeof dataUrl!=="string"||dataUrl.length<=450000)return dataUrl;
+ const small=await shrinkDataUrl(dataUrl,1280,.82);
+ return small&&small.length<dataUrl.length?small:dataUrl;
+}
+async function uploadDataUrl(path,dataUrl){const imageRef=ref(storage,path);const body=await prepareUploadImage(dataUrl);await withTimeout(uploadString(imageRef,body,"data_url"),SYNC_IMAGE_TIMEOUT,"Image upload");return withTimeout(getDownloadURL(imageRef),15000,"Image URL");}
 function shrinkDataUrl(dataUrl,maxSide,quality){
  return new Promise(resolve=>{
   try{const img=new Image();
@@ -163,9 +195,11 @@ async function syncOneJob(job,ownerUid,dbRef,run){
   const m=cleanForFirestore(job.data);let imageFailed=false,imageError="";
   const upload=async(dataUrl,path)=>{
    if(run.imageFailures<2&&Date.now()>=storageSkipUntil){
+    syncRun.stage="uploading image…";updatePendingPanel();
     try{const url=await uploadDataUrl(path,dataUrl);run.imageFailures=0;return url;}
-    catch(err){run.imageFailures++;if(run.imageFailures>=2)storageSkipUntil=Date.now()+300000;run.storageError=(err?.code||"storage-error")+": "+(err?.message||"image upload failed");console.warn("Storage upload failed, using inline image:",targetId,err);}
+    catch(err){run.imageFailures++;if(run.imageFailures>=2){storageFailedAt=Date.now();storageSkipUntil=storageFailedAt+300000;}run.storageError=(err?.code||"storage-error")+": "+(err?.message||"image upload failed");console.warn("Storage upload failed, using inline image:",targetId,err);}
    }
+   syncRun.stage="compressing image…";updatePendingPanel();
    const inline=await inlineImage(dataUrl);
    if(inline){run.inlineCount=(run.inlineCount||0)+1;return inline;}
    imageFailed=true;imageError=run.storageError||"image could not be prepared for sync";return "";
@@ -193,27 +227,29 @@ async function flushQueue(){
   const epochSnap=await getDoc(doc(db,"users",ownerUid));const cloudEpoch=epochSnap.data()?.dataEpoch;
   if(!cloudEpoch||cloudEpoch!==accountEpoch){syncBlocked=true;syncNotice="Local and cloud account versions differ or are not initialized. Local records and pending uploads are preserved; syncing is paused for safe recovery.";status();throw new Error(syncNotice);}
   const metas=(await listPendingMeta(dbRef)).sort((a,b)=>a.queuedAt-b.queuedAt);
-  if(force)storageSkipUntil=0;
+  if(force&&Date.now()-storageFailedAt>60000)storageSkipUntil=0;
+  syncRun={active:true,list:metas,doneIds:new Set(),id:"",label:"",stage:"",jobStart:0};updatePendingPanel();
   const run={imageFailures:0,inlineCount:0,storageError:""};let consecutiveTimeouts=0;
   for(const meta of metas){
    if(!navigator.onLine||!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)break;
    if(!force&&meta.nextTry&&meta.nextTry>Date.now())continue;
-   const job=await dbRef.get("pending",meta.id);if(!job)continue;
+   const job=await dbRef.get("pending",meta.id);if(!job){syncRun.doneIds.add(meta.id);continue;}
+   syncRun.id=meta.id;syncRun.label=meta.label;syncRun.stage="saving to Firebase…";syncRun.jobStart=Date.now();updatePendingPanel();
    const group=job.collectionName||"medicines",targetId=job.targetId||job.id;
    try{
     const result=await withTimeout(syncOneJob(job,ownerUid,dbRef,run),SYNC_JOB_TIMEOUT,"Sync of "+group+"/"+targetId);
     if(localDB===dbRef&&currentUser?.uid===ownerUid){
      const latest=await dbRef.get("pending",job.id);
      if(sameRevision(latest,job)){
-      if(result.keep){const attempts=(latest.attempts||0)+1;await dbRef.put("pending",{...latest,syncStage:"image",attempts,nextTry:Date.now()+syncBackoffMs(attempts),lastError:"Medicine saved to Firestore; image not uploaded yet ("+result.imageError+"). Check Firebase Storage is enabled and its rules/quota."});}
-      else await dbRef.delete("pending",job.id);
+      if(result.keep){const attempts=(latest.attempts||0)+1,msg="Medicine saved to Firestore; image not uploaded yet ("+result.imageError+"). Check Firebase Storage is enabled and its rules/quota.";await dbRef.put("pending",{...latest,syncStage:"image",attempts,nextTry:Date.now()+syncBackoffMs(attempts),lastError:msg});meta.syncStage="image";meta.lastError=msg;}
+      else{await dbRef.delete("pending",job.id);syncRun.doneIds.add(meta.id);syncDurations.push(Date.now()-syncRun.jobStart);if(syncDurations.length>8)syncDurations.shift();}
      }
     }
     consecutiveTimeouts=0;
    }catch(err){
     console.warn("Sync will retry:",group,targetId,err);
     const code=err?.code||"sync-error";
-    try{const latest=await dbRef.get("pending",job.id);if(latest){const attempts=(latest.attempts||0)+1;await dbRef.put("pending",{...latest,attempts,nextTry:Date.now()+syncBackoffMs(attempts),lastError:code+": "+(err?.message||"Unknown sync error")});}}catch(updateErr){console.warn("Could not save sync error:",updateErr);}
+    try{const latest=await dbRef.get("pending",job.id);if(latest){const attempts=(latest.attempts||0)+1;meta.lastError=code+": "+(err?.message||"Unknown sync error");await dbRef.put("pending",{...latest,attempts,nextTry:Date.now()+syncBackoffMs(attempts),lastError:meta.lastError});}}catch(updateErr){console.warn("Could not save sync error:",updateErr);}
     if(code==="permission-denied"){
      if(group==="bills"&&job.type==="delete"){
       try{
@@ -234,7 +270,7 @@ async function flushQueue(){
   }
   if(run.inlineCount>0&&Date.now()-lastStorageWarnAt>600000){lastStorageWarnAt=Date.now();notify("Firebase Storage is not accepting uploads ("+(run.storageError||"unknown error")+"). Images were saved inside Firestore in a smaller size so your data still syncs. Please check Storage in Firebase Console.","warning",12000);}
  })().finally(()=>{
-  syncPromise=null;syncOwnerUid=null;updatePendingPanel();
+  syncPromise=null;syncOwnerUid=null;syncRun={active:false,list:[],doneIds:new Set(),id:"",label:"",stage:"",jobStart:0};updatePendingPanel();
   if(syncRetryTimer){clearTimeout(syncRetryTimer);syncRetryTimer=null;}
   if(!syncBlocked&&currentUser?.uid===ownerUid&&navigator.onLine&&localDB===dbRef){
    listPendingMeta(dbRef).then(jobs=>{
