@@ -6,7 +6,7 @@ import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/
 import { openDB } from "https://cdn.jsdelivr.net/npm/idb@8/+esm";
 
 const firebaseConfig={apiKey:"AIzaSyDu3T1shPJoooMNwhpPijfJsPaNc2JWWhM",authDomain:"friends-hospital-pharmacy.firebaseapp.com",projectId:"friends-hospital-pharmacy",storageBucket:"friends-hospital-pharmacy.firebasestorage.app",messagingSenderId:"277311494482",appId:"1:277311494482:web:84f77fd637d765c08f028b",measurementId:"G-RWBC6T7X1T"};
-const app=initializeApp(firebaseConfig),auth=initializeAuth(app,{persistence:[indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence]}),db=getFirestore(app),storage=getStorage(app),functions=getFunctions(app,"us-central1");
+const app=initializeApp(firebaseConfig),auth=initializeAuth(app,{persistence:[indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence]}),db=getFirestore(app),storage=getStorage(app),functions=getFunctions(app,"us-central1");try{storage.maxUploadRetryTime=8000;storage.maxOperationRetryTime=8000;}catch(e){}
 const SUPPORT_WHATSAPP="923486314013";
 let localDB=null,accountEpoch="",authTransition=0,syncBlocked=false,syncOwnerUid=null;
 async function openUserDB(uid){if(localDB){localDB.close();localDB=null;}const opened=await openDB("friends-pharmacy-"+uid,3,{upgrade(d){if(!d.objectStoreNames.contains("medicines"))d.createObjectStore("medicines",{keyPath:"id"});if(!d.objectStoreNames.contains("pending"))d.createObjectStore("pending",{keyPath:"id"});if(!d.objectStoreNames.contains("meta"))d.createObjectStore("meta");if(!d.objectStoreNames.contains("bills"))d.createObjectStore("bills",{keyPath:"id"});}});if(currentUser?.uid!==uid){opened.close();return;}localDB=opened;}
@@ -194,10 +194,10 @@ async function syncOneJob(job,ownerUid,dbRef,run){
  if(group==="medicines"){
   const m=cleanForFirestore(job.data);let imageFailed=false,imageError="";
   const upload=async(dataUrl,path)=>{
-   if(run.imageFailures<2&&Date.now()>=storageSkipUntil){
+   if(run.imageFailures<1&&Date.now()>=storageSkipUntil){
     syncRun.stage="uploading image…";updatePendingPanel();
     try{const url=await uploadDataUrl(path,dataUrl);run.imageFailures=0;return url;}
-    catch(err){run.imageFailures++;if(run.imageFailures>=2){storageFailedAt=Date.now();storageSkipUntil=storageFailedAt+300000;}run.storageError=(err?.code||"storage-error")+": "+(err?.message||"image upload failed");console.warn("Storage upload failed, using inline image:",targetId,err);}
+    catch(err){run.imageFailures++;storageFailedAt=Date.now();storageSkipUntil=storageFailedAt+300000;run.storageError=(err?.code||"storage-error")+": "+(err?.message||"image upload failed");console.warn("Storage upload failed, using inline image:",targetId,err);}
    }
    syncRun.stage="compressing image…";updatePendingPanel();
    const inline=await inlineImage(dataUrl);
@@ -754,16 +754,16 @@ $("deleteMedicinesBtn").onclick=()=>{
  if(!all.length){notify("There are no medicines to delete.","info");return;}
  const wrap=document.createElement("div");wrap.className="backup-medicine-picker";
  const intro=document.createElement("p");intro.className="muted small-text";intro.textContent="Tick the medicines to delete, or use Select all for every medicine shown. Bill history is not changed. This cannot be undone, so export a backup first if you are unsure.";
- const search=document.createElement("input");search.type="search";search.placeholder="Search medicines";search.className="backup-picker-search";
+ const search=document.createElement("input");search.type="search";search.name="deleteMedicineSearch";search.setAttribute("aria-label","Search medicines");search.placeholder="Search medicines";search.className="backup-picker-search";
  const list=document.createElement("div");list.className="backup-picker-list";
  const checks=[];
- for(const m of all){const label=document.createElement("label");label.className="backup-picker-row";const input=document.createElement("input");input.type="checkbox";input.value=m.id;const name=document.createElement("span");name.textContent=m.name;label.append(input,name);list.append(label);checks.push({label,input,name});}
+ for(const m of all){const label=document.createElement("label");label.className="backup-picker-row";const input=document.createElement("input");input.type="checkbox";input.name="deleteMedicine";input.setAttribute("aria-label","Delete "+m.name);input.value=m.id;const name=document.createElement("span");name.textContent=m.name;label.append(input,name);list.append(label);checks.push({label,input,name});}
  const top=document.createElement("div");top.className="backup-picker-actions";
  const selectAll=document.createElement("button");selectAll.type="button";selectAll.className="secondary";selectAll.textContent="Select all";
  const selectNone=document.createElement("button");selectNone.type="button";selectNone.className="secondary";selectNone.textContent="Clear";
  top.append(selectAll,selectNone);
  const counter=document.createElement("p");counter.className="muted small-text";
- const phrase=document.createElement("input");phrase.placeholder="Type DELETE to confirm";phrase.autocomplete="off";
+ const phrase=document.createElement("input");phrase.name="deleteConfirm";phrase.setAttribute("aria-label","Type DELETE to confirm");phrase.placeholder="Type DELETE to confirm";phrase.autocomplete="off";
  const error=document.createElement("p");error.className="message";error.setAttribute("role","alert");
  const actions=document.createElement("div");actions.className="modal-actions";
  const cancel=document.createElement("button");cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";
