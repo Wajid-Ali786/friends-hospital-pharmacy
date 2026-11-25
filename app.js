@@ -29,7 +29,7 @@ async function ensureAccountEpoch(uid,dbRef){
 }
 function resetAccountMemory(){medicines=[];bill=[];pendingBills=[];savedBills=[];refundReturns=[];refundPurchases=[];refundDraftLoaded=false;roundingApplied=0;roundingBase=null;editingBillId=null;editingBillCreatedAt=0;medicineModeEnabled=false;syncNotice="";syncBlocked=false;if($("medicineEditMode"))$("medicineEditMode").checked=false;for(const id of ["patientName","tokenNumber","refundPatientName","refundTokenNumber","discount"])if($(id))$(id).value=id==="discount"?"0":"";setDiscountEditor(false);renderBill();renderPendingBills();renderRefundWorkspace();renderMedicines();renderBillingHistory();}
 let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncRetryTimer=null,syncRetryDelay=5000,syncNotice="",medicineModeEnabled=true,medicineImageDraft="",medicineImageRotation=0,medicineImageCrop=false,medicineVisibleCount=9,historyVisibleCount=9,historyObserver=null;
-let ignoreSyncBackoff=false,pendingPanelBusy=false,pendingPanelDirty=false;const SYNC_JOB_TIMEOUT=180000,SYNC_IMAGE_TIMEOUT=45000;
+let ignoreSyncBackoff=false,pendingPanelBusy=false,pendingPanelDirty=false;let storageSkipUntil=0,lastStorageWarnAt=0;const SYNC_JOB_TIMEOUT=180000,SYNC_IMAGE_TIMEOUT=25000;
 const asArray=value=>Array.isArray(value)?value:[];
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2),wholeMoney=n=>"Rs. "+Math.round(Number(n)||0).toLocaleString("en-PK"),medicinePriceText=n=>{const v=Number(n)||0;return "Rs. "+(Number.isInteger(v)?v.toLocaleString("en-PK"):String(v));};
 const show=(id,yes)=>$(id).classList.toggle("hidden",!yes);
@@ -134,6 +134,19 @@ async function listPendingMeta(dbRef){
  return out;
 }
 async function uploadDataUrl(path,dataUrl){const imageRef=ref(storage,path);await withTimeout(uploadString(imageRef,dataUrl,"data_url"),SYNC_IMAGE_TIMEOUT,"Image upload");return withTimeout(getDownloadURL(imageRef),15000,"Image URL");}
+function shrinkDataUrl(dataUrl,maxSide,quality){
+ return new Promise(resolve=>{
+  try{const img=new Image();
+   img.onload=()=>{try{const iw=img.naturalWidth||img.width||1,ih=img.naturalHeight||img.height||1,scale=Math.min(1,maxSide/Math.max(iw,ih)),w=Math.max(1,Math.round(iw*scale)),h=Math.max(1,Math.round(ih*scale));const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;const ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);resolve(canvas.toDataURL("image/jpeg",quality)||"");}catch(e){resolve("");}};
+   img.onerror=()=>resolve("");img.src=dataUrl;
+  }catch(e){resolve("");}
+ });
+}
+// Fallback when Firebase Storage is not working: keep a small copy of the image inside the medicine record itself.
+async function inlineImage(dataUrl){
+ for(const [side,quality] of [[720,.7],[480,.6],[320,.5]]){const small=await shrinkDataUrl(dataUrl,side,quality);if(small&&small.length<=150000)return small;}
+ return "";
+}
 async function syncOneJob(job,ownerUid,dbRef,run){
  const group=job.collectionName||"medicines",targetId=job.targetId||job.id;
  const target=doc(db,"users",ownerUid,group,targetId);
@@ -149,9 +162,13 @@ async function syncOneJob(job,ownerUid,dbRef,run){
  if(group==="medicines"){
   const m=cleanForFirestore(job.data);let imageFailed=false,imageError="";
   const upload=async(dataUrl,path)=>{
-   if(run.imageFailures>=2){imageFailed=true;imageError=imageError||"image upload skipped after repeated Storage failures";return "";}
-   try{const url=await uploadDataUrl(path,dataUrl);run.imageFailures=0;return url;}
-   catch(err){run.imageFailures++;imageFailed=true;imageError=(err?.code||"storage-error")+": "+(err?.message||"image upload failed");console.warn("Medicine image sync pending:",targetId,err);return "";}
+   if(run.imageFailures<2&&Date.now()>=storageSkipUntil){
+    try{const url=await uploadDataUrl(path,dataUrl);run.imageFailures=0;return url;}
+    catch(err){run.imageFailures++;if(run.imageFailures>=2)storageSkipUntil=Date.now()+300000;run.storageError=(err?.code||"storage-error")+": "+(err?.message||"image upload failed");console.warn("Storage upload failed, using inline image:",targetId,err);}
+   }
+   const inline=await inlineImage(dataUrl);
+   if(inline){run.inlineCount=(run.inlineCount||0)+1;return inline;}
+   imageFailed=true;imageError=run.storageError||"image could not be prepared for sync";return "";
   };
   if(Array.isArray(m.packagings)){
    for(const pack of m.packagings){if(pack&&typeof pack.image==="string"&&pack.image.startsWith("data:"))pack.image=await upload(pack.image,"users/"+ownerUid+"/medicines/"+targetId+"/packagings/"+pack.id+".png");}
@@ -176,7 +193,8 @@ async function flushQueue(){
   const epochSnap=await getDoc(doc(db,"users",ownerUid));const cloudEpoch=epochSnap.data()?.dataEpoch;
   if(!cloudEpoch||cloudEpoch!==accountEpoch){syncBlocked=true;syncNotice="Local and cloud account versions differ or are not initialized. Local records and pending uploads are preserved; syncing is paused for safe recovery.";status();throw new Error(syncNotice);}
   const metas=(await listPendingMeta(dbRef)).sort((a,b)=>a.queuedAt-b.queuedAt);
-  const run={imageFailures:0};let consecutiveTimeouts=0;
+  if(force)storageSkipUntil=0;
+  const run={imageFailures:0,inlineCount:0,storageError:""};let consecutiveTimeouts=0;
   for(const meta of metas){
    if(!navigator.onLine||!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)break;
    if(!force&&meta.nextTry&&meta.nextTry>Date.now())continue;
@@ -214,6 +232,7 @@ async function flushQueue(){
     if(code==="sync-timeout"&&++consecutiveTimeouts>=3)break;
    }
   }
+  if(run.inlineCount>0&&Date.now()-lastStorageWarnAt>600000){lastStorageWarnAt=Date.now();notify("Firebase Storage is not accepting uploads ("+(run.storageError||"unknown error")+"). Images were saved inside Firestore in a smaller size so your data still syncs. Please check Storage in Firebase Console.","warning",12000);}
  })().finally(()=>{
   syncPromise=null;syncOwnerUid=null;updatePendingPanel();
   if(syncRetryTimer){clearTimeout(syncRetryTimer);syncRetryTimer=null;}
@@ -655,16 +674,27 @@ function startCloudSync(user){
   if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
   const cloud=snap.docs.map(d=>normalizeMedicine({...d.data(),id:d.id})).filter(m=>m&&m.id);
   const merged=new Map(cloud.map(m=>[m.id,m]));
+  // Deletions made on another device: a medicine we already saw in the cloud (syncedMedicineIds)
+  // that is now missing from a server-confirmed snapshot was deleted elsewhere.
+  const synced=new Set(asArray(await dbRef.get("meta","syncedMedicineIds")));let syncedChanged=false;const removedElsewhere=new Set();
+  if(!snap.metadata.fromCache&&!snap.metadata.hasPendingWrites){
+   const cloudIds=new Set(cloud.map(m=>m.id));
+   for(const m of cloud)if(!synced.has(m.id)){synced.add(m.id);syncedChanged=true;}
+   for(const m of local)if(synced.has(m.id)&&!cloudIds.has(m.id)&&!pendingIds.has(m.id))removedElsewhere.add(m.id);
+   for(const id of removedElsewhere){synced.delete(id);syncedChanged=true;}
+  }
   // Keep every local-only medicine. Pending local edits always win over cloud;
   // cloud wins only when there is no queued local change for that medicine.
-  for(const m of local)if(pendingIds.has(m.id)||!merged.has(m.id))merged.set(m.id,m);
+  for(const m of local)if(!removedElsewhere.has(m.id)&&(pendingIds.has(m.id)||!merged.has(m.id)))merged.set(m.id,m);
   for(const id of pendingMedicineDeletes)merged.delete(id);
   medicines=[...merged.values()];
   // Never clear the IndexedDB store from a snapshot callback: imports and
   // offline-only records must survive while their queue is being processed.
   const tx=dbRef.transaction("medicines","readwrite");
   for(const m of cloud)if(!pendingIds.has(m.id))await tx.store.put(m);
+  for(const id of removedElsewhere)await tx.store.delete(id);
   await tx.done;
+  if(syncedChanged)await dbRef.put("meta",[...synced],"syncedMedicineIds");
   if(!currentUser||currentUser.uid!==ownerUid||localDB!==dbRef)return;
   renderMedicines($("medicineSearch").value);await flushQueue();
  },err=>console.warn("Firestore sync",err));
@@ -680,34 +710,53 @@ $("registerForm").onsubmit=async e=>{e.preventDefault();const name=$("registerNa
 $("forgotPassword").onclick=async()=>{const email=$("email").value.trim();if(!email){$("loginMessage").textContent="Enter your email address first, then select Forgot password.";return;}try{await sendPasswordResetEmail(auth,email);$("loginMessage").textContent="Password reset email sent. Check your inbox.";}catch(err){$("loginMessage").textContent=authError(err);}};
 onAuthStateChanged(auth,async user=>{const transition=++authTransition;currentUser=user;if(user){setupRecoveryAdmin(user);await openUserDB(user.uid);if(transition!==authTransition||!localDB||currentUser?.uid!==user.uid)return;const dbRef=localDB;try{await ensureAccountEpoch(user.uid,dbRef);if(transition!==authTransition||localDB!==dbRef)return;const savedEditPassword=await dbRef.get("meta","medicineEditPassword");medicineModeEnabled=!!savedEditPassword&&(await dbRef.get("meta","medicineModeEnabled"))!==false;const editToggle=$("medicineEditMode");if(editToggle)editToggle.checked=medicineModeEnabled;show("loginView",false);show("appView",true);$("userLabel").textContent=user.displayName||user.email;$("settingsEmail").textContent=user.email;await loadLocal();savedBills=await dbRef.getAll("bills");await loadPendingBills();const activeDraft=await dbRef.get("meta","activeBillDraft");if(activeDraft){bill=asArray(activeDraft.items).filter(x=>x&&typeof x==="object").map(x=>({...x}));$("patientName").value=activeDraft.patientName||"";$("tokenNumber").value=activeDraft.tokenNumber||"";$("discount").value=String(activeDraft.discount||0);roundingApplied=Number(activeDraft.roundingApplied)||0;roundingBase=activeDraft.roundingBase??null;setDiscountEditor(Number(activeDraft.discount)>0);renderBill();}const activeRefund=await dbRef.get("meta","activeRefundDraft");if(activeRefund){refundDraftLoaded=false;await loadRefundDraft();}}catch(err){console.error("Account initialization blocked:",err);if(transition!==authTransition||localDB!==dbRef)return;const networkFailure=!navigator.onLine||["unavailable","deadline-exceeded","auth/network-request-failed"].includes(err?.code);syncBlocked=!networkFailure;show("loginView",false);show("appView",true);$("userLabel").textContent=user.displayName||user.email;$("settingsEmail").textContent=user.email;try{await loadLocal();savedBills=await dbRef.getAll("bills");await loadPendingBills();}catch(localErr){console.warn("Local-only startup failed:",localErr);}notify(networkFailure?"Local records opened offline; cloud version check will retry when internet returns.":"Local records opened, but cloud sync is paused until Firebase rules and account version setup are deployed: "+(err?.message||"check Firebase"),"warning",7000);status();return;}if(transition!==authTransition||localDB!==dbRef)return;if(unsubscribe)unsubscribe();if(navigator.onLine){startCloudSync(user);flushQueue().catch(err=>console.warn("Pending sync will retry:",err));}status();}else{setupRecoveryAdmin(null);show("loginView",true);show("appView",false);if(unsubscribe){unsubscribe();unsubscribe=null;}if(historyUnsubscribe){historyUnsubscribe();historyUnsubscribe=null;}if(localDB){localDB.close();localDB=null;}resetAccountMemory();accountEpoch="";syncBlocked=false;}});
 
-$("washAccountBtn").onclick=()=>{
- if(!currentUser||!currentUser.email||!localDB)return;
- const form=document.createElement("form");form.className="edit-mode-password";form.noValidate=true;
- const warning=document.createElement("p");warning.textContent="This permanently deletes this login's pharmacy data in Firebase and local records. Other devices will discard their old local data before syncing. Your login account remains active. This cannot be undone.";
- const phrase=document.createElement("input");phrase.placeholder='Type WASH to confirm';phrase.autocomplete="off";
- const password=document.createElement("input");password.type="password";password.placeholder="Confirm account password";password.autocomplete="current-password";
+$("deleteMedicinesBtn").onclick=()=>{
+ if(!currentUser||!localDB)return;
+ if(!medicineModeEnabled){notify("Pehle Settings mein Medicine Edit Mode ON karein, phir medicines delete karein.","warning",5200);return;}
+ const dbRef=localDB,uid=currentUser.uid;
+ const all=asArray(medicines).filter(m=>m&&m.id&&m.name).slice().sort((x,y)=>String(x.name).localeCompare(String(y.name)));
+ if(!all.length){notify("There are no medicines to delete.","info");return;}
+ const wrap=document.createElement("div");wrap.className="backup-medicine-picker";
+ const intro=document.createElement("p");intro.className="muted small-text";intro.textContent="Tick the medicines to delete, or use Select all for every medicine shown. Bill history is not changed. This cannot be undone, so export a backup first if you are unsure.";
+ const search=document.createElement("input");search.type="search";search.placeholder="Search medicines";search.className="backup-picker-search";
+ const list=document.createElement("div");list.className="backup-picker-list";
+ const checks=[];
+ for(const m of all){const label=document.createElement("label");label.className="backup-picker-row";const input=document.createElement("input");input.type="checkbox";input.value=m.id;const name=document.createElement("span");name.textContent=m.name;label.append(input,name);list.append(label);checks.push({label,input,name});}
+ const top=document.createElement("div");top.className="backup-picker-actions";
+ const selectAll=document.createElement("button");selectAll.type="button";selectAll.className="secondary";selectAll.textContent="Select all";
+ const selectNone=document.createElement("button");selectNone.type="button";selectNone.className="secondary";selectNone.textContent="Clear";
+ top.append(selectAll,selectNone);
+ const counter=document.createElement("p");counter.className="muted small-text";
+ const phrase=document.createElement("input");phrase.placeholder="Type DELETE to confirm";phrase.autocomplete="off";
  const error=document.createElement("p");error.className="message";error.setAttribute("role","alert");
  const actions=document.createElement("div");actions.className="modal-actions";
  const cancel=document.createElement("button");cancel.type="button";cancel.className="secondary";cancel.textContent="Cancel";
- const submit=document.createElement("button");submit.type="submit";submit.className="danger-button";submit.textContent="Permanently wash data";
- cancel.onclick=()=>closeAppModal();form.append(warning,phrase,password,error,actions);actions.append(cancel,submit);
- form.onsubmit=async e=>{
-  e.preventDefault();if(phrase.value.trim()!=="WASH"){error.textContent='Type exactly "WASH" to continue.';phrase.focus();return;}
-  if(!password.value){error.textContent="Enter your login password.";password.focus();return;}
-  submit.disabled=true;submit.textContent="Washing account data…";
+ const submit=document.createElement("button");submit.type="button";submit.className="danger-button";
+ actions.append(cancel,submit);
+ const refresh=()=>{const n=checks.filter(x=>x.input.checked).length;counter.textContent=n+" of "+all.length+" selected";submit.disabled=!n||phrase.value.trim()!=="DELETE";submit.textContent=n?"Delete "+n+" medicine"+(n===1?"":"s"):"Delete selected";};
+ search.oninput=()=>{const q=search.value.trim().toLowerCase();for(const item of checks)item.label.hidden=!item.name.textContent.toLowerCase().includes(q);};
+ selectAll.onclick=()=>{checks.forEach(x=>{if(!x.label.hidden)x.input.checked=true;});refresh();};
+ selectNone.onclick=()=>{checks.forEach(x=>x.input.checked=false);refresh();};
+ list.addEventListener("change",refresh);phrase.addEventListener("input",refresh);
+ cancel.onclick=()=>closeAppModal();
+ submit.onclick=async()=>{
+  const ids=checks.filter(x=>x.input.checked).map(x=>x.input.value);
+  if(!ids.length||phrase.value.trim()!=="DELETE")return;
+  if(!medicineModeEnabled||currentUser?.uid!==uid||localDB!==dbRef){error.textContent="Session changed. Close this window and try again.";return;}
+  submit.disabled=true;cancel.disabled=true;submit.textContent="Deleting…";error.textContent="";
   try{
-   const user=currentUser,dbRef=localDB,uid=user.uid;
-   await reauthenticateWithCredential(user,EmailAuthProvider.credential(user.email,password.value));
-   const result=await httpsCallable(functions,"wipePharmacyData")({});
-   if(currentUser?.uid!==uid||localDB!==dbRef)throw new Error("Account session changed. Sign in again and check data status.");
-   const epoch=result.data?.dataEpoch;if(!result.data?.ok||typeof epoch!=="string")throw new Error("Server did not confirm the data wipe.");
-   await clearAccountLocalData(dbRef,epoch);accountEpoch=epoch;resetAccountMemory();refundDraftLoaded=true;
-   if(unsubscribe){unsubscribe();unsubscribe=null;}if(historyUnsubscribe){historyUnsubscribe();historyUnsubscribe=null;}
-   closeAppModal();notify("Pharmacy data wiped. Your login account remains active.","success",6000);
-   await loadLocal();await loadPendingBills();renderBillingHistory();renderRefundWorkspace();
-  }catch(err){console.error("Account data wash failed:",err);error.textContent=err?.code==="auth/wrong-password"||err?.code==="auth/invalid-credential"?"Password verification failed.":(err?.message||"Data wash failed. Local records were not cleared.");submit.disabled=false;submit.textContent="Permanently wash data";}
+   const idSet=new Set(ids);
+   for(const id of ids){await dbRef.put("pending",{id:"medicines:"+id,targetId:id,collectionName:"medicines",type:"delete",data:null,queuedAt:Date.now(),revision:crypto.randomUUID()});await dbRef.delete("medicines",id);}
+   medicines=medicines.filter(m=>!idSet.has(m.id));
+   closeAppModal();renderMedicines($("medicineSearch")?.value||"");await updatePendingPanel();
+   if(navigator.onLine){try{ignoreSyncBackoff=true;await flushQueue();}catch(err){console.warn("Delete sync:",err);}}
+   const remaining=await listPendingMeta(dbRef);
+   const waiting=remaining.filter(x=>(x.collectionName||"medicines")==="medicines"&&x.type==="delete"&&idSet.has(x.targetId||x.id)).length;
+   notify(ids.length+" medicine"+(ids.length===1?"":"s")+" deleted"+(waiting?"; "+waiting+" still waiting to sync to Firebase.":" and synced to Firebase."),waiting?"warning":"success",6500);
+  }catch(err){console.error("Bulk medicine delete failed:",err);error.textContent="Delete failed: "+(err?.message||"Unknown error");cancel.disabled=false;refresh();}
  };
- openAppModal(form,"Wash Account Data","Permanent deletion across devices.","confirm");phrase.focus();
+ wrap.append(intro,search,top,list,counter,phrase,error,actions);refresh();
+ openAppModal(wrap,"Delete medicines","Choose what to remove from this account.","content");
 };
 $("logoutBtn").onclick=()=>signOut(auth);
 $("addMedicineBtn").onclick=()=>openAddMedicine();
