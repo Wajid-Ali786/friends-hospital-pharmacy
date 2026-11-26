@@ -1,16 +1,18 @@
 rules_version = '2';
 
-service cloud.firestore {
-  match /databases/{database}/documents {
+service cloud.firestore { match /databases/{database}/documents {
 
     function isRecoveryAdmin() {
       return request.auth != null
         && request.auth.uid == "Ud1gC1ZCaqZWSOhGPU63Wl26IzY2";
     }
 
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
 
     // The owner may read the account data epoch and initialize it once.
-    // Only trusted server code may rotate/update it during a full data wipe.
+    // Only trusted server code may rotate/update it.
     match /users/{userId} {
       allow get: if request.auth != null && request.auth.uid == userId;
       allow create: if request.auth != null
@@ -32,11 +34,15 @@ service cloud.firestore {
       allow list, delete: if false;
     }
 
-    // Medicines
+    // Medicines: owner only, with basic sanity checks on what can be written.
     match /users/{userId}/medicines/{medicineId} {
-      allow read, write:
-        if request.auth != null
-        && request.auth.uid == userId;
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 300
+        && (!('price' in request.resource.data) || request.resource.data.price is number)
+        && request.resource.data.keys().size() <= 40;
     }
 
     // Bills
@@ -51,18 +57,59 @@ service cloud.firestore {
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.createdAt == request.time;
 
+      // A saved bill can only be edited for 1 hour after it was created
+      // (the same limit the app shows), enforced here on the server too.
       allow update:
         if request.auth != null
         && request.auth.uid == userId
         && resource.data.ownerUid == request.auth.uid
         && request.resource.data.ownerUid == resource.data.ownerUid
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.receiptNumber == resource.data.receiptNumber;
+        && request.resource.data.receiptNumber == resource.data.receiptNumber
+        && resource.data.createdAt is timestamp
+        && request.time < resource.data.createdAt + duration.value(1, 'h');
 
       allow delete:
         if request.auth != null
         && request.auth.uid == userId
-        && resource.data.ownerUid == request.auth.uid;
+        && resource.data.ownerUid == request.auth.uid
+        && resource.data.createdAt is timestamp
+        && request.time < resource.data.createdAt + duration.value(1, 'h');
+    }
+
+    // Shared receipt-number counter (same number sequence on every device).
+    // The value can only go up.
+    match /users/{userId}/meta/billCounter {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['value'])
+        && request.resource.data.value is int
+        && request.resource.data.value >= 1
+        && request.resource.data.value < 100000000;
+      allow update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['value'])
+        && request.resource.data.value is int
+        && request.resource.data.value > resource.data.value
+        && request.resource.data.value < 100000000;
+      allow list, delete: if false;
+    }
+
+    // Edit Mode password (salted PBKDF2 hash only) shared by all of the
+    // owner's devices, so one password works everywhere.
+    match /users/{userId}/meta/editModePassword {
+      allow get: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['salt', 'hash', 'iterations', 'updatedAt'])
+        && request.resource.data.salt is string
+        && request.resource.data.salt.size() <= 64
+        && request.resource.data.hash is string
+        && request.resource.data.hash.size() <= 128
+        && request.resource.data.iterations is int
+        && request.resource.data.iterations >= 100000
+        && request.resource.data.iterations <= 1000000
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isOwner(userId);
+      allow list: if false;
     }
 
     // Users can submit only their own recovery request.
@@ -78,7 +125,6 @@ service cloud.firestore {
       allow get: if isRecoveryAdmin() || (request.auth != null && request.auth.uid == userId);
       allow list, delete: if isRecoveryAdmin();
     }
-
 
     // Admin-controlled retry cooldown. Users can read only their own status.
     match /editModeRecoveryCooldown/{userId} {
@@ -110,5 +156,5 @@ service cloud.firestore {
 
       allow list: if false;
     }
-  }
-}
+
+} }

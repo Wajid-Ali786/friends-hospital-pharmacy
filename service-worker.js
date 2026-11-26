@@ -1,9 +1,10 @@
-const CACHE_NAME = "friends-pharmacy-v101";
+const CACHE_NAME = "friends-pharmacy-v103";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
+  "./vendor/firebase-bundle.js",
   "./manifest.webmanifest",
   "./icon.svg",
   "./assets/icons/app-icon.png",
