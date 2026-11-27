@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,interactive-widget=resizes-content">
   <meta name="theme-color" content="#102b27">
   <meta name="description" content="Friends Hospital Pharmacy billing and medicine management">
   <title>Friends Hospital Pharmacy</title>
@@ -35,7 +35,7 @@
  #appView .sidebar .nav{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:54px!important;padding:6px 2px!important;font-size:11px!important;line-height:1.15;white-space:nowrap;text-align:center;border-radius:12px!important;transform:none!important}
  #appView .sidebar .nav .nav-ico{width:auto;text-align:center;font-size:18px;line-height:1}
  #appView .sidebar .nav.active{box-shadow:none!important}
- #appView .main{display:block!important;height:100dvh!important;overflow-y:auto!important;overflow-x:hidden;padding:66px 14px calc(92px + env(safe-area-inset-bottom))!important;-webkit-overflow-scrolling:touch}
+ #appView .main{display:block!important;position:fixed!important;inset:0!important;height:auto!important;overflow-y:auto!important;overflow-x:hidden;padding:66px 14px calc(124px + env(safe-area-inset-bottom))!important;scroll-padding-bottom:150px;-webkit-overflow-scrolling:touch}
  .toast-host{top:calc(60px + env(safe-area-inset-top))!important}
  .update-banner{bottom:calc(84px + env(safe-area-inset-bottom))}
 }
@@ -59,6 +59,51 @@ input,select,textarea{font-size:16px}
 #billTotalBar.show{display:flex}
 }
 #billTotalBar{display:none}
+
+/* ===== Final polish: refund, keyboard, history, mobile ===== */
+.history-toolbar{justify-content:flex-end!important}.history-tools{width:100%;max-width:520px;display:flex;gap:10px}.history-tools .search{flex:1;min-width:0}
+button,.qty-btn,.nav{touch-action:manipulation}
+.qty-controls{gap:6px}
+#refundPage .refund-section{position:relative;overflow:visible;border:1px solid #e1ebe4;border-top:4px solid #2e8a5c}
+#refundPage .refund-section:not(.refund-new-section){border-top-color:#d9893b}
+#refundPage .refund-section-heading h4{font-size:15px;display:flex;align-items:center;gap:8px}
+#refundPage .refund-section-total{padding:6px 12px;border-radius:999px;background:#eef6f1;color:#1f6b47;font-weight:800}
+#refundPage .refund-section:not(.refund-new-section) .refund-section-total{background:#fdf1e3;color:#a35f1c}
+.refund-search-box{position:relative}
+#refundPage .refund-search{min-height:48px;font-size:16px;padding:0 14px 0 40px;border-radius:12px;background:#fbfdfb url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2379907f' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 13px center}
+#refundPage .refund-search:focus,#refundPage .refund-search:not(:placeholder-shown){background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2379907f' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E")!important;background-repeat:no-repeat!important;background-position:13px center!important}
+#refundPage .refund-search-results{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:40;display:grid;gap:2px;margin:0;padding:6px;max-height:min(46vh,340px);overflow-y:auto;overscroll-behavior:contain;background:#fff;border:1px solid #c9dccf;border-radius:14px;box-shadow:0 16px 36px rgba(18,56,38,.22)}
+#refundPage .refund-search-results:empty{display:none}
+#refundPage .refund-search-option{display:grid;grid-template-columns:minmax(0,1fr) auto 28px;align-items:center;gap:10px;min-height:48px;padding:8px 10px;border:0;border-radius:10px;background:transparent;text-align:left;font-size:14px;cursor:pointer}
+#refundPage .refund-search-option span{font-weight:700;color:#1d2f26;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#refundPage .refund-search-option small{color:#4f7a62;font-weight:700;white-space:nowrap}
+#refundPage .refund-search-option b{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#e4f2ea;color:#1f6b47}
+#refundPage .refund-search-option:hover,#refundPage .refund-search-option.keyboard-active{background:#eff8f2}
+#refundPage .refund-search-empty{margin:0;padding:12px;color:#7a8a80;font-size:13px;text-align:center}
+#refundPage .refund-lines{display:grid;gap:10px;margin-top:12px}
+#refundPage .refund-lines:empty{display:none}
+#refundPage .refund-empty{margin:0;padding:18px 10px;text-align:center;color:#8a9a90;font-size:13px;border:1.5px dashed #d6e3da;border-radius:12px;background:#fafcfb}
+#refundPage .refund-line{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"desc remove" "fields fields";align-items:center;gap:8px 10px;padding:12px;border:1px solid #e6eee9;border-radius:12px;background:#fcfdfc}
+#refundPage .refund-line-description{grid-area:desc;display:grid;gap:2px;min-width:0}
+#refundPage .refund-line-description b{font-size:14px;overflow-wrap:anywhere}
+#refundPage .refund-line-description small{color:#6c7f73;font-size:12px}
+#refundPage .refund-line-pricing{display:contents}
+#refundPage .refund-fields{grid-area:fields;display:grid;grid-template-columns:84px minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:end}
+#refundPage .refund-field{display:grid;gap:3px;min-width:0}
+#refundPage .refund-field>small{font-size:11px;font-weight:700;color:#7a8a80;text-transform:uppercase;letter-spacing:.04em}
+#refundPage .refund-field input{width:100%!important;height:44px!important;font-size:16px!important;border:1px solid #d8e5dc;border-radius:10px;padding:0 10px;background:#fff;text-align:left}
+#refundPage .refund-field input[readonly]{background:#f2f6f3;color:#5d7165}
+#refundPage .refund-field .refund-line-total{display:flex;align-items:center;min-height:44px;font-size:15px;font-weight:800;color:#1b3a2a}
+#refundPage .refund-remove{grid-area:remove;align-self:start;width:36px;height:36px;border-radius:10px;border:1px solid #efd3cf;background:#fff;color:#b3261e;font-size:20px;line-height:1}
+@media(min-width:721px){#refundPage .refund-line{grid-template-columns:minmax(0,1fr) auto 36px;grid-template-areas:"desc fields remove"}#refundPage .refund-fields{grid-template-columns:74px 96px 100px}#refundPage .refund-remove{align-self:center}}
+#refundPage .refund-patient-fields input{min-height:46px;font-size:16px}
+#refundPage .refund-message{color:#8a5a1a;font-size:13px;min-height:0}
+#refundPage .refund-message:empty{display:none}
+@media(max-width:720px){#refundPage .refund-actions{position:static}}
+body.kb-open #appView .sidebar,body.kb-open #billTotalBar{display:none!important}
+body.kb-open #appView .main{padding-bottom:40vh!important}
+@media(max-width:760px){.app-modal .app-modal-dialog{max-height:100%!important}.app-modal{padding:10px}}
+#recoveryAdminBell{display:inline-flex;align-items:center;gap:6px;border-radius:999px;font-weight:800}
 </style></head>
 <body>
   <div id="loginView" class="login-wrap">
@@ -111,8 +156,8 @@ input,select,textarea{font-size:16px}
 <div class="refund-patient-fields"><label>Patient name<input id="refundPatientName" required placeholder="Enter patient name"></label><label>Token number<input id="refundTokenNumber" placeholder="Token number"></label></div>
 <div class="refund-layout">
 <div class="refund-main-column">
-<section class="refund-section"><div class="refund-section-heading"><div><h4>Returned medicines</h4></div><span class="refund-section-total" id="refundReturnTotal">Rs. 0</span></div><input id="refundReturnSearch" aria-label="Search returned medicine" class="search refund-search" placeholder="Search returned medicine…" autocomplete="off"><div id="refundReturnResults" class="refund-search-results"></div><div id="refundReturnLines" class="refund-lines"><p class="refund-empty">No returned medicines added.</p></div></section>
-<section class="refund-section refund-new-section"><div class="refund-section-heading"><div><h4>New medicines <span class="optional-label">Optional</span></h4></div><span class="refund-section-total" id="refundNewTotal">Rs. 0</span></div><input id="refundNewSearch" aria-label="Search new medicine" class="search refund-search" placeholder="Search new medicines…" autocomplete="off"><div id="refundNewResults" class="refund-search-results"></div><div id="refundNewLines" class="refund-lines"><p class="refund-empty">No new medicines added.</p></div></section>
+<section class="refund-section"><div class="refund-section-heading"><div><h4>Returned medicines</h4></div><span class="refund-section-total" id="refundReturnTotal">Rs. 0</span></div><div class="refund-search-box"><input id="refundReturnSearch" aria-label="Search returned medicine" class="search refund-search" placeholder="Search returned medicine…" autocomplete="off"><div id="refundReturnResults" class="refund-search-results" role="listbox"></div></div><div id="refundReturnLines" class="refund-lines"><p class="refund-empty">No returned medicines added.</p></div></section>
+<section class="refund-section refund-new-section"><div class="refund-section-heading"><div><h4>New medicines <span class="optional-label">Optional</span></h4></div><span class="refund-section-total" id="refundNewTotal">Rs. 0</span></div><div class="refund-search-box"><input id="refundNewSearch" aria-label="Search new medicine" class="search refund-search" placeholder="Search new medicines…" autocomplete="off"><div id="refundNewResults" class="refund-search-results" role="listbox"></div></div><div id="refundNewLines" class="refund-lines"><p class="refund-empty">No new medicines added.</p></div></section>
 </div>
 <aside class="refund-side-column">
 <div class="refund-calculation"><div class="refund-calculation-heading"><h4>Payment summary</h4><span>Auto calculated</span></div><div class="refund-summary-row"><span>Returned medicines</span><b id="refundSubtotal">Rs. 0</b></div><div class="refund-summary-row deduction"><span>25% deduction</span><b id="refundDeduction">− Rs. 0</b></div><div class="refund-summary-row credit"><span>Refund credit</span><b id="refundCredit">Rs. 0</b></div><div class="refund-summary-row"><span>New medicines</span><b id="refundPurchaseTotal">Rs. 0</b></div><div class="refund-net-row"><div><small id="refundNetLabel">Cash refund to patient</small><b id="refundNetHint">Refund amount</b></div><strong id="refundNetAmount">Rs. 0</strong></div></div>
@@ -120,7 +165,7 @@ input,select,textarea{font-size:16px}
 </aside>
 </div>
 </div></section>
-<section id="historyPage" class="page hidden"><div class="panel"><div class="history-toolbar"><div><h3>Billing History</h3><p class="muted small-text">Your bills, organized by date</p></div><div class="history-tools"><input id="historySearch" aria-label="Search bills by receipt number or patient" class="search" placeholder="Receipt or patient…"><button id="statementBtn" class="primary statement-open" type="button">Statement</button></div></div><div id="billingHistoryList"><p class="muted">Loading billing history…</p></div></div><div id="receiptDetail" class="panel receipt-detail hidden"></div><div id="statementModal" class="statement-modal hidden" role="dialog" aria-modal="true" aria-labelledby="statementTitle"><div class="statement-dialog"><div class="statement-modal-head"><div><span class="eyebrow">PHARMACY RECORDS</span><h3 id="statementTitle">Billing Statement</h3><p class="muted small-text">Select a period to prepare your statement.</p></div><button id="statementClose" class="statement-close" type="button" aria-label="Close"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg></button></div><div class="statement-controls"><label>Statement period<select id="statementPeriod"><option value="week">This Week</option><option value="month" selected>This Month</option><option value="lastMonth">Last Month</option><option value="today">Today</option><option value="custom">Custom Date Range</option></select></label><div id="statementCustomDates" class="statement-date-fields hidden"><label>From<input id="statementFrom" type="date"></label><label>To<input id="statementTo" type="date"></label></div><div class="statement-actions"><button id="statementGenerate" class="primary" type="button">Generate Statement</button><button id="statementPrint" class="secondary" type="button">Print / Save PDF</button></div></div><div id="statementPreview" class="statement-preview"><p class="muted">Choose a period and select Generate statement.</p></div><div id="statementPrintArea" class="statement-print-area"></div></div></div></section>
+<section id="historyPage" class="page hidden"><div class="panel"><div class="history-toolbar"><div class="history-tools"><input id="historySearch" aria-label="Search bills by receipt number or patient" class="search" placeholder="Receipt or patient…"><button id="statementBtn" class="primary statement-open" type="button">Statement</button></div></div><div id="billingHistoryList"><p class="muted">Loading billing history…</p></div></div><div id="receiptDetail" class="panel receipt-detail hidden"></div><div id="statementModal" class="statement-modal hidden" role="dialog" aria-modal="true" aria-labelledby="statementTitle"><div class="statement-dialog"><div class="statement-modal-head"><div><span class="eyebrow">PHARMACY RECORDS</span><h3 id="statementTitle">Billing Statement</h3><p class="muted small-text">Select a period to prepare your statement.</p></div><button id="statementClose" class="statement-close" type="button" aria-label="Close"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg></button></div><div class="statement-controls"><label>Statement period<select id="statementPeriod"><option value="week">This Week</option><option value="month" selected>This Month</option><option value="lastMonth">Last Month</option><option value="today">Today</option><option value="custom">Custom Date Range</option></select></label><div id="statementCustomDates" class="statement-date-fields hidden"><label>From<input id="statementFrom" type="date"></label><label>To<input id="statementTo" type="date"></label></div><div class="statement-actions"><button id="statementGenerate" class="primary" type="button">Generate Statement</button><button id="statementPrint" class="secondary" type="button">Print / Save PDF</button></div></div><div id="statementPreview" class="statement-preview"><p class="muted">Choose a period and select Generate statement.</p></div><div id="statementPrintArea" class="statement-print-area"></div></div></div></section>
       <section id="settingsPage" class="page hidden"><div class="panel settings-panel"><h3>Settings & data</h3><div id="installAppWrap" class="install-wrap hidden"><button id="installAppBtn" class="primary" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 17v3h14v-3"/></svg> Install App</button><p class="muted small-text">Install Pharmacy on this device for quick access.</p></div><div class="account-card"><div class="account-info"><span class="account-avatar" aria-hidden="true">👤</span><div><small>Signed in as</small><b id="settingsEmail"></b></div></div><button id="logoutBtn" class="logout-btn" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/></svg> Logout</button></div><div class="setting-toggle-row"><div><b>Medicine Edit Mode</b><small>Set one password (it works on all your devices). Password verification is required each time you enable medicine changes.</small></div><label class="switch-control"><input id="medicineEditMode" type="checkbox" checked><span class="switch-slider"></span></label></div><label>Display name<input id="displayName" placeholder="Your name"></label><button id="saveName" class="secondary">Save display name</button><hr><div class="data-actions"><button id="exportData" class="secondary">Export medicines</button><label class="secondary upload-btn">Import backup<input id="importData" type="file" accept="application/json"></label></div><p class="muted small-text">Data is saved locally and synced to Firebase when online. Keep regular exports as an extra backup.</p>
 <div id="importStatus" class="message" role="status" aria-live="polite"></div><section id="pendingSyncPanel" class="pending-sync-panel"><div class="pending-sync-heading"><div><strong>Pending Sync</strong><span id="pendingSyncCount" class="pending-sync-count">0</span></div><button id="retryPendingSync" type="button" class="secondary">Retry Sync</button></div><div id="pendingSyncList" class="pending-sync-list"><p class="muted small-text">Checking pending records…</p></div></section><div class="account-wash-section"><h4>Delete medicines</h4><p class="muted small-text">Delete all medicines or only the ones you pick. Bill history is not touched. Medicine Edit Mode must be ON.</p><button id="deleteMedicinesBtn" class="danger-button" type="button">Delete medicines…</button></div></div></section>
     </main>

@@ -93,10 +93,10 @@ function setupRecoveryAdmin(user){
  const header=document.querySelector(".main header"),settings=$("settingsPage")?.querySelector(".settings-panel");
  let bell=$("recoveryAdminBell"),link=$("recoveryAdminLink");
  if(user?.uid===RECOVERY_ADMIN_UID){
-  if(!bell&&header){bell=document.createElement("button");bell.id="recoveryAdminBell";bell.type="button";bell.className="secondary";bell.style.cssText="margin-right:10px;min-height:38px;padding:7px 12px";bell.innerHTML="♢ <span id='recoveryAdminCount'>0</span>";bell.title="Pending recovery requests";header.insertBefore(bell,$("userLabel"));bell.onclick=()=>window.open("./recovery-admin.html","_blank","noopener");}
+  if(!bell&&header){bell=document.createElement("button");bell.id="recoveryAdminBell";bell.type="button";bell.className="secondary";bell.style.cssText="margin-right:10px;min-height:38px;padding:7px 12px;display:none";bell.innerHTML="♢ <span id='recoveryAdminCount'>0</span>";bell.title="Pending recovery requests";header.insertBefore(bell,$("userLabel"));bell.onclick=()=>window.open("./recovery-admin.html","_blank","noopener");}
   if(!link&&settings){link=document.createElement("a");link.id="recoveryAdminLink";link.href="./recovery-admin.html";link.textContent="♢ Recovery Admin";link.style.cssText="display:inline-flex;margin:12px 0;padding:10px 14px;border-radius:10px;background:#e8f3ec;color:#176b55;font-weight:700;text-decoration:none";settings.insertBefore(link,settings.firstChild);}
   if(recoveryAdminUnsubscribe)recoveryAdminUnsubscribe();
-  recoveryAdminUnsubscribe=onSnapshot(collection(db,"editModeRecoveryRequests"),snap=>{const count=$("recoveryAdminCount");if(count)count.textContent=String(snap.size);if(bell){bell.title=snap.size+" pending recovery request"+(snap.size===1?"":"s");bell.style.background=snap.size?"#dff3e6":"#edf5f0";}},err=>console.warn("Recovery notifications unavailable:",err));
+  recoveryAdminUnsubscribe=onSnapshot(collection(db,"editModeRecoveryRequests"),snap=>{const count=$("recoveryAdminCount");if(count)count.textContent=String(snap.size);if(bell){bell.title=snap.size+" pending recovery request"+(snap.size===1?"":"s");bell.style.background="#fff1d6";bell.style.display=snap.size?"inline-flex":"none";}},err=>console.warn("Recovery notifications unavailable:",err));
  }else{if(bell)bell.remove();if(link)link.remove();if(recoveryAdminUnsubscribe){recoveryAdminUnsubscribe();recoveryAdminUnsubscribe=null;}}
 }
 function status(){ $("connection").textContent=syncBlocked?"● Cloud sync paused":navigator.onLine?"● Online / Firebase sync":"● Offline / Local mode";updatePendingPanel(); }
@@ -617,6 +617,7 @@ function changeBillQuantity(item,delta){
 }
 function startQuantityHold(event,item,delta){
  if(event.button!==undefined&&event.button!==0)return;
+ if(event.pointerType&&event.pointerType!=="mouse")return; // touch/pen: act only on a real tap (click), never while scrolling
  event.preventDefault();
  stopQuantityHold();quantitySuppressClick=true;quantityHoldItem=item;quantityHoldDelta=delta;
  changeBillQuantity(item,delta);
@@ -649,9 +650,9 @@ function renderBill(){
   const controls=document.createElement("div");controls.className="qty-controls";
   if(fixed){controls.classList.add("custom-fixed-qty");controls.textContent="—";}
   else{
-   const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>';minus.setAttribute("aria-label","Decrease quantity");minus.title="Hold to decrease continuously";minus.addEventListener("pointerdown",e=>startQuantityHold(e,it,-1));minus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}if(e.detail===0){changeBillQuantity(it,-1);finishQuantityHold();}};
+   const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>';minus.setAttribute("aria-label","Decrease quantity");minus.title="Hold to decrease continuously";minus.addEventListener("pointerdown",e=>startQuantityHold(e,it,-1));minus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}changeBillQuantity(it,-1);finishQuantityHold();};
    const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value=it.qty;qty.setAttribute("aria-label","Quantity");qty.onchange=()=>{it.qty=Math.max(1,Math.floor(Number(qty.value)||1));if(it.kind!=="custom")clearMedicineRounding();renderBill();persistActiveDraft().catch(console.warn);};qty.addEventListener("keydown",e=>{if(e.key!=="Enter")return;e.preventDefault();it.qty=Math.max(1,Math.floor(Number(qty.value)||1));if(it.kind!=="custom")clearMedicineRounding();const nextIndex=Math.min(i+1,bill.length-1);renderBill();persistActiveDraft().catch(console.warn);requestAnimationFrame(()=>{const next=$("billItems").querySelectorAll(".qty-controls input")[nextIndex];if(next){next.focus();next.select();}});});
-   const plus=document.createElement("button");plus.type="button";plus.className="qty-btn";plus.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';plus.setAttribute("aria-label","Increase quantity");plus.title="Hold to increase continuously";plus.addEventListener("pointerdown",e=>startQuantityHold(e,it,1));plus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}if(e.detail===0){changeBillQuantity(it,1);finishQuantityHold();}};
+   const plus=document.createElement("button");plus.type="button";plus.className="qty-btn";plus.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';plus.setAttribute("aria-label","Increase quantity");plus.title="Hold to increase continuously";plus.addEventListener("pointerdown",e=>startQuantityHold(e,it,1));plus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}changeBillQuantity(it,1);finishQuantityHold();};
    controls.append(minus,qty,plus);controls.classList.add("qty-controls-centered");
   }
   const price=document.createElement("b");price.className="bill-line-total";price.textContent=wholeMoney(billItemTotal(it));
@@ -913,24 +914,31 @@ function renderRefundSearch(kind,query=""){
 }
 function renderRefundLines(kind){
  const isReturn=kind==="return",items=isReturn?refundReturns:refundPurchases,root=$(isReturn?"refundReturnLines":"refundNewLines");root.replaceChildren();
- if(!items.length){const p=document.createElement("p");p.className="refund-empty";p.textContent=isReturn?"No returned medicines added.":"No new medicines added. Leave empty for refund only.";root.append(p);return;}
+ if(!items.length){const p=document.createElement("p");p.className="refund-empty";p.textContent=isReturn?"No returned medicines added yet. Search above to add one.":"No new medicines added. Leave empty for a refund only.";root.append(p);return;}
  items.forEach((line,index)=>{
   const row=document.createElement("div");row.className="refund-line";
   const description=document.createElement("div");description.className="refund-line-description";
   const name=document.createElement("b");name.textContent=line.name;const unit=document.createElement("small");unit.textContent=line.unit;description.append(name,unit);
-  const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value=String(line.quantity);qty.className="refund-qty";qty.setAttribute("aria-label","Quantity for "+line.name);
-  qty.onchange=()=>{line.quantity=Math.max(1,Math.floor(Number(qty.value)||1));renderRefundWorkspace();persistRefundDraft().catch(console.warn);};
-  const price=document.createElement("input");price.type="number";price.min="0";price.step="1";price.value=String(line.unitPrice);price.className="refund-price";price.readOnly=!isReturn;price.title=isReturn?"Confirm the price originally paid for this returned medicine":"Current medicine price";price.setAttribute("aria-label","Unit price for "+line.name);
-  if(isReturn)price.onchange=()=>{line.unitPrice=Math.max(0,Number(price.value)||0);renderRefundWorkspace();persistRefundDraft().catch(console.warn);};
   const total=document.createElement("strong");total.className="refund-line-total";total.textContent=refundMoney(refundLineTotal(line));
+  const field=(caption,node)=>{const w=document.createElement("label");w.className="refund-field";const c=document.createElement("small");c.textContent=caption;w.append(c,node);return w;};
+  const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.inputMode="numeric";qty.value=String(line.quantity);qty.className="refund-qty";qty.setAttribute("aria-label","Quantity for "+line.name);
+  qty.addEventListener("focus",()=>qty.select());
+  qty.oninput=()=>{const v=Math.floor(Number(qty.value));if(v>=1){line.quantity=v;total.textContent=refundMoney(refundLineTotal(line));renderRefundSummary();persistRefundDraft().catch(console.warn);}};
+  qty.onchange=()=>{line.quantity=Math.max(1,Math.floor(Number(qty.value)||1));qty.value=String(line.quantity);total.textContent=refundMoney(refundLineTotal(line));renderRefundSummary();persistRefundDraft().catch(console.warn);};
+  const price=document.createElement("input");price.type="number";price.min="0";price.step="1";price.inputMode="decimal";price.value=String(line.unitPrice);price.className="refund-price";price.readOnly=!isReturn;price.title=isReturn?"Confirm the price originally paid for this returned medicine":"Current medicine price";price.setAttribute("aria-label","Unit price for "+line.name);
+  if(isReturn){price.addEventListener("focus",()=>price.select());price.oninput=()=>{line.unitPrice=Math.max(0,Number(price.value)||0);total.textContent=refundMoney(refundLineTotal(line));renderRefundSummary();persistRefundDraft().catch(console.warn);};}
   const remove=document.createElement("button");remove.type="button";remove.className="refund-remove";remove.textContent="×";remove.setAttribute("aria-label","Remove "+line.name);remove.onclick=()=>{items.splice(index,1);renderRefundWorkspace();persistRefundDraft().catch(console.warn);};
-  const pricing=document.createElement("div");pricing.className="refund-line-pricing";pricing.append(qty,price,total,remove);
-  row.append(description,pricing);root.append(row);
+  const fields=document.createElement("div");fields.className="refund-fields refund-line-pricing";
+  fields.append(field("Qty",qty),field(isReturn?"Price paid":"Price",price),field("Total",total));
+  row.append(description,fields,remove);root.append(row);
  });
 }
 function renderRefundWorkspace(){
  if(!$("refundReturnLines"))return;
- renderRefundLines("return");renderRefundLines("new");
+ renderRefundLines("return");renderRefundLines("new");renderRefundSummary();
+}
+function renderRefundSummary(){
+ if(!$("refundNetAmount"))return;
  const t=refundTotals();
  $("refundReturnTotal").textContent=refundMoney(t.returned);$("refundNewTotal").textContent=refundMoney(t.purchases);
  $("refundSubtotal").textContent=refundMoney(t.returned);$("refundDeduction").textContent="− "+refundMoney(t.deduction);$("refundCredit").textContent=refundMoney(t.credit);$("refundPurchaseTotal").textContent=refundMoney(t.purchases);
@@ -939,7 +947,10 @@ function renderRefundWorkspace(){
  $("refundNetAmount").textContent=refundMoney(t.cashAmount);
  $("refundNetAmount").classList.toggle("refund-pay",t.cashDirection==="collect");
  $("refundNetAmount").classList.toggle("refund-cashout",t.cashDirection==="refund");
- $("saveRefund").disabled=refundSaving||!refundReturns.length||!$("refundPatientName").value.trim();
+ const needName=!$("refundPatientName").value.trim(),needItem=!refundReturns.length;
+ $("saveRefund").disabled=refundSaving||needItem||needName;
+ const m=$("refundMessage");
+ if(!refundSaving&&(!m.textContent||m.dataset.hint==="1")){const hint=(needItem||needName)&&(refundPurchases.length||$("refundPatientName").value||refundReturns.length)?(needName?"Enter the patient name to continue.":"Add at least one returned medicine."):"";m.textContent=hint;m.dataset.hint=hint?"1":"";}
 }
 async function nextRefundNumber(){
  const current=Number(await localDB.get("meta","refundCounter"))||0,next=current+1;
@@ -970,6 +981,11 @@ function clearRefundWorkspace(){
   if(!ok)return;refundReturns=[];refundPurchases=[];$("refundPatientName").value="";$("refundTokenNumber").value="";$("refundReturnSearch").value="";$("refundNewSearch").value="";$("refundReturnResults").replaceChildren();$("refundNewResults").replaceChildren();await localDB.delete("meta","activeRefundDraft");renderRefundWorkspace();
  });
 }
+const closeRefundResults=()=>{$("refundReturnResults").replaceChildren();$("refundNewResults").replaceChildren();};
+document.addEventListener("pointerdown",e=>{if(!e.target.closest?.(".refund-search-box"))closeRefundResults();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeRefundResults();});
+$("refundReturnSearch").addEventListener("focus",e=>{if(e.target.value.trim())renderRefundSearch("return",e.target.value);});
+$("refundNewSearch").addEventListener("focus",e=>{if(e.target.value.trim())renderRefundSearch("new",e.target.value);});
 $("refundReturnSearch").oninput=e=>renderRefundSearch("return",e.target.value);
 $("refundNewSearch").oninput=e=>renderRefundSearch("new",e.target.value);
 [["return","refundReturnSearch","refundReturnResults"],["new","refundNewSearch","refundNewResults"]].forEach(([kind,inputId,listId])=>{
@@ -1480,3 +1496,11 @@ $("addCustomItemBtn").onclick=()=>openCustomItemForm();
  new MutationObserver(upd).observe(items,{childList:true,subtree:true});new MutationObserver(upd).observe(ft,{childList:true,characterData:true,subtree:true});
  const pg=document.getElementById("billingPage");if(pg)new MutationObserver(upd).observe(pg,{attributes:true,attributeFilter:["class"]});
  bar.onclick=()=>document.getElementById("saveBill")?.scrollIntoView({behavior:"smooth",block:"center"});upd();})();
+
+// Mobile keyboard: keep the focused field comfortably above the keyboard; hide the tab bar while typing.
+(()=>{const isText=el=>el&&/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)&&!["checkbox","radio","button","submit","file","range"].includes(el.type);
+ const mobile=()=>matchMedia("(max-width:760px)").matches;
+ document.addEventListener("focusin",e=>{const el=e.target;if(!isText(el)||!mobile())return;document.body.classList.add("kb-open");
+  [250,550].forEach(t=>setTimeout(()=>{if(document.activeElement===el)el.scrollIntoView({block:"center",behavior:"smooth"});},t));});
+ document.addEventListener("focusout",()=>{setTimeout(()=>{if(!isText(document.activeElement))document.body.classList.remove("kb-open");},120);});
+})();
