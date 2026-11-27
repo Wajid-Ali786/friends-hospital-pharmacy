@@ -1471,3 +1471,12 @@ $("importData").onchange=async e=>{
 };
 
 $("addCustomItemBtn").onclick=()=>openCustomItemForm();
+
+// Mobile: floating bill total (visible on Billing while items are in the bill; tap to jump to Save)
+(()=>{const bar=document.getElementById("billTotalBar"),ft=document.getElementById("finalTotal"),items=document.getElementById("billItems");if(!bar||!ft||!items)return;
+ const upd=()=>{try{const n=items.querySelectorAll("[data-id],.bill-item,.cart-item,li,tr").length;const hasItems=!items.querySelector(".muted")&&items.children.length>0;const onBilling=!document.getElementById("billingPage")?.classList.contains("hidden");const count=hasItems?items.children.length:0;
+  document.getElementById("billTotalBarCount").textContent=count+(count===1?" item":" items");document.getElementById("billTotalBarAmt").textContent=ft.textContent.trim();
+  bar.classList.toggle("show",onBilling&&count>0);}catch(e){}};
+ new MutationObserver(upd).observe(items,{childList:true,subtree:true});new MutationObserver(upd).observe(ft,{childList:true,characterData:true,subtree:true});
+ const pg=document.getElementById("billingPage");if(pg)new MutationObserver(upd).observe(pg,{attributes:true,attributeFilter:["class"]});
+ bar.onclick=()=>document.getElementById("saveBill")?.scrollIntoView({behavior:"smooth",block:"center"});upd();})();

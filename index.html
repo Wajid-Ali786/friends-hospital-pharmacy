@@ -43,7 +43,23 @@
 #appView .hold-action,#appView #saveBill,#appView #printBill{font-size:12px!important}
 #appView .sidebar .nav{font-size:11px}
 @media (max-width:760px){#appView .sidebar .nav{font-size:11px!important}}
-.account-card{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 14px;margin:0 0 14px;border:1px solid #d8e6df;border-radius:14px;background:linear-gradient(135deg,#f4faf7,#eaf5ef)}.account-info{display:flex;align-items:center;gap:10px;min-width:0}.account-info small{display:block;color:#5f7a6f;font-size:12px}.account-info b{display:block;word-break:break-all}.account-avatar{width:38px;height:38px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:18px;box-shadow:0 1px 4px rgba(0,0,0,.1)}.logout-btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid #e3b5b0;border-radius:12px;background:#fff;color:#b3261e;font-weight:700;cursor:pointer}.logout-btn:hover{background:#fdeceb}.logout-btn .ui-icon{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}@media(max-width:760px){.logout-btn{width:100%;justify-content:center}}</style></head>
+.account-card{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 14px;margin:0 0 14px;border:1px solid #d8e6df;border-radius:14px;background:linear-gradient(135deg,#f4faf7,#eaf5ef)}.account-info{display:flex;align-items:center;gap:10px;min-width:0}.account-info small{display:block;color:#5f7a6f;font-size:12px}.account-info b{display:block;word-break:break-all}.account-avatar{width:38px;height:38px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:18px;box-shadow:0 1px 4px rgba(0,0,0,.1)}.logout-btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;border:1px solid #e3b5b0;border-radius:12px;background:#fff;color:#b3261e;font-weight:700;cursor:pointer}.logout-btn:hover{background:#fdeceb}.logout-btn .ui-icon{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}@media(max-width:760px){.logout-btn{width:100%;justify-content:center}}@media(max-width:760px){
+#appView .main header .eyebrow{display:none}
+#appView .main header{align-items:center;gap:10px;margin-bottom:10px}
+#appView .main header h2{font-size:26px;margin:0}
+#appView .user-pill{max-width:46%;padding:7px 12px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-block}
+.patient-fields{display:grid!important;grid-template-columns:1fr!important;gap:10px!important}
+.patient-fields label{width:100%!important;max-width:none!important}
+.patient-fields input{width:100%!important;min-height:46px;font-size:16px!important}
+.bill-actions{display:grid!important;grid-template-columns:1fr 1.2fr 1.2fr;gap:8px!important}
+.bill-actions button{width:100%!important;min-height:48px;padding:0 6px!important;white-space:nowrap}
+#deleteMedicinesBtn,#installAppBtn{width:100%}
+input,select,textarea{font-size:16px}
+#billTotalBar{position:fixed;left:10px;right:10px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:58;display:none;align-items:center;justify-content:space-between;gap:10px;min-height:48px;padding:0 16px;border:0;border-radius:14px;background:#1f6b50;color:#fff;font-weight:700;font-size:15px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+#billTotalBar.show{display:flex}
+}
+#billTotalBar{display:none}
+</style></head>
 <body>
   <div id="loginView" class="login-wrap">
     <div class="login-card auth-card">
@@ -112,4 +128,5 @@
 
   </div>
   <script type="module" src="./app.js"></script>
+<button id="billTotalBar" type="button" aria-label="Go to bill total"><span id="billTotalBarCount">0 items</span><span id="billTotalBarAmt">Rs. 0</span></button>
 </body></html>
