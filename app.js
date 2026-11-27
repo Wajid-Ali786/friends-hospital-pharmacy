@@ -29,6 +29,8 @@ async function ensureAccountEpoch(uid,dbRef){
 }
 function resetAccountMemory(){medicines=[];bill=[];pendingBills=[];savedBills=[];refundReturns=[];refundPurchases=[];refundDraftLoaded=false;roundingApplied=0;roundingBase=null;editingBillId=null;editingBillCreatedAt=0;medicineModeEnabled=false;syncNotice="";syncBlocked=false;if($("medicineEditMode"))$("medicineEditMode").checked=false;for(const id of ["patientName","tokenNumber","refundPatientName","refundTokenNumber","discount"])if($(id))$(id).value=id==="discount"?"0":"";setDiscountEditor(false);renderBill();renderPendingBills();renderRefundWorkspace();renderMedicines();renderBillingHistory();}
 let medicines=[],bill=[],unsubscribe=null,historyUnsubscribe=null,currentUser=null,roundingApplied=0,roundingBase=null,savedBills=[],editingBillId=null,editingBillCreatedAt=0,syncPromise=null,syncRetryTimer=null,syncRetryDelay=5000,syncNotice="",medicineModeEnabled=true,medicineImageDraft="",medicineImageRotation=0,medicineImageCrop=false,medicineVisibleCount=9,historyVisibleCount=9,historyObserver=null;
+// Free (Spark) plan: Firebase Storage needs a paid plan, so photos are saved compressed inside Firestore. Set to true only after enabling Storage.
+const USE_FIREBASE_STORAGE=false;
 let historyOwnerUid=null,ignoreSyncBackoff=false,pendingPanelBusy=false,pendingPanelDirty=false;let storageSkipUntil=0,storageFailedAt=0,lastStorageWarnAt=0,syncBatchTotal=0,syncLastDone=0,syncLastDoneTimer=null,syncWasPending=false,pendingPanelTimer=null,pendingPanelLast=0,pendingPanelWaiters=[],syncDurations=[],syncRun={active:false,list:[],doneIds:new Set(),id:"",label:"",stage:"",jobStart:0};const SYNC_JOB_TIMEOUT=180000,SYNC_IMAGE_TIMEOUT=25000;
 const asArray=value=>Array.isArray(value)?value:[];
 const $=id=>document.getElementById(id),money=n=>"Rs. "+Number(n||0).toFixed(2),wholeMoney=n=>"Rs. "+Math.round(Number(n)||0).toLocaleString("en-PK"),medicinePriceText=n=>{const v=Number(n)||0;return "Rs. "+(Number.isInteger(v)?v.toLocaleString("en-PK"):String(v));};
@@ -194,7 +196,7 @@ async function syncOneJob(job,ownerUid,dbRef,run){
  if(group==="medicines"){
   const m=cleanForFirestore(job.data);let imageFailed=false,imageError="";
   const upload=async(dataUrl,path)=>{
-   if(run.imageFailures<1&&Date.now()>=storageSkipUntil){
+   if(USE_FIREBASE_STORAGE&&run.imageFailures<1&&Date.now()>=storageSkipUntil){
     syncRun.stage="uploading image…";updatePendingPanel();
     try{const url=await uploadDataUrl(path,dataUrl);run.imageFailures=0;return url;}
     catch(err){run.imageFailures++;storageFailedAt=Date.now();storageSkipUntil=storageFailedAt+300000;run.storageError=(err?.code||"storage-error")+": "+(err?.message||"image upload failed");console.warn("Storage upload failed, using inline image:",targetId,err);}

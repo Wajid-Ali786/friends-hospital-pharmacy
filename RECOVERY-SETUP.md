@@ -42,11 +42,10 @@ Do these in order after pulling this version:
 
 1. **Firestore rules** – Firebase Console → Firestore Database → Rules → paste the whole `firestore.rules` file → Publish.
    (Adds: 1-hour bill edit/delete limit on the server, medicine validation, shared receipt counter, shared Edit Mode password.)
-2. **Functions** – the runtime is now Node 22 (Node 20 was shut down by Google on 2026-10-30):
+2. **Functions (skip on the free plan; the app does not call them)** – the runtime is now Node 22 (Node 20 was shut down by Google on 2026-10-30):
 
        firebase deploy --only functions --project friends-hospital-pharmacy
        firebase functions:delete wipePharmacyData --region us-central1 --project friends-hospital-pharmacy
 
    (`wipePharmacyData` is no longer used; the "Wash account" button was removed.)
-3. **Storage** – Firebase Console → Storage must be set up with bucket `friends-hospital-pharmacy.firebasestorage.app`; publish `storage.rules`.
-   Until then the app keeps small copies of photos inside Firestore so nothing is lost.
+3. **Storage (optional, paid plan only)** – the app runs on the free Spark plan: photos are kept compressed inside Firestore. Only set `USE_FIREBASE_STORAGE=true` in app.js after enabling Storage on a paid plan.
