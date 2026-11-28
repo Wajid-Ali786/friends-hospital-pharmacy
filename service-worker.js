@@ -1,11 +1,11 @@
-const CACHE_NAME = "friends-pharmacy-v110";
+const CACHE_NAME = "friends-pharmacy-v111";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
-  "./vendor/firebase-bundle.js",
-  "./stock.js",
+  "./vendor/firebase-bundle.js?v=3",
+  "./stock.js?v=1",
   "./manifest.webmanifest",
   "./icon.svg",
   "./assets/icons/app-icon.png",
@@ -14,7 +14,12 @@ const APP_SHELL = [
 
 self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME).then(cache => Promise.all(APP_SHELL.map(async url => {
+      // cache:"reload" skips the browser HTTP cache so a new version never mixes with stale files
+      const response = await fetch(new Request(url, { cache: "reload" }));
+      if (!response.ok) throw new Error("Could not cache " + url);
+      await cache.put(url, response);
+    })))
   );
   self.skipWaiting();
 });

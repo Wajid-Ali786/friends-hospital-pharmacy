@@ -1,10 +1,10 @@
-import { initializeApp } from "./vendor/firebase-bundle.js";
-import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, updateProfile, EmailAuthProvider, reauthenticateWithCredential } from "./vendor/firebase-bundle.js";
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot, runTransaction, serverTimestamp, increment, query, where } from "./vendor/firebase-bundle.js";
-import { getStorage, ref, uploadString, getDownloadURL } from "./vendor/firebase-bundle.js";
-import { getFunctions, httpsCallable } from "./vendor/firebase-bundle.js";
-import { openDB } from "./vendor/firebase-bundle.js";
-import { createStock } from "./stock.js";
+import { initializeApp } from "./vendor/firebase-bundle.js?v=3";
+import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, updateProfile, EmailAuthProvider, reauthenticateWithCredential } from "./vendor/firebase-bundle.js?v=3";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, onSnapshot, runTransaction, serverTimestamp, increment, query, where } from "./vendor/firebase-bundle.js?v=3";
+import { getStorage, ref, uploadString, getDownloadURL } from "./vendor/firebase-bundle.js?v=3";
+import { getFunctions, httpsCallable } from "./vendor/firebase-bundle.js?v=3";
+import { openDB } from "./vendor/firebase-bundle.js?v=3";
+import { createStock } from "./stock.js?v=1";
 
 const firebaseConfig={apiKey:"AIzaSyDu3T1shPJoooMNwhpPijfJsPaNc2JWWhM",authDomain:"friends-hospital-pharmacy.firebaseapp.com",projectId:"friends-hospital-pharmacy",storageBucket:"friends-hospital-pharmacy.firebasestorage.app",messagingSenderId:"277311494482",appId:"1:277311494482:web:84f77fd637d765c08f028b",measurementId:"G-RWBC6T7X1T"};
 const app=initializeApp(firebaseConfig),auth=initializeAuth(app,{persistence:[indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence]}),db=getFirestore(app),storage=getStorage(app),functions=getFunctions(app,"us-central1");try{storage.maxUploadRetryTime=8000;storage.maxOperationRetryTime=8000;}catch(e){}
@@ -1525,3 +1525,4 @@ $("addCustomItemBtn").onclick=()=>openCustomItemForm();
   [250,550].forEach(t=>setTimeout(()=>{if(document.activeElement===el)el.scrollIntoView({block:"center",behavior:"smooth"});},t));});
  document.addEventListener("focusout",()=>{setTimeout(()=>{if(!isText(document.activeElement))document.body.classList.remove("kb-open");},120);});
 })();
+window.__appBooted=true;

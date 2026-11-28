@@ -336,4 +336,9 @@ body.kb-open #appView .main{padding-bottom:40vh!important}
   </div>
   <script type="module" src="./app.js"></script>
 <button id="billTotalBar" type="button" aria-label="Go to bill total"><span id="billTotalBarCount">0 items</span><span id="billTotalBarAmt">Rs. 0</span></button>
+<script>
+// Self-heal: if the app script failed to start (e.g. stale cached files after an update), clear caches once and reload.
+setTimeout(function(){try{if(window.__appBooted||sessionStorage.getItem("healed"))return;sessionStorage.setItem("healed","1");
+Promise.all([navigator.serviceWorker?navigator.serviceWorker.getRegistrations().then(function(r){return Promise.all(r.map(function(x){return x.unregister();}));}):0,window.caches?caches.keys().then(function(k){return Promise.all(k.map(function(x){return caches.delete(x);}));}):0]).then(function(){location.reload();});}catch(e){}},7000);
+</script>
 </body></html>
