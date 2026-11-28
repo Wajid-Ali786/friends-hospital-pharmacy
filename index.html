@@ -160,7 +160,7 @@ body.kb-open #appView .main{padding-bottom:40vh!important}
 #appModalDialog #medicineForm .medicine-image-preview img{width:100%;height:100%;object-fit:cover;display:block}
 #appModalDialog #medicineForm .image-picker-button{flex:1;min-height:54px;border:0;border-radius:12px;background:#e6f3ec;color:#1f6b47;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
 #appModalDialog #medicineForm .image-picker-button .ui-icon{width:20px;height:20px}
-#appModalDialog #medicineForm:has(#medicineImagePreview.hidden) .packing-mode-section{display:none}
+#appModalDialog #medicineForm:not(.image-chosen) .packing-mode-section{display:none!important}
 #appModalDialog #medicineForm .packing-mode-section{display:grid;gap:10px;padding:14px;border:1.5px solid #e3ece6;border-radius:16px;background:#fbfdfc}
 #appModalDialog #medicineForm .packing-section-heading b{font-size:14px}
 #appModalDialog #medicineForm .packing-mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -171,6 +171,46 @@ body.kb-open #appView .main{padding-bottom:40vh!important}
 #appModalDialog #medicineForm .form-actions .primary{order:2;flex:1.6}
 #appModalDialog #medicineForm .form-actions .secondary{order:1}
 @media(max-width:560px){#appModalDialog:has(#medicineForm){border-radius:18px}#appModalDialog:has(#medicineForm) .app-modal-body{padding:14px 14px 0}#appModalDialog #medicineForm .form-actions{margin:0 -14px;padding-left:14px;padding-right:14px}}
+
+/* ===== v109: packing / rounding section polish ===== */
+#appModalDialog #medicineForm .rounding-eligibility{padding:12px 14px;gap:14px}
+#appModalDialog #medicineForm .packing-mode-section{gap:12px;padding:16px;border:1.5px solid #cfe3d6;background:linear-gradient(180deg,#f6fbf8,#fff);border-radius:18px}
+#appModalDialog #medicineForm .packing-section-heading{display:grid;gap:2px}
+#appModalDialog #medicineForm .packing-section-heading b{font-size:15px;color:#17302a}
+#appModalDialog #medicineForm .packing-section-heading small{font-size:12.5px;color:#6b7e72;line-height:1.4}
+#appModalDialog #medicineForm .packing-mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#appModalDialog #medicineForm .packing-mode-tab{display:flex;justify-content:flex-start;align-items:center;gap:12px;text-align:left;min-height:64px;padding:12px 14px;border:1.5px solid #dbe7e0;border-radius:14px;background:#fff;cursor:pointer;position:relative}
+#appModalDialog #medicineForm .packing-mode-tab>span:last-child{display:grid;gap:2px;min-width:0}
+#appModalDialog #medicineForm .packing-mode-tab b{font-size:14.5px;line-height:1.2;color:#1b3427}
+#appModalDialog #medicineForm .packing-mode-tab small{font-size:12px;line-height:1.3;color:#74877b}
+#appModalDialog #medicineForm .packing-tab-icon{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#eef5f0;color:#1f6b47;font-size:18px}
+#appModalDialog #medicineForm .packing-tab-icon .ui-icon{width:18px;height:18px}
+#appModalDialog #medicineForm .packing-mode-tab.active{border-color:#238653;background:#eef8f2;box-shadow:0 0 0 3px rgba(35,134,83,.12)}
+#appModalDialog #medicineForm .packing-mode-tab.active .packing-tab-icon{background:#238653;color:#fff}
+#appModalDialog #medicineForm .packing-mode-hint{display:block;padding:10px 12px;border-radius:10px;background:#f0f6f2;font-size:12.5px;line-height:1.45;color:#4d665a}
+#appModalDialog #medicineForm .new-packing-fields{display:grid!important;grid-template-columns:1fr 1fr;align-items:end;gap:12px;padding:16px;border:1.5px solid #cfe3d6;border-radius:18px;background:#fff}
+#appModalDialog #medicineForm .new-packing-fields.hidden{display:none!important}
+#appModalDialog #medicineForm:not(.image-chosen) .new-packing-fields{display:none!important}
+#appModalDialog #medicineForm .new-packing-heading{grid-column:1/-1;display:grid;gap:2px}
+#appModalDialog #medicineForm .new-packing-heading b{font-size:15px}
+#appModalDialog #medicineForm .new-packing-heading small{font-size:12.5px;color:#6b7e72}
+#appModalDialog #medicineForm .new-packing-fields>label{display:grid;gap:6px;font-size:12px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#5b7064}
+#appModalDialog #medicineForm .new-packing-fields>label:first-of-type{grid-column:1/-1}
+#appModalDialog #medicineForm .medicine-packagings{display:grid;gap:10px;padding:14px;border:1.5px solid #e3ece6;border-radius:16px;background:#fbfdfc}
+#appModalDialog #medicineForm .medicine-packagings h4{margin:0;font-size:14px}
+#appModalDialog #medicineForm .packing-history-card{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid #e3ece6;border-radius:14px;background:#fff}
+#appModalDialog #medicineForm .packing-history-image{flex:none;width:56px;height:56px;border-radius:10px;object-fit:cover;background:#eef5f0;display:grid;place-items:center;color:#7a9a86}
+#appModalDialog #medicineForm .packing-history-info{flex:1;min-width:0;display:grid;gap:2px}
+#appModalDialog #medicineForm .packing-history-info b{font-size:14px;overflow-wrap:anywhere}
+#appModalDialog #medicineForm .packing-history-info small{color:#6b7e72}
+#appModalDialog #medicineForm .packing-history-actions{flex:none;display:flex;gap:6px}
+#appModalDialog #medicineForm .packing-history-actions button{min-height:38px;padding:0 12px;border-radius:10px;font-size:13px;font-weight:700}
+@media(max-width:700px){
+ #appModalDialog #medicineForm .packing-mode-tabs{grid-template-columns:1fr}
+ #appModalDialog #medicineForm .packing-history-card{flex-wrap:wrap}
+ #appModalDialog #medicineForm .packing-history-actions{width:100%}
+ #appModalDialog #medicineForm .packing-history-actions button{flex:1}
+}
 </style></head>
 <body>
   <div id="loginView" class="login-wrap">
