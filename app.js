@@ -604,11 +604,11 @@ async function resumePendingBill(id){
  pendingBills=pendingBills.filter(x=>x.id!==id);await persistPendingBills();bill=asArray(d.items).filter(x=>x&&typeof x==="object").map(x=>({...x}));$("patientName").value=d.patientName||"";$("tokenNumber").value=d.tokenNumber||"";$("discount").value=String(d.discount||0);roundingApplied=Number(d.roundingApplied)||0;roundingBase=d.roundingBase??null;setDiscountEditor(Number(d.discount)>0);await localDB.delete("meta","activeBillDraft");$("billMessage").textContent="";$("billMessage").classList.remove("validation-alert");renderBill();notify("Pending bill opened","info");$("patientName").focus();
 }
 
-let quantityHoldTimer=null,quantityRepeatTimer=null,quantityHoldItem=null,quantityHoldDelta=0,quantitySuppressClick=false,quantityDraftChanged=false;
+let quantityTouch=null,quantityTouchHeld=false,quantityHoldTimer=null,quantityRepeatTimer=null,quantityHoldItem=null,quantityHoldDelta=0,quantitySuppressClick=false,quantityDraftChanged=false;
 function stopQuantityHold(){
  if(quantityHoldTimer){clearTimeout(quantityHoldTimer);quantityHoldTimer=null;}
  if(quantityRepeatTimer){clearInterval(quantityRepeatTimer);quantityRepeatTimer=null;}
- quantityHoldItem=null;quantityHoldDelta=0;
+ quantityHoldItem=null;quantityHoldDelta=0;quantityTouch=null;
 }
 function changeBillQuantity(item,delta){
  if(!bill.includes(item))return;
@@ -617,7 +617,18 @@ function changeBillQuantity(item,delta){
 }
 function startQuantityHold(event,item,delta){
  if(event.button!==undefined&&event.button!==0)return;
- if(event.pointerType&&event.pointerType!=="mouse")return; // touch/pen: act only on a real tap (click), never while scrolling
+ if(event.pointerType&&event.pointerType!=="mouse"){
+  // Touch: a quick tap changes by 1 (via click). Holding still for a moment repeats; moving the finger (scrolling) cancels.
+  stopQuantityHold();quantityTouch={id:event.pointerId,x:event.clientX,y:event.clientY};
+  quantityHoldTimer=setTimeout(()=>{
+   quantityHoldTimer=null;if(!quantityTouch)return;
+   try{document.documentElement.setPointerCapture(quantityTouch.id);}catch(e){}
+   quantityTouchHeld=true;quantitySuppressClick=true;quantityHoldItem=item;quantityHoldDelta=delta;
+   changeBillQuantity(item,delta);
+   quantityRepeatTimer=setInterval(()=>changeBillQuantity(quantityHoldItem,quantityHoldDelta),90);
+  },340);
+  return;
+ }
  event.preventDefault();
  stopQuantityHold();quantitySuppressClick=true;quantityHoldItem=item;quantityHoldDelta=delta;
  changeBillQuantity(item,delta);
@@ -627,9 +638,11 @@ function startQuantityHold(event,item,delta){
  },380);
 }
 function finishQuantityHold(){
+ if(quantityTouchHeld){quantityTouchHeld=false;setTimeout(()=>{quantitySuppressClick=false;},60);}
  stopQuantityHold();
  if(quantityDraftChanged){quantityDraftChanged=false;persistActiveDraft().catch(console.warn);}
 }
+window.addEventListener("pointermove",e=>{if(quantityTouch&&quantityHoldTimer&&Math.hypot(e.clientX-quantityTouch.x,e.clientY-quantityTouch.y)>8){clearTimeout(quantityHoldTimer);quantityHoldTimer=null;quantityTouch=null;}},{passive:true});
 window.addEventListener("pointerup",finishQuantityHold);
 window.addEventListener("pointercancel",finishQuantityHold);
 window.addEventListener("blur",finishQuantityHold);
@@ -650,9 +663,9 @@ function renderBill(){
   const controls=document.createElement("div");controls.className="qty-controls";
   if(fixed){controls.classList.add("custom-fixed-qty");controls.textContent="—";}
   else{
-   const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>';minus.setAttribute("aria-label","Decrease quantity");minus.title="Hold to decrease continuously";minus.addEventListener("pointerdown",e=>startQuantityHold(e,it,-1));minus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}changeBillQuantity(it,-1);finishQuantityHold();};
+   const minus=document.createElement("button");minus.type="button";minus.className="qty-btn";minus.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>';minus.setAttribute("aria-label","Decrease quantity");minus.title="Hold to decrease continuously";minus.oncontextmenu=e=>e.preventDefault();minus.addEventListener("pointerdown",e=>startQuantityHold(e,it,-1));minus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}changeBillQuantity(it,-1);finishQuantityHold();};
    const qty=document.createElement("input");qty.type="number";qty.min="1";qty.step="1";qty.value=it.qty;qty.setAttribute("aria-label","Quantity");qty.onchange=()=>{it.qty=Math.max(1,Math.floor(Number(qty.value)||1));if(it.kind!=="custom")clearMedicineRounding();renderBill();persistActiveDraft().catch(console.warn);};qty.addEventListener("keydown",e=>{if(e.key!=="Enter")return;e.preventDefault();it.qty=Math.max(1,Math.floor(Number(qty.value)||1));if(it.kind!=="custom")clearMedicineRounding();const nextIndex=Math.min(i+1,bill.length-1);renderBill();persistActiveDraft().catch(console.warn);requestAnimationFrame(()=>{const next=$("billItems").querySelectorAll(".qty-controls input")[nextIndex];if(next){next.focus();next.select();}});});
-   const plus=document.createElement("button");plus.type="button";plus.className="qty-btn";plus.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';plus.setAttribute("aria-label","Increase quantity");plus.title="Hold to increase continuously";plus.addEventListener("pointerdown",e=>startQuantityHold(e,it,1));plus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}changeBillQuantity(it,1);finishQuantityHold();};
+   const plus=document.createElement("button");plus.type="button";plus.className="qty-btn";plus.innerHTML='<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';plus.setAttribute("aria-label","Increase quantity");plus.title="Hold to increase continuously";plus.oncontextmenu=e=>e.preventDefault();plus.addEventListener("pointerdown",e=>startQuantityHold(e,it,1));plus.onclick=e=>{if(quantitySuppressClick){quantitySuppressClick=false;return;}changeBillQuantity(it,1);finishQuantityHold();};
    controls.append(minus,qty,plus);controls.classList.add("qty-controls-centered");
   }
   const price=document.createElement("b");price.className="bill-line-total";price.textContent=wholeMoney(billItemTotal(it));

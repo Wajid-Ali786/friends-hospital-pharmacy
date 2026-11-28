@@ -104,6 +104,73 @@ body.kb-open #appView .sidebar,body.kb-open #billTotalBar{display:none!important
 body.kb-open #appView .main{padding-bottom:40vh!important}
 @media(max-width:760px){.app-modal .app-modal-dialog{max-height:100%!important}.app-modal{padding:10px}}
 #recoveryAdminBell{display:inline-flex;align-items:center;gap:6px;border-radius:999px;font-weight:800}
+
+/* ===== v108: login layering, compact medicines header, grid cards, modern medicine modal ===== */
+#appView.app.hidden{display:none!important}
+.qty-btn{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.lbl-short{display:none}
+@media(max-width:760px){
+ #appView .main{padding-top:58px!important}
+ #appView .main header{margin-bottom:8px}
+ #appView .main header h2{font-size:23px}
+ #appView .user-pill{padding:5px 10px}
+ #medicinesPage .toolbar{display:grid!important;grid-template-columns:auto 1fr auto;gap:8px!important;align-items:center;margin-bottom:10px}
+ #medicinesPage .toolbar .search{grid-column:1/-1;min-height:44px}
+ #medicinesPage .medicine-count{min-height:42px;padding:0 12px;display:flex;align-items:center;gap:6px;white-space:nowrap}
+ #medicinesPage .medicine-view-toggle{justify-self:start}
+ #medicinesPage .medicine-view-toggle .view-toggle{min-height:34px;padding:0 12px}
+ #addMedicineBtn{min-height:42px;padding:0 14px;width:auto!important;white-space:nowrap}
+ #addMedicineBtn .lbl-long{display:none}#addMedicineBtn .lbl-short{display:inline}
+}
+/* grid cards */
+#medicineList.grid-view{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))!important;gap:10px!important}
+@media(max-width:560px){#medicineList.grid-view{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+#medicineList .medicine-grid-card{display:flex!important;flex-direction:column;height:auto!important;min-height:0!important;padding:0!important;overflow:hidden;border-radius:16px;gap:0}
+#medicineList .medicine-grid-card .medicine-media{position:relative;display:grid;place-items:center;height:116px!important;min-height:0!important;padding:8px;background:#f3f8f5}
+#medicineList .medicine-grid-card .medicine-media img,#medicineList .medicine-grid-card .medicine-media .medicine-placeholder{position:static!important;width:auto!important;height:auto!important;max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}
+#medicineList .medicine-grid-card .medicine-media .del{position:absolute!important;top:6px!important;right:6px!important;width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;border-radius:50%!important;background:#fff!important;box-shadow:0 1px 5px rgba(0,0,0,.18)}
+#medicineList .medicine-grid-card .medicine-card-details{display:flex!important;flex-direction:column;gap:8px;flex:1;padding:10px!important}
+#medicineList .medicine-grid-card .medicine-info{padding:0!important;min-height:0!important}
+#medicineList .medicine-grid-card .medicine-info b{font-size:14px!important;line-height:1.25;overflow-wrap:anywhere}
+#medicineList .medicine-grid-card .medicine-meta{font-size:12px!important}
+#medicineList .medicine-grid-card .card-actions{margin:auto 0 0!important;padding:0!important;position:static!important}
+#medicineList .medicine-grid-card .card-actions .tiny.edit{width:100%;height:38px!important;min-height:38px!important;border-radius:10px}
+/* medicine add/edit modal */
+#appModalDialog:has(#medicineForm){width:min(620px,100%);padding:0!important;display:flex;flex-direction:column;overflow:hidden!important;border-radius:22px;background:#fff;max-height:min(100%,880px)}
+#appModalDialog:has(#medicineForm) .app-modal-head{padding:18px 20px 14px;border-bottom:1px solid #edf2ee;background:linear-gradient(135deg,#f3faf6,#fff);margin:0}
+#appModalDialog:has(#medicineForm) .app-modal-head .eyebrow{display:none}
+#appModalDialog:has(#medicineForm) .app-modal-head h3{font-size:21px;margin:0}
+#appModalDialog:has(#medicineForm) .app-modal-head p{margin:2px 0 0;font-size:13px}
+#appModalDialog:has(#medicineForm) .app-modal-body{flex:1;min-height:0;overflow-y:auto;padding:16px 20px 0;-webkit-overflow-scrolling:touch}
+#appModalDialog #medicineForm{display:grid!important;grid-template-columns:1fr 1fr!important;gap:14px!important;padding:0!important;margin:0}
+#appModalDialog #medicineForm>label{display:grid;gap:6px;font-size:12px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#5b7064}
+#appModalDialog #medicineForm>label:has(#medicineName),#appModalDialog #medicineForm>label:has(#medicineTags),#appModalDialog #medicineForm .rounding-eligibility,#appModalDialog #medicineForm .medicine-image-picker,#appModalDialog #medicineForm .packing-mode-section,#appModalDialog #medicineForm .new-packing-fields,#appModalDialog #medicineForm .medicine-packagings,#appModalDialog #medicineForm .form-actions{grid-column:1/-1}
+#appModalDialog #medicineForm input:not([type=checkbox]):not([type=file]),#appModalDialog #medicineForm select{width:100%;min-height:50px;padding:0 14px;border:1.5px solid #d9e6de;border-radius:13px;background:#fbfdfc;font-size:16px;font-weight:600;text-transform:none;letter-spacing:0;color:#14261c}
+#appModalDialog #medicineForm input:focus,#appModalDialog #medicineForm select:focus{outline:none;border-color:#2e8a5c;box-shadow:0 0 0 4px rgba(46,138,92,.14);background:#fff}
+#appModalDialog #medicineForm .rounding-eligibility{display:flex!important;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1.5px solid #e3ece6;border-radius:14px;background:#f8fbf9;text-transform:none;letter-spacing:0;flex-direction:row-reverse}
+#appModalDialog #medicineForm .rounding-eligibility span{display:grid;gap:2px;font-size:14px;font-weight:800;color:#1b3427}
+#appModalDialog #medicineForm .rounding-eligibility small{font-size:12px;font-weight:500;color:#76887d}
+#appModalDialog #medicineForm .rounding-eligibility input{appearance:none;-webkit-appearance:none;flex:none;width:48px;height:28px;border-radius:999px;background:#cfdad3;position:relative;cursor:pointer;transition:background .2s;border:0;min-height:0;padding:0}
+#appModalDialog #medicineForm .rounding-eligibility input::before{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+#appModalDialog #medicineForm .rounding-eligibility input:checked{background:#238653}
+#appModalDialog #medicineForm .rounding-eligibility input:checked::before{transform:translateX(20px)}
+#appModalDialog #medicineForm .medicine-image-picker{display:flex;align-items:center;gap:14px;padding:14px;border:2px dashed #b7d3c2;border-radius:16px;background:#f6fbf8}
+#appModalDialog #medicineForm .medicine-image-preview{flex:none;width:76px;height:76px;border-radius:12px;overflow:hidden;background:#fff;border:1px solid #dbe8df}
+#appModalDialog #medicineForm .medicine-image-preview.hidden{display:none}
+#appModalDialog #medicineForm .medicine-image-preview img{width:100%;height:100%;object-fit:cover;display:block}
+#appModalDialog #medicineForm .image-picker-button{flex:1;min-height:54px;border:0;border-radius:12px;background:#e6f3ec;color:#1f6b47;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+#appModalDialog #medicineForm .image-picker-button .ui-icon{width:20px;height:20px}
+#appModalDialog #medicineForm:has(#medicineImagePreview.hidden) .packing-mode-section{display:none}
+#appModalDialog #medicineForm .packing-mode-section{display:grid;gap:10px;padding:14px;border:1.5px solid #e3ece6;border-radius:16px;background:#fbfdfc}
+#appModalDialog #medicineForm .packing-section-heading b{font-size:14px}
+#appModalDialog #medicineForm .packing-mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#appModalDialog #medicineForm .packing-mode-tab{min-height:56px;padding:8px 10px;border-radius:12px}
+#appModalDialog #medicineForm .packing-mode-hint{font-size:12px;color:#6b7e72}
+#appModalDialog #medicineForm .form-actions{position:sticky;bottom:0;z-index:2;display:flex;gap:10px;margin:0 -20px;padding:12px 20px calc(14px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #edf2ee;box-shadow:0 -8px 18px rgba(20,60,40,.06)}
+#appModalDialog #medicineForm .form-actions button{flex:1;min-height:50px;border-radius:13px;font-size:15px;font-weight:800}
+#appModalDialog #medicineForm .form-actions .primary{order:2;flex:1.6}
+#appModalDialog #medicineForm .form-actions .secondary{order:1}
+@media(max-width:560px){#appModalDialog:has(#medicineForm){border-radius:18px}#appModalDialog:has(#medicineForm) .app-modal-body{padding:14px 14px 0}#appModalDialog #medicineForm .form-actions{margin:0 -14px;padding-left:14px;padding-right:14px}}
 </style></head>
 <body>
   <div id="loginView" class="login-wrap">
@@ -133,7 +200,7 @@ body.kb-open #appView .main{padding-bottom:40vh!important}
     </aside>
     <main class="main"><header><div><p class="eyebrow">FRIENDS HOSPITAL / PHARMACY</p><h2 id="pageTitle">Medicines</h2></div><span id="userLabel" class="user-pill">User</span></header>
       <section id="medicinesPage" class="page">
-        <div class="toolbar"><input id="medicineSearch" aria-label="Search medicines" class="search" placeholder="Search medicine…"><div id="medicineCount" class="medicine-count" aria-live="polite"><b>0</b><span>Medicines</span></div><div class="medicine-view-toggle" role="group" aria-label="Medicine display"><button id="medicineListView" class="view-toggle active" type="button" aria-pressed="true">List</button><button id="medicineGridView" class="view-toggle" type="button" aria-pressed="false">Grid</button></div><button id="addMedicineBtn" class="primary"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add New Medicine</span></button></div>
+        <div class="toolbar"><input id="medicineSearch" aria-label="Search medicines" class="search" placeholder="Search medicine…"><div id="medicineCount" class="medicine-count" aria-live="polite"><b>0</b><span>Medicines</span></div><div class="medicine-view-toggle" role="group" aria-label="Medicine display"><button id="medicineListView" class="view-toggle active" type="button" aria-pressed="true">List</button><button id="medicineGridView" class="view-toggle" type="button" aria-pressed="false">Grid</button></div><button id="addMedicineBtn" class="primary"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span><span class="lbl-long">Add New Medicine</span><span class="lbl-short">Add</span></span></button></div>
         <form id="medicineForm" class="panel form-grid hidden">
           <input id="medicineId" type="hidden"><label>Medicine name<input id="medicineName" required placeholder="e.g. Panadol"></label>
           <label>Medicine unit<select id="medicineUnit" required><option>Tablet</option><option>Strip</option><option>Capsule</option><option>Injection</option><option>Bottle</option><option>Syrup</option><option>Packet</option><option>Box</option><option>Piece</option><option>Pack</option></select></label>
