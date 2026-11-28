@@ -45,6 +45,25 @@ service cloud.firestore { match /databases/{database}/documents {
         && request.resource.data.keys().size() <= 40;
     }
 
+    // Stock: append-only ledger of moves, plus balances kept with increment()
+    match /users/{userId}/stockMoves/{moveId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.medicineId is string
+        && request.resource.data.type in ['receive','transfer','sale','refund','count','setup']
+        && request.resource.data.dc is number
+        && request.resource.data.dg is number
+        && request.resource.data.keys().size() <= 20;
+      allow update, delete: if false;
+    }
+
+    match /users/{userId}/stock/{medicineId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().size() <= 10;
+      allow delete: if false;
+    }
+
     // Bills
     match /users/{userId}/bills/{billId} {
       allow read:

@@ -49,3 +49,9 @@ Do these in order after pulling this version:
 
    (`wipePharmacyData` is no longer used; the "Wash account" button was removed.)
 3. **Storage (optional, paid plan only)** – the app runs on the free Spark plan: photos are kept compressed inside Firestore. Only set `USE_FIREBASE_STORAGE=true` in app.js after enabling Storage on a paid plan.
+
+## Stock feature (branch `feat/stock`)
+
+- Publish the updated `firestore.rules` first (adds `stock` and `stockMoves`); stock changes stay queued on the device until the rules are live.
+- Stock is kept per medicine in the pack unit (Box, Bottle…) in two places: Godown and Counter. Bills reduce the Counter automatically; edits/deletes/refunds put it back.
+- Setup: Stock tab → Opening stock (or tap a medicine → Setup). Correct count / Setup need Medicine Edit Mode.
